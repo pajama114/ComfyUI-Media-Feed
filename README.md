@@ -41,7 +41,7 @@ For manual installation, clone this repository into `ComfyUI/custom_nodes`:
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/TODO/media-feed.git
+git clone https://github.com/pajama114/ComfyUI-Media-Feed.git
 ```
 
 Restart ComfyUI and reload the browser.
@@ -97,13 +97,7 @@ aac, flac, m4a, mp3, ogg, opus, wav
 ## Registry Checklist
 
 Before publishing to ComfyUI Registry or making this available through ComfyUI
-Manager, replace the placeholder values in `pyproject.toml` and this README:
-
-- `TODO: Your Name`
-- `https://github.com/TODO/media-feed`
-- `LICENSE`
-- Screenshots or a short demo GIF
-- A real icon path in `[tool.comfy] Icon`, if desired
+Manager, add screenshots or a short demo GIF.
 
 ## Development
 

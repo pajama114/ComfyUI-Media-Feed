@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "TODO: BASIC USER" },
+  { name = "pajama114" },
 ]
 keywords = [
   "comfyui",
@@ -24,10 +24,10 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Repository = "https://github.com/TODO/media-feed"
-Issues = "https://github.com/TODO/media-feed/issues"
+Repository = "https://github.com/pajama114/ComfyUI-Media-Feed"
+Issues = "https://github.com/pajama114/ComfyUI-Media-Feed/issues"
 
 [tool.comfy]
 PublisherId = "@pajama114"
 DisplayName = "Media Feed"
-Icon = ""
+Icon = "icon.png"
