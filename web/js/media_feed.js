@@ -185,12 +185,17 @@ function addItems(items) {
     if (removed) state.itemKeys.delete(removed.key);
   }
 
-  updateViews(true);
+  updateViews(!isViewerOpen());
+  syncViewerItems();
 }
 
 function filteredItems() {
   if (state.filter === "all") return state.items;
   return state.items.filter((item) => item.kind === state.filter);
+}
+
+function isViewerOpen() {
+  return viewer?.root?.dataset.open === "true";
 }
 
 function itemPitch() {
@@ -685,6 +690,7 @@ function ensureViewer() {
 
   const root = document.createElement("div");
   root.className = "cmf-viewer";
+  root.tabIndex = -1;
   root.innerHTML = `
     <div class="cmf-viewer-bar">
       <div class="cmf-viewer-title"></div>
@@ -705,14 +711,34 @@ function ensureViewer() {
     }
   });
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
-  root.querySelector(".cmf-nav-prev").addEventListener("click", () => showViewerRelative(-1));
-  root.querySelector(".cmf-nav-next").addEventListener("click", () => showViewerRelative(1));
+  root.addEventListener("keydown", handleViewerControlKeydown, true);
+  for (const button of root.querySelectorAll(".cmf-nav-button")) {
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+  }
+  root.querySelector(".cmf-nav-prev").addEventListener("click", (event) => {
+    event.currentTarget.blur();
+    showViewerRelative(-1);
+  });
+  root.querySelector(".cmf-nav-next").addEventListener("click", (event) => {
+    event.currentTarget.blur();
+    showViewerRelative(1);
+  });
   root.addEventListener("wheel", handleViewerWheel, { passive: false });
   document.addEventListener("keydown", (event) => {
     if (root.dataset.open !== "true") return;
-    if (event.key === "Escape") closeViewer();
-    if (event.key === "ArrowLeft") showViewerRelative(-1);
-    if (event.key === "ArrowRight") showViewerRelative(1);
+    if (event.key === "Escape") {
+      closeViewer();
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      showViewerRelative(-1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      showViewerRelative(1);
+    }
   });
 
   document.body.appendChild(root);
@@ -743,16 +769,18 @@ function closeViewer() {
 function openViewer(item, thumbnail) {
   const currentViewer = ensureViewer();
   const items = filteredItems();
-  const index = Math.max(0, items.findIndex((current) => current.id === item.id));
+  const index = Math.max(0, items.findIndex((current) => current.key === item.key));
   currentViewer.items = items;
   currentViewer.index = index;
   currentViewer.title.textContent = item.filename;
   currentViewer.root.dataset.open = "true";
+  currentViewer.root.focus({ preventScroll: true });
   renderViewerItem(item, thumbnail);
 }
 
 function showViewerRelative(direction) {
   if (!viewer || viewer.root.dataset.open !== "true") return;
+  syncViewerItems();
 
   const nextIndex = viewer.index + direction;
   if (nextIndex < 0 || nextIndex >= viewer.items.length) return;
@@ -765,6 +793,31 @@ function syncViewerNav() {
   if (!viewer) return;
   viewer.prevButton.disabled = viewer.index <= 0;
   viewer.nextButton.disabled = viewer.index >= viewer.items.length - 1;
+}
+
+function syncViewerItems() {
+  if (!viewer || viewer.root.dataset.open !== "true" || !viewer.item) return;
+
+  const items = filteredItems();
+  const index = items.findIndex((current) => current.key === viewer.item.key);
+  viewer.items = items;
+  if (index !== -1) {
+    viewer.index = index;
+    viewer.item = items[index];
+  } else {
+    viewer.index = Math.min(viewer.index, Math.max(0, items.length - 1));
+  }
+  syncViewerNav();
+}
+
+function handleViewerControlKeydown(event) {
+  if (!event.ctrlKey && !event.metaKey && !event.altKey) return;
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (!event.target.closest?.(".cmf-viewer")) return;
+
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
 }
 
 function handleViewerWheel(event) {
@@ -913,6 +966,7 @@ function createCard(item) {
   });
   card.addEventListener("keydown", (event) => {
     if (event.target.closest(".cmf-audio-controls")) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     openViewer(item, card.querySelector("img"));
