@@ -724,22 +724,7 @@ function ensureViewer() {
     showViewerRelative(1);
   });
   root.addEventListener("wheel", handleViewerWheel, { passive: false });
-  document.addEventListener("keydown", (event) => {
-    if (root.dataset.open !== "true") return;
-    if (event.key === "Escape") {
-      closeViewer();
-      return;
-    }
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      showViewerRelative(-1);
-    }
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      showViewerRelative(1);
-    }
-  });
+  document.addEventListener("keydown", handleViewerGlobalKeydown, true);
 
   document.body.appendChild(root);
   viewer = {
@@ -817,6 +802,32 @@ function handleViewerControlKeydown(event) {
 
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
+  }
+}
+
+function handleViewerGlobalKeydown(event) {
+  if (!isViewerOpen()) return;
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    closeViewer();
+    return;
+  }
+
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showViewerRelative(-1);
+    return;
+  }
+
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showViewerRelative(1);
   }
 }
 
