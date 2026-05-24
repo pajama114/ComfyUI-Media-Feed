@@ -282,7 +282,7 @@ function ensureStyles() {
       right: 300px;
       bottom: 12px;
       left: 76px;
-      z-index: 999;
+      z-index: 10;
       height: var(--cmf-panel-height);
       overflow: hidden;
       border: 1px solid var(--cmf-border);
