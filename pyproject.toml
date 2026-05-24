@@ -1,0 +1,33 @@
+[project]
+name = "media-feed"
+version = "0.1.0"
+description = "A lightweight ComfyUI media feed for generated images, videos, and audio."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "TODO: BASIC USER" },
+]
+keywords = [
+  "comfyui",
+  "media",
+  "image-feed",
+  "video",
+  "audio",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: JavaScript",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/TODO/media-feed"
+Issues = "https://github.com/TODO/media-feed/issues"
+
+[tool.comfy]
+PublisherId = "@pajama114"
+DisplayName = "Media Feed"
+Icon = ""
