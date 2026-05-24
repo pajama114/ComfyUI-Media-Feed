@@ -28,6 +28,6 @@ Repository = "https://github.com/pajama114/ComfyUI-Media-Feed"
 Issues = "https://github.com/pajama114/ComfyUI-Media-Feed/issues"
 
 [tool.comfy]
-PublisherId = "@pajama114"
+PublisherId = "pajama114"
 DisplayName = "Media Feed"
 Icon = "icon.png"
