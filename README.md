@@ -5,7 +5,7 @@ videos, and audio.
 
 It is designed as a focused feed extension: generated media appears in a bottom
 panel when the ComfyUI frontend supports bottom-panel tabs, and in a fixed
-fallback panel on older frontends.
+fallback panel on older frontends or when a floating placement is selected.
 
 ## Features
 
@@ -16,6 +16,8 @@ fallback panel on older frontends.
 - Plays video thumbnails on hover, muted and looped.
 - Provides compact audio thumbnail controls with a full-width seek bar.
 - Lets you resize thumbnails with a toolbar slider.
+- Adds a ComfyUI setting for placing the floating feed at the top, right,
+  bottom, or left of the canvas.
 - Saves thumbnail size in browser `localStorage`.
 - Keeps the feed responsive by limiting retained items and virtualizing visible
   cards.

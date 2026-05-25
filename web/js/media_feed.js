@@ -14,8 +14,12 @@ const RAIL_PADDING = 12;
 const OVERSCAN = 5;
 const FALLBACK_PANEL_EXTRA_HEIGHT = 80;
 const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
+const DEFAULT_PLACEMENT = "bottom";
+const SIDE_PLACEMENTS = new Set(["left", "right"]);
+const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
+  placement: "comfyui-media-feed:placement",
 };
 const ICONS = {
   chevronLeft: `
@@ -66,9 +70,14 @@ const state = {
   sequence: 0,
   itemHeight: DEFAULT_ITEM_HEIGHT,
   itemWidth: DEFAULT_ITEM_WIDTH,
+  placement: DEFAULT_PLACEMENT,
 };
 
 const decodedImageCache = new Map();
+let bottomPanelView = null;
+let floatingView = null;
+let setupComplete = false;
+let placementSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -198,8 +207,8 @@ function isViewerOpen() {
   return viewer?.root?.dataset.open === "true";
 }
 
-function itemPitch() {
-  return state.itemWidth + ITEM_GAP;
+function viewPitch(view) {
+  return (isVerticalView(view) ? state.itemHeight : state.itemWidth) + ITEM_GAP;
 }
 
 function viewportHeight() {
@@ -218,10 +227,35 @@ function normalizeThumbnailHeight(nextHeight) {
   return Math.min(MAX_ITEM_HEIGHT, Math.max(MIN_ITEM_HEIGHT, Number(nextHeight) || DEFAULT_ITEM_HEIGHT));
 }
 
+function normalizePlacement(nextPlacement) {
+  const placement = String(nextPlacement || "").toLowerCase();
+  return PLACEMENTS.has(placement) ? placement : DEFAULT_PLACEMENT;
+}
+
+function isVerticalPlacement(placement = state.placement) {
+  return SIDE_PLACEMENTS.has(placement);
+}
+
+function isVerticalView(view) {
+  return view?.root?.dataset.orientation === "vertical";
+}
+
 function applyThumbnailHeight(nextHeight) {
   const itemHeight = normalizeThumbnailHeight(nextHeight);
   state.itemHeight = itemHeight;
   state.itemWidth = Math.round(itemHeight * DEFAULT_ITEM_WIDTH / DEFAULT_ITEM_HEIGHT);
+}
+
+function applyPlacement(nextPlacement) {
+  state.placement = normalizePlacement(nextPlacement);
+}
+
+function loadSavedPlacement() {
+  try {
+    return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
+  } catch {
+    return DEFAULT_PLACEMENT;
+  }
 }
 
 function loadSettings() {
@@ -231,9 +265,11 @@ function loadSettings() {
   } catch {
     applyThumbnailHeight(DEFAULT_ITEM_HEIGHT);
   }
+
+  if (!placementSettingSeen) applyPlacement(loadSavedPlacement());
 }
 
-function saveSettings() {
+function saveThumbnailHeight() {
   try {
     window.localStorage?.setItem(STORAGE_KEYS.itemHeight, String(state.itemHeight));
   } catch {
@@ -241,9 +277,25 @@ function saveSettings() {
   }
 }
 
+function savePlacement() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.placement, state.placement);
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
-  saveSettings();
+  saveThumbnailHeight();
+  updateViews(false);
+}
+
+function setPlacement(nextPlacement) {
+  applyPlacement(nextPlacement);
+  savePlacement();
+  syncBottomPanelVisibility();
+  if (setupComplete) syncFloatingPanel();
   updateViews(false);
 }
 
@@ -265,6 +317,11 @@ function ensureStyles() {
       --cmf-panel-height: ${fallbackPanelHeight()}px;
       --cmf-rail-height: ${railHeight()}px;
       --cmf-viewport-height: ${viewportHeight()}px;
+      --cmf-safe-left: 76px;
+      --cmf-safe-right: 300px;
+      --cmf-safe-top: 118px;
+      --cmf-safe-bottom: 12px;
+      --cmf-minimap-height: 300px;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -279,24 +336,118 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback {
       position: fixed;
-      right: 300px;
-      bottom: 12px;
-      left: 76px;
       z-index: 10;
-      height: var(--cmf-panel-height);
       overflow: hidden;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
       box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
     }
 
+    .cmf-root.cmf-fallback[data-orientation="horizontal"] {
+      left: var(--cmf-safe-left);
+      height: min(var(--cmf-panel-height), calc(100vh - var(--cmf-safe-top) - 24px));
+      min-height: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-placement="bottom"] {
+      right: var(--cmf-safe-right);
+      bottom: var(--cmf-safe-bottom);
+    }
+
+    .cmf-root.cmf-fallback[data-placement="top"] {
+      top: var(--cmf-safe-top);
+      right: 12px;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] {
+      top: var(--cmf-safe-top);
+      width: clamp(196px, calc(var(--cmf-item-width) + 58px), 340px);
+      height: auto;
+      min-height: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-placement="left"] {
+      bottom: 24px;
+      left: var(--cmf-safe-left);
+    }
+
+    .cmf-root.cmf-fallback[data-placement="right"] {
+      right: 12px;
+      bottom: var(--cmf-minimap-height);
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar {
+      flex-wrap: wrap;
+      align-content: flex-start;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-spacer {
+      display: none;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-count {
+      flex: 1 1 100%;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control {
+      flex: 1 1 100%;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control input {
+      flex: 1;
+      width: auto;
+      min-width: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter {
+      flex: 1 1 auto;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter button {
+      flex: 1 1 auto;
+      padding: 0 7px;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-viewport {
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-rail {
+      width: 100%;
+      min-width: 0;
+      min-height: 100%;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-card {
+      top: 0;
+      left: ${RAIL_PADDING}px;
+      width: calc(100% - ${RAIL_PADDING * 2}px);
+    }
+
     .cmf-root.cmf-fallback[data-collapsed="true"] {
-      right: auto;
-      left: 76px;
+      inset: auto;
       width: 260px;
       height: 44px;
       min-height: 44px;
       overflow: hidden;
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
+      bottom: var(--cmf-safe-bottom);
+      left: var(--cmf-safe-left);
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="top"],
+    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="left"] {
+      top: var(--cmf-safe-top);
+      left: var(--cmf-safe-left);
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="right"] {
+      top: var(--cmf-safe-top);
+      right: 12px;
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
@@ -308,7 +459,7 @@ function ensureStyles() {
     }
 
     @media (max-width: 980px) {
-      .cmf-root.cmf-fallback {
+      .cmf-root.cmf-fallback[data-orientation="horizontal"] {
         right: 12px;
         left: 64px;
       }
@@ -1028,10 +1179,10 @@ function setupAudioPreview(audioPreview, audio) {
   updatePlayButton();
 }
 
-function createView(root) {
+function createView(root, kind = "embedded") {
   ensureStyles();
 
-  root.className = "cmf-root";
+  root.className = kind === "floating" ? "cmf-root cmf-fallback" : "cmf-root";
   root.innerHTML = `
     <div class="cmf-toolbar">
       <strong class="cmf-title">Media Feed</strong>
@@ -1064,6 +1215,7 @@ function createView(root) {
     count: root.querySelector(".cmf-count"),
     sizeSlider: root.querySelector(".cmf-size-slider"),
     cards: new Map(),
+    kind,
     lastRange: "",
   };
 
@@ -1099,15 +1251,23 @@ function createView(root) {
   return view;
 }
 
-function createFallbackPanel() {
-  if (document.querySelector(".cmf-root")) return;
-  if (document.getElementById(FALLBACK_ROOT_ID)) return;
+function renderBottomPanelView(root) {
+  if (bottomPanelView && bottomPanelView.root !== root) destroyView(bottomPanelView, false);
+  bottomPanelView = createView(root, "bottom-panel");
+  syncBottomPanelVisibility();
+  syncFloatingPanel();
+  return bottomPanelView;
+}
+
+function createFloatingPanel() {
+  if (floatingView) return floatingView;
+  if (document.getElementById(FALLBACK_ROOT_ID)) return floatingView;
 
   const root = document.createElement("div");
   root.id = FALLBACK_ROOT_ID;
   document.body.appendChild(root);
-  createView(root);
-  root.classList.add("cmf-fallback");
+  const view = createView(root, "floating");
+  floatingView = view;
 
   const collapseButton = root.querySelector(".cmf-collapse");
   collapseButton.hidden = false;
@@ -1116,6 +1276,44 @@ function createFallbackPanel() {
     root.dataset.collapsed = String(!collapsed);
     collapseButton.textContent = collapsed ? "Hide" : "Show";
   });
+
+  return view;
+}
+
+function destroyView(view, removeRoot) {
+  view?.resizeObserver?.disconnect();
+  state.views.delete(view);
+  if (removeRoot) view?.root?.remove();
+}
+
+function shouldUseFloatingPanel() {
+  return state.placement !== "bottom" || !bottomPanelView;
+}
+
+function syncBottomPanelVisibility() {
+  if (!bottomPanelView) return;
+  bottomPanelView.root.hidden = state.placement !== "bottom";
+}
+
+function syncFloatingPanel() {
+  if (!shouldUseFloatingPanel()) {
+    if (floatingView) {
+      destroyView(floatingView, true);
+      floatingView = null;
+    }
+    return;
+  }
+
+  const view = createFloatingPanel();
+  if (!view) return;
+  applyFallbackPlacement(view.root);
+  updateView(view, false);
+}
+
+function applyFallbackPlacement(root) {
+  if (!root?.classList?.contains("cmf-fallback")) return;
+  root.dataset.placement = state.placement;
+  root.dataset.orientation = isVerticalPlacement() ? "vertical" : "horizontal";
 }
 
 function updateViews(scrollToLatest) {
@@ -1123,6 +1321,7 @@ function updateViews(scrollToLatest) {
 }
 
 function applyViewSizing(view) {
+  applyFallbackPlacement(view.root);
   view.root.style.setProperty("--cmf-item-width", `${state.itemWidth}px`);
   view.root.style.setProperty("--cmf-item-height", `${state.itemHeight}px`);
   view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
@@ -1133,6 +1332,7 @@ function applyViewSizing(view) {
 
 function handleFeedWheel(event, view) {
   if (viewer?.root?.dataset.open === "true") return;
+  if (isVerticalView(view)) return;
 
   const canScroll = view.viewport.scrollWidth > view.viewport.clientWidth;
   if (!canScroll) return;
@@ -1148,25 +1348,40 @@ function handleFeedWheel(event, view) {
 function updateView(view, scrollToLatest) {
   applyViewSizing(view);
   const items = filteredItems();
-  const totalWidth = Math.max(view.viewport.clientWidth, RAIL_PADDING * 2 + items.length * itemPitch());
-  view.rail.style.width = `${totalWidth}px`;
+  const pitch = viewPitch(view);
+
+  if (isVerticalView(view)) {
+    const totalHeight = Math.max(view.viewport.clientHeight, RAIL_PADDING * 2 + items.length * pitch);
+    view.rail.style.width = "100%";
+    view.rail.style.height = `${totalHeight}px`;
+  } else {
+    const totalWidth = Math.max(view.viewport.clientWidth, RAIL_PADDING * 2 + items.length * pitch);
+    view.rail.style.width = `${totalWidth}px`;
+    view.rail.style.height = "";
+  }
+
   view.empty.style.display = items.length ? "none" : "grid";
   view.count.textContent = `${items.length} shown / ${state.items.length} kept`;
 
-  if (scrollToLatest) view.viewport.scrollLeft = 0;
+  if (scrollToLatest) {
+    view.viewport.scrollLeft = 0;
+    view.viewport.scrollTop = 0;
+  }
   view.lastRange = "";
   renderVisibleItems(view);
 }
 
 function renderVisibleItems(view) {
   const items = filteredItems();
-  const viewportWidth = view.viewport.clientWidth || 1;
-  const pitch = itemPitch();
-  const rawStart = Math.floor((view.viewport.scrollLeft - RAIL_PADDING) / pitch) - OVERSCAN;
-  const rawEnd = Math.ceil((view.viewport.scrollLeft + viewportWidth - RAIL_PADDING) / pitch) + OVERSCAN;
+  const vertical = isVerticalView(view);
+  const viewportSize = vertical ? view.viewport.clientHeight || 1 : view.viewport.clientWidth || 1;
+  const scrollOffset = vertical ? view.viewport.scrollTop : view.viewport.scrollLeft;
+  const pitch = viewPitch(view);
+  const rawStart = Math.floor((scrollOffset - RAIL_PADDING) / pitch) - OVERSCAN;
+  const rawEnd = Math.ceil((scrollOffset + viewportSize - RAIL_PADDING) / pitch) + OVERSCAN;
   const start = Math.max(0, rawStart);
   const end = Math.min(items.length, rawEnd);
-  const rangeKey = `${state.filter}:${items.length}:${start}:${end}`;
+  const rangeKey = `${state.filter}:${vertical ? "vertical" : "horizontal"}:${items.length}:${start}:${end}`;
 
   if (view.lastRange === rangeKey) return;
   view.lastRange = rangeKey;
@@ -1182,7 +1397,9 @@ function renderVisibleItems(view) {
       view.cards.set(item.id, card);
       view.rail.appendChild(card);
     }
-    card.style.transform = `translateX(${RAIL_PADDING + index * pitch}px)`;
+    card.style.transform = vertical
+      ? `translateY(${RAIL_PADDING + index * pitch}px)`
+      : `translateX(${RAIL_PADDING + index * pitch}px)`;
   }
 
   for (const [id, card] of view.cards) {
@@ -1200,12 +1417,32 @@ function handleExecuted(event) {
 
 app.registerExtension({
   name: EXTENSION_NAME,
+  settings: [
+    {
+      id: "comfyui-media-feed.placement",
+      name: "Placement",
+      type: "combo",
+      defaultValue: loadSavedPlacement(),
+      options: [
+        { text: "Bottom", value: "bottom" },
+        { text: "Top", value: "top" },
+        { text: "Left", value: "left" },
+        { text: "Right", value: "right" },
+      ],
+      category: ["Media Feed", "Panel", "Placement"],
+      tooltip: "Choose where the floating Media Feed panel appears.",
+      onChange: (newValue) => {
+        placementSettingSeen = true;
+        setPlacement(newValue);
+      },
+    },
+  ],
   bottomPanelTabs: [
     {
       id: "comfyui-media-feed",
       title: "Media Feed",
       type: "custom",
-      render: createView,
+      render: renderBottomPanelView,
     },
   ],
   async setup() {
@@ -1213,6 +1450,7 @@ app.registerExtension({
     loadSettings();
     ensureStyles();
     api.addEventListener("executed", handleExecuted);
-    window.setTimeout(createFallbackPanel, 1000);
+    setupComplete = true;
+    window.setTimeout(syncFloatingPanel, 1000);
   },
 });
