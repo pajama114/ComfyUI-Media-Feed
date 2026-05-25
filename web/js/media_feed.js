@@ -381,26 +381,39 @@ function ensureStyles() {
       align-content: flex-start;
     }
 
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-title {
+      flex: 1 1 auto;
+      order: 1;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-collapse,
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-clear {
+      order: 2;
+    }
+
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-spacer {
       display: none;
     }
 
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter {
+      flex: 1 1 100%;
+      order: 3;
+    }
+
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-count {
       flex: 1 1 100%;
+      order: 4;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control {
       flex: 1 1 100%;
+      order: 5;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control input {
       flex: 1;
       width: auto;
       min-width: 0;
-    }
-
-    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter {
-      flex: 1 1 auto;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter button {
