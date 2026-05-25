@@ -1231,7 +1231,7 @@ function updateViewerPromptPanel() {
   if (!viewer || viewer.root.dataset.open !== "true") return;
 
   const item = viewer.item;
-  const shouldShow = state.showPrompts && item?.kind === "image";
+  const shouldShow = state.showPrompts && (item?.kind === "image" || item?.kind === "video");
   viewer.promptRequestId++;
   viewer.body.dataset.prompts = String(shouldShow);
   viewer.promptPanel.hidden = !shouldShow;
@@ -1279,29 +1279,54 @@ async function loadPromptMetadata(item) {
 
   if (promptMetadataCache.has(item.key)) return promptMetadataCache.get(item.key);
 
-  if (getExtension(item.filename) !== "png") {
+  const extension = getExtension(item.filename);
+  if (extension === "png" || extension === "gif") {
+    const response = await fetch(item.url);
+    if (!response.ok) throw new Error(`Failed to fetch image metadata: ${response.status}`);
+
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_METADATA_BYTES) {
+      return rememberPromptMetadata(item.key, {
+        positive: "",
+        negative: "",
+        status: "Media is too large to scan prompt metadata.",
+      });
+    }
+
+    const bytes = new Uint8Array(buffer);
+    const chunks = extension === "gif" ? parseGifTextMetadata(bytes) : await parsePngTextChunks(bytes);
+    const result = extractPromptMetadata(chunks);
+    return rememberPromptMetadata(item.key, result);
+  }
+
+  if (extension === "mp4" || extension === "m4v" || extension === "mov" || extension === "webm" || extension === "mkv") {
+    const response = await fetch(item.url);
+    if (!response.ok) throw new Error(`Failed to fetch video metadata: ${response.status}`);
+
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_METADATA_BYTES) {
+      return rememberPromptMetadata(item.key, {
+        positive: "",
+        negative: "",
+        status: "Media is too large to scan prompt metadata.",
+      });
+    }
+
+    const bytes = new Uint8Array(buffer);
+    const chunks = extension === "webm" || extension === "mkv"
+      ? parseWebmTextMetadata(bytes)
+      : parseMp4TextMetadata(bytes);
+    const result = extractPromptMetadata(chunks);
+    return rememberPromptMetadata(item.key, result);
+  }
+
+  {
     return rememberPromptMetadata(item.key, {
       positive: "",
       negative: "",
-      status: "Embedded prompt reading currently supports PNG metadata.",
+      status: "Embedded prompt reading currently supports PNG, GIF, MP4, and WebM metadata.",
     });
   }
-
-  const response = await fetch(item.url);
-  if (!response.ok) throw new Error(`Failed to fetch image metadata: ${response.status}`);
-
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > MAX_METADATA_BYTES) {
-    return rememberPromptMetadata(item.key, {
-      positive: "",
-      negative: "",
-      status: "Image is too large to scan prompt metadata.",
-    });
-  }
-
-  const chunks = await parsePngTextChunks(new Uint8Array(buffer));
-  const result = extractPromptMetadata(chunks);
-  return rememberPromptMetadata(item.key, result);
 }
 
 function readUint32(bytes, offset) {
@@ -1394,7 +1419,229 @@ async function parsePngTextChunks(bytes) {
   return chunks;
 }
 
+function readGifSubBlocks(bytes, offset) {
+  const parts = [];
+  let cursor = offset;
+
+  while (cursor < bytes.length) {
+    const size = bytes[cursor++];
+    if (size === 0) break;
+    if (cursor + size > bytes.length) return { data: new Uint8Array(), offset: bytes.length };
+    parts.push(bytes.subarray(cursor, cursor + size));
+    cursor += size;
+  }
+
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const data = new Uint8Array(total);
+  let writeOffset = 0;
+  for (const part of parts) {
+    data.set(part, writeOffset);
+    writeOffset += part.length;
+  }
+
+  return { data, offset: cursor };
+}
+
+function appendGifMetadataText(chunks, texts, bytes, key) {
+  if (!bytes.length) return;
+  const text = decodeUtf8(bytes).replace(/\0+$/g, "").trim();
+  if (!text) return;
+
+  texts.push(text);
+  chunks[key || `gif_${texts.length}`] = text;
+}
+
+function parseGifTextMetadata(bytes) {
+  const header = bytes.length >= 6 ? decodeLatin1(bytes.subarray(0, 6)) : "";
+  if (header !== "GIF87a" && header !== "GIF89a") return {};
+  if (bytes.length < 13) return {};
+
+  const chunks = {};
+  const texts = [];
+  let offset = 13;
+
+  const globalPacked = bytes[10];
+  if (globalPacked & 0x80) {
+    offset += 3 * (1 << ((globalPacked & 0x07) + 1));
+  }
+
+  while (offset < bytes.length) {
+    const marker = bytes[offset++];
+
+    if (marker === 0x3b) break;
+
+    if (marker === 0x2c) {
+      if (offset + 9 > bytes.length) break;
+      const packed = bytes[offset + 8];
+      offset += 9;
+      if (packed & 0x80) {
+        offset += 3 * (1 << ((packed & 0x07) + 1));
+      }
+      if (offset >= bytes.length) break;
+      offset += 1;
+      ({ offset } = readGifSubBlocks(bytes, offset));
+      continue;
+    }
+
+    if (marker !== 0x21 || offset >= bytes.length) break;
+
+    const label = bytes[offset++];
+    const start = offset;
+    const block = readGifSubBlocks(bytes, offset);
+    offset = block.offset;
+
+    if (label === 0xfe) {
+      appendGifMetadataText(chunks, texts, block.data, `gif_comment_${texts.length + 1}`);
+    } else if (label === 0xff) {
+      const appBlockSize = bytes[start] || 0;
+      const appIdEnd = Math.min(start + 1 + appBlockSize, bytes.length);
+      const appId = appBlockSize ? decodeLatin1(bytes.subarray(start + 1, appIdEnd)).trim() : "";
+      appendGifMetadataText(chunks, texts, block.data, appId || `gif_application_${texts.length + 1}`);
+    } else if (label === 0x01) {
+      appendGifMetadataText(chunks, texts, block.data, `gif_plain_text_${texts.length + 1}`);
+    }
+  }
+
+  for (const text of texts) {
+    const parsed = parseJsonMetadata(text) || findJsonMetadataObject(text);
+    if (!parsed || typeof parsed !== "object") continue;
+    if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
+    if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
+    if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
+    if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+  }
+
+  return chunks;
+}
+
+function readMp4Size(bytes, offset) {
+  if (offset + 8 > bytes.length) return null;
+  let size = readUint32(bytes, offset);
+  let headerSize = 8;
+
+  if (size === 1) {
+    if (offset + 16 > bytes.length) return null;
+    const high = readUint32(bytes, offset + 8);
+    const low = readUint32(bytes, offset + 12);
+    size = high * 0x100000000 + low;
+    headerSize = 16;
+  } else if (size === 0) {
+    size = bytes.length - offset;
+  }
+
+  if (!Number.isFinite(size) || size < headerSize || offset + size > bytes.length) return null;
+  return { size, headerSize };
+}
+
+function parseMp4TextMetadata(bytes) {
+  const chunks = {};
+  const texts = [];
+  const containerTypes = new Set(["moov", "udta", "meta", "ilst"]);
+
+  function parseBoxes(start, end, parentType = "") {
+    let offset = start;
+    while (offset + 8 <= end) {
+      const box = readMp4Size(bytes, offset);
+      if (!box) break;
+
+      const type = decodeLatin1(bytes.subarray(offset + 4, offset + 8));
+      const dataStart = offset + box.headerSize;
+      const dataEnd = offset + box.size;
+
+      if (type === "data" && dataStart + 8 <= dataEnd) {
+        const payload = bytes.subarray(dataStart + 8, dataEnd);
+        const text = decodeUtf8(payload).replace(/\0+$/g, "").trim();
+        if (text) {
+          texts.push(text);
+          chunks[parentType || `mp4_${texts.length}`] = text;
+        }
+      } else if (containerTypes.has(type) || parentType === "ilst") {
+        parseBoxes(dataStart + (type === "meta" ? 4 : 0), dataEnd, type);
+      } else if (parentType === "ilst") {
+        parseBoxes(dataStart, dataEnd, type);
+      }
+
+      offset += box.size;
+    }
+  }
+
+  parseBoxes(0, bytes.length);
+
+  for (const text of texts) {
+    const parsed = parseJsonMetadata(text);
+    if (!parsed || typeof parsed !== "object") continue;
+    if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
+    if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
+    if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
+    if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+  }
+
+  return chunks;
+}
+
+function findMatchingJsonEnd(text, start) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index++) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+    } else if (char === "{") {
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0) return index + 1;
+    }
+  }
+
+  return -1;
+}
+
+function findJsonMetadataObject(text) {
+  const needles = ["{\"prompt\"", "{\"workflow\"", "{\"Prompt\"", "{\"Workflow\""];
+  const starts = needles
+    .map((needle) => text.indexOf(needle))
+    .filter((index) => index !== -1)
+    .sort((a, b) => a - b);
+
+  for (const start of starts) {
+    const end = findMatchingJsonEnd(text, start);
+    if (end === -1) continue;
+    const parsed = parseJsonMetadata(text.slice(start, end));
+    if (parsed && typeof parsed === "object") return parsed;
+  }
+
+  return null;
+}
+
+function parseWebmTextMetadata(bytes) {
+  const chunks = {};
+  const text = decodeUtf8(bytes);
+  const parsed = findJsonMetadataObject(text);
+  if (!parsed) return chunks;
+
+  if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
+  if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
+  if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
+  if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+  return chunks;
+}
+
 function parseJsonMetadata(value) {
+  if (value && typeof value === "object") return value;
   if (typeof value !== "string" || !value.trim()) return null;
   try {
     return JSON.parse(value);
@@ -2084,7 +2331,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
       category: ["Media Feed", "Viewer", "Show prompts in viewer"],
-      tooltip: "Read embedded PNG metadata and show inferred positive and negative prompts when viewing an image.",
+      tooltip: "Read embedded PNG, GIF, MP4, or WebM metadata and show inferred positive and negative prompts when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);

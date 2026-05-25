@@ -18,7 +18,7 @@ fallback panel on older frontends or when a floating placement is selected.
 - Lets you resize thumbnails with a toolbar slider.
 - Adds a ComfyUI setting for placing the floating feed at the top, right,
   bottom, or left of the canvas.
-- Can show embedded positive and negative prompts in the image viewer.
+- Can show embedded positive and negative prompts in the media viewer.
 - Uses ComfyUI theme colors when available.
 - Saves thumbnail size in browser `localStorage`.
 - Keeps the feed responsive by limiting retained items and virtualizing visible
@@ -97,8 +97,8 @@ aac, flac, m4a, mp3, ogg, opus, wav
   `subfolder`, and `type` in their execution payload.
 - The extension uses ComfyUI's local `/view` route. Remote or hosted setups may
   need additional adapter work.
-- Prompt display reads embedded PNG metadata and may not infer prompts from every
-  custom workflow.
+- Prompt display reads embedded PNG, GIF, MP4, and WebM metadata and may not infer
+  prompts from every custom workflow.
 
 ## Registry Checklist
 
