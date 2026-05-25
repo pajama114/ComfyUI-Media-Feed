@@ -306,12 +306,17 @@ function ensureStyles() {
   style.id = "comfy-media-feed-styles";
   style.textContent = `
     .cmf-root {
-      --cmf-bg: rgba(19, 20, 24, 0.96);
-      --cmf-panel: rgba(255, 255, 255, 0.055);
-      --cmf-border: rgba(255, 255, 255, 0.12);
-      --cmf-text: rgba(255, 255, 255, 0.86);
-      --cmf-muted: rgba(255, 255, 255, 0.58);
-      --cmf-accent: #4db6ac;
+      --cmf-bg: var(--comfy-menu-bg, var(--content-bg, var(--bg-color, #131418)));
+      --cmf-panel: var(--comfy-input-bg, var(--content-bg, var(--bg-color, rgba(255, 255, 255, 0.055))));
+      --cmf-border: var(--border-color, rgba(255, 255, 255, 0.12));
+      --cmf-text: var(--fg-color, var(--comfy-menu-text, rgba(255, 255, 255, 0.86)));
+      --cmf-muted: var(--descrip-text, var(--comfy-menu-secondary-text, rgba(255, 255, 255, 0.58)));
+      --cmf-accent: var(--p-primary-color, var(--comfy-accent, #4db6ac));
+      --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
+      --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
+      --cmf-view-bg: var(--bg-color, rgba(0, 0, 0, 0.22));
+      --cmf-viewer-bg: var(--bg-color, #000);
+      --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       --cmf-item-width: ${DEFAULT_ITEM_WIDTH}px;
       --cmf-item-height: ${DEFAULT_ITEM_HEIGHT}px;
       --cmf-panel-height: ${fallbackPanelHeight()}px;
@@ -536,14 +541,14 @@ function ensureStyles() {
       padding: 0 10px;
       border: 1px solid var(--cmf-border);
       border-radius: 6px;
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--cmf-button-bg);
       color: var(--cmf-text);
       cursor: pointer;
       font: inherit;
     }
 
     .cmf-button:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--cmf-button-hover);
     }
 
     .cmf-icon-button {
@@ -587,7 +592,8 @@ function ensureStyles() {
     }
 
     .cmf-filter button[aria-pressed="true"] {
-      background: rgba(77, 182, 172, 0.18);
+      background: var(--cmf-panel);
+      background: color-mix(in srgb, var(--cmf-accent) 24%, var(--cmf-panel));
       color: var(--cmf-text);
     }
 
@@ -597,11 +603,11 @@ function ensureStyles() {
       min-height: var(--cmf-viewport-height);
       overflow-x: auto;
       overflow-y: hidden;
-      scrollbar-color: rgba(255, 255, 255, 0.24) rgba(0, 0, 0, 0.18);
+      scrollbar-color: color-mix(in srgb, var(--cmf-text) 32%, transparent) color-mix(in srgb, var(--cmf-bg) 82%, transparent);
       scrollbar-width: thin;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
-      background: rgba(0, 0, 0, 0.22);
+      background: var(--cmf-view-bg);
     }
 
     .cmf-viewport::-webkit-scrollbar {
@@ -610,18 +616,18 @@ function ensureStyles() {
 
     .cmf-viewport::-webkit-scrollbar-track {
       border-radius: 0 0 8px 8px;
-      background: rgba(0, 0, 0, 0.18);
+      background: color-mix(in srgb, var(--cmf-bg) 82%, transparent);
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb {
       min-width: 36px;
-      border: 3px solid rgba(0, 0, 0, 0.18);
+      border: 3px solid color-mix(in srgb, var(--cmf-bg) 82%, transparent);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.24);
+      background: color-mix(in srgb, var(--cmf-text) 32%, transparent);
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.34);
+      background: color-mix(in srgb, var(--cmf-text) 44%, transparent);
     }
 
     .cmf-rail {
@@ -656,7 +662,7 @@ function ensureStyles() {
 
     .cmf-card:hover,
     .cmf-card:focus-visible {
-      border-color: rgba(77, 182, 172, 0.72);
+      border-color: var(--cmf-accent);
       outline: none;
     }
 
@@ -667,7 +673,7 @@ function ensureStyles() {
       width: 100%;
       min-height: 0;
       overflow: hidden;
-      background: rgba(0, 0, 0, 0.28);
+      background: var(--cmf-view-bg);
     }
 
     .cmf-preview img,
@@ -718,7 +724,8 @@ function ensureStyles() {
       width: 44px;
       height: 44px;
       border-radius: 50%;
-      background: rgba(77, 182, 172, 0.18);
+      background: var(--cmf-panel);
+      background: color-mix(in srgb, var(--cmf-accent) 24%, var(--cmf-panel));
       color: var(--cmf-text);
       font-size: 11px;
       text-transform: uppercase;
@@ -730,8 +737,8 @@ function ensureStyles() {
       z-index: 9999;
       display: none;
       grid-template-rows: auto 1fr;
-      background: rgba(0, 0, 0, 0.82);
-      color: rgba(255, 255, 255, 0.9);
+      background: var(--cmf-viewer-bg);
+      color: var(--cmf-text);
     }
 
     .cmf-viewer[data-open="true"] {
@@ -744,8 +751,8 @@ function ensureStyles() {
       gap: 10px;
       min-height: 42px;
       padding: 8px 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(16, 17, 19, 0.94);
+      border-bottom: 1px solid var(--cmf-border);
+      background: var(--cmf-viewer-bar-bg);
     }
 
     .cmf-viewer-title {
@@ -792,7 +799,7 @@ function ensureStyles() {
       height: 54px;
       transform: translateY(-50%);
       border-radius: 8px;
-      background: rgba(18, 19, 22, 0.76);
+      background: var(--cmf-panel);
     }
 
     .cmf-nav-button:disabled {
