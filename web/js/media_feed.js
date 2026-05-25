@@ -315,7 +315,7 @@ function ensureStyles() {
       --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-view-bg: var(--bg-color, rgba(0, 0, 0, 0.22));
-      --cmf-viewer-bg: var(--bg-color, #000);
+      --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
       --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       --cmf-item-width: ${DEFAULT_ITEM_WIDTH}px;
       --cmf-item-height: ${DEFAULT_ITEM_HEIGHT}px;
@@ -732,6 +732,13 @@ function ensureStyles() {
     }
 
     .cmf-viewer {
+      --cmf-panel: var(--comfy-input-bg, var(--content-bg, var(--bg-color, rgba(255, 255, 255, 0.055))));
+      --cmf-border: var(--border-color, rgba(255, 255, 255, 0.12));
+      --cmf-text: var(--fg-color, var(--comfy-menu-text, rgba(255, 255, 255, 0.86)));
+      --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
+      --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
+      --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
+      --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       position: fixed;
       inset: 0;
       z-index: 9999;
