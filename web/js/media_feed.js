@@ -4,6 +4,8 @@ import { api } from "../../scripts/api.js";
 const EXTENSION_NAME = "comfyui.media_feed";
 const MAX_ITEMS = 256;
 const DECODED_IMAGE_CACHE_SIZE = 32;
+const PROMPT_METADATA_CACHE_SIZE = 32;
+const MAX_METADATA_BYTES = 64 * 1024 * 1024;
 const DEFAULT_ITEM_WIDTH = 148;
 const DEFAULT_ITEM_HEIGHT = 143;
 const MIN_ITEM_HEIGHT = 96;
@@ -20,6 +22,7 @@ const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
+  showPrompts: "comfyui-media-feed:show-prompts",
 };
 const ICONS = {
   chevronLeft: `
@@ -71,13 +74,16 @@ const state = {
   itemHeight: DEFAULT_ITEM_HEIGHT,
   itemWidth: DEFAULT_ITEM_WIDTH,
   placement: DEFAULT_PLACEMENT,
+  showPrompts: false,
 };
 
 const decodedImageCache = new Map();
+const promptMetadataCache = new Map();
 let bottomPanelView = null;
 let floatingView = null;
 let setupComplete = false;
 let placementSettingSeen = false;
+let promptSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -232,6 +238,10 @@ function normalizePlacement(nextPlacement) {
   return PLACEMENTS.has(placement) ? placement : DEFAULT_PLACEMENT;
 }
 
+function normalizeBooleanSetting(nextValue) {
+  return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
+}
+
 function isVerticalPlacement(placement = state.placement) {
   return SIDE_PLACEMENTS.has(placement);
 }
@@ -250,11 +260,23 @@ function applyPlacement(nextPlacement) {
   state.placement = normalizePlacement(nextPlacement);
 }
 
+function applyShowPrompts(nextValue) {
+  state.showPrompts = normalizeBooleanSetting(nextValue);
+}
+
 function loadSavedPlacement() {
   try {
     return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
   } catch {
     return DEFAULT_PLACEMENT;
+  }
+}
+
+function loadSavedShowPrompts() {
+  try {
+    return normalizeBooleanSetting(window.localStorage?.getItem(STORAGE_KEYS.showPrompts));
+  } catch {
+    return false;
   }
 }
 
@@ -267,6 +289,7 @@ function loadSettings() {
   }
 
   if (!placementSettingSeen) applyPlacement(loadSavedPlacement());
+  if (!promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
 }
 
 function saveThumbnailHeight() {
@@ -285,10 +308,24 @@ function savePlacement() {
   }
 }
 
+function saveShowPrompts() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.showPrompts, String(state.showPrompts));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
   saveThumbnailHeight();
   updateViews(false);
+}
+
+function setShowPrompts(nextValue) {
+  applyShowPrompts(nextValue);
+  saveShowPrompts();
+  updateViewerPromptPanel();
 }
 
 function setPlacement(nextPlacement) {
@@ -735,6 +772,7 @@ function ensureStyles() {
       --cmf-panel: var(--comfy-input-bg, var(--content-bg, var(--bg-color, rgba(255, 255, 255, 0.055))));
       --cmf-border: var(--border-color, rgba(255, 255, 255, 0.12));
       --cmf-text: var(--fg-color, var(--comfy-menu-text, rgba(255, 255, 255, 0.86)));
+      --cmf-muted: var(--descrip-text, var(--comfy-menu-secondary-text, rgba(255, 255, 255, 0.58)));
       --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
@@ -771,10 +809,18 @@ function ensureStyles() {
     .cmf-viewer-body {
       position: relative;
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
       place-items: center;
       min-width: 0;
       min-height: 0;
       padding: 14px;
+    }
+
+    .cmf-viewer-body[data-prompts="true"] {
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 32vw);
+      align-items: stretch;
+      place-items: stretch;
     }
 
     .cmf-viewer-media {
@@ -795,6 +841,72 @@ function ensureStyles() {
 
     .cmf-viewer-media audio {
       width: min(720px, 90vw);
+    }
+
+    .cmf-prompt-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      max-width: 460px;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 8px;
+      background: var(--cmf-viewer-bar-bg);
+      color: var(--cmf-text);
+    }
+
+    .cmf-prompt-panel[hidden] {
+      display: none;
+    }
+
+    .cmf-prompt-status {
+      color: var(--cmf-muted);
+      font-size: 12px;
+    }
+
+    .cmf-prompt-section {
+      display: grid;
+      gap: 5px;
+      min-height: 0;
+    }
+
+    .cmf-prompt-heading {
+      margin: 0;
+      color: var(--cmf-muted);
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .cmf-prompt-text {
+      min-height: 76px;
+      max-height: 34vh;
+      overflow: auto;
+      margin: 0;
+      padding: 9px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 6px;
+      background: var(--cmf-panel);
+      color: var(--cmf-text);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 860px) {
+      .cmf-viewer-body[data-prompts="true"] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(150px, 32vh);
+      }
+
+      .cmf-prompt-panel {
+        max-width: none;
+      }
     }
 
     .cmf-nav-button {
@@ -880,6 +992,17 @@ function ensureViewer() {
       <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-prev" type="button" title="Previous" aria-label="Previous">${ICONS.chevronLeft}</button>
       <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-next" type="button" title="Next" aria-label="Next">${ICONS.chevronRight}</button>
       <div class="cmf-viewer-media"></div>
+      <aside class="cmf-prompt-panel" hidden aria-label="Embedded prompts">
+        <div class="cmf-prompt-status"></div>
+        <section class="cmf-prompt-section">
+          <h2 class="cmf-prompt-heading">Prompt</h2>
+          <pre class="cmf-prompt-text cmf-prompt-positive"></pre>
+        </section>
+        <section class="cmf-prompt-section">
+          <h2 class="cmf-prompt-heading">Negative Prompt</h2>
+          <pre class="cmf-prompt-text cmf-prompt-negative"></pre>
+        </section>
+      </aside>
     </div>
   `;
 
@@ -910,9 +1033,14 @@ function ensureViewer() {
     title: root.querySelector(".cmf-viewer-title"),
     body: root.querySelector(".cmf-viewer-body"),
     media: root.querySelector(".cmf-viewer-media"),
+    promptPanel: root.querySelector(".cmf-prompt-panel"),
+    promptStatus: root.querySelector(".cmf-prompt-status"),
+    promptPositive: root.querySelector(".cmf-prompt-positive"),
+    promptNegative: root.querySelector(".cmf-prompt-negative"),
     openLink: root.querySelector(".cmf-open-link"),
     prevButton: root.querySelector(".cmf-nav-prev"),
     nextButton: root.querySelector(".cmf-nav-next"),
+    promptRequestId: 0,
     item: null,
     items: [],
     index: -1,
@@ -923,6 +1051,9 @@ function ensureViewer() {
 function closeViewer() {
   if (!viewer) return;
   viewer.root.dataset.open = "false";
+  viewer.promptRequestId++;
+  viewer.body.dataset.prompts = "false";
+  viewer.promptPanel.hidden = true;
   viewer.media.replaceChildren();
   viewer.item = null;
   viewer.items = [];
@@ -939,6 +1070,7 @@ function openViewer(item, thumbnail) {
   currentViewer.root.dataset.open = "true";
   currentViewer.root.focus({ preventScroll: true });
   renderViewerItem(item, thumbnail);
+  updateViewerPromptPanel();
 }
 
 function showViewerRelative(direction) {
@@ -950,6 +1082,7 @@ function showViewerRelative(direction) {
 
   viewer.index = nextIndex;
   renderViewerItem(viewer.items[nextIndex]);
+  updateViewerPromptPanel();
 }
 
 function syncViewerNav() {
@@ -1078,6 +1211,487 @@ async function renderViewerItem(item, thumbnail) {
   audio.autoplay = true;
   audio.src = item.url;
   currentViewer.media.appendChild(audio);
+}
+
+function resetViewerPromptPanel(status = "") {
+  if (!viewer) return;
+  viewer.promptStatus.textContent = status;
+  viewer.promptPositive.textContent = "";
+  viewer.promptNegative.textContent = "";
+}
+
+function renderPromptMetadata(result) {
+  if (!viewer) return;
+  viewer.promptStatus.textContent = result.status || "";
+  viewer.promptPositive.textContent = result.positive || "(not found)";
+  viewer.promptNegative.textContent = result.negative || "(not found)";
+}
+
+function updateViewerPromptPanel() {
+  if (!viewer || viewer.root.dataset.open !== "true") return;
+
+  const item = viewer.item;
+  const shouldShow = state.showPrompts && item?.kind === "image";
+  viewer.promptRequestId++;
+  viewer.body.dataset.prompts = String(shouldShow);
+  viewer.promptPanel.hidden = !shouldShow;
+
+  if (!shouldShow) {
+    resetViewerPromptPanel();
+    return;
+  }
+
+  const requestId = viewer.promptRequestId;
+  resetViewerPromptPanel("Loading embedded prompt metadata...");
+
+  loadPromptMetadata(item)
+    .then((result) => {
+      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
+      renderPromptMetadata(result);
+    })
+    .catch(() => {
+      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
+      renderPromptMetadata({
+        positive: "",
+        negative: "",
+        status: "Could not read embedded prompt metadata.",
+      });
+    });
+}
+
+function rememberPromptMetadata(key, result) {
+  if (!key) return result;
+  promptMetadataCache.delete(key);
+  promptMetadataCache.set(key, result);
+
+  while (promptMetadataCache.size > PROMPT_METADATA_CACHE_SIZE) {
+    const oldestKey = promptMetadataCache.keys().next().value;
+    promptMetadataCache.delete(oldestKey);
+  }
+
+  return result;
+}
+
+async function loadPromptMetadata(item) {
+  if (!item?.key) {
+    return { positive: "", negative: "", status: "No media item selected." };
+  }
+
+  if (promptMetadataCache.has(item.key)) return promptMetadataCache.get(item.key);
+
+  if (getExtension(item.filename) !== "png") {
+    return rememberPromptMetadata(item.key, {
+      positive: "",
+      negative: "",
+      status: "Embedded prompt reading currently supports PNG metadata.",
+    });
+  }
+
+  const response = await fetch(item.url);
+  if (!response.ok) throw new Error(`Failed to fetch image metadata: ${response.status}`);
+
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > MAX_METADATA_BYTES) {
+    return rememberPromptMetadata(item.key, {
+      positive: "",
+      negative: "",
+      status: "Image is too large to scan prompt metadata.",
+    });
+  }
+
+  const chunks = await parsePngTextChunks(new Uint8Array(buffer));
+  const result = extractPromptMetadata(chunks);
+  return rememberPromptMetadata(item.key, result);
+}
+
+function readUint32(bytes, offset) {
+  return (
+    bytes[offset] * 0x1000000 +
+    bytes[offset + 1] * 0x10000 +
+    bytes[offset + 2] * 0x100 +
+    bytes[offset + 3]
+  ) >>> 0;
+}
+
+function decodeLatin1(bytes) {
+  return new TextDecoder("latin1").decode(bytes);
+}
+
+function decodeUtf8(bytes) {
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function findNullByte(bytes, start, end = bytes.length) {
+  for (let index = start; index < end; index++) {
+    if (bytes[index] === 0) return index;
+  }
+  return -1;
+}
+
+async function inflateBytes(bytes) {
+  if (typeof DecompressionStream !== "function") return null;
+
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function parsePngTextChunks(bytes) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < signature.length || !signature.every((value, index) => bytes[index] === value)) {
+    return {};
+  }
+
+  const chunks = {};
+  let offset = signature.length;
+  while (offset + 12 <= bytes.length) {
+    const length = readUint32(bytes, offset);
+    const typeStart = offset + 4;
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const nextOffset = dataEnd + 4;
+    if (dataEnd > bytes.length || nextOffset > bytes.length) break;
+
+    const type = decodeLatin1(bytes.subarray(typeStart, typeStart + 4));
+    const data = bytes.subarray(dataStart, dataEnd);
+
+    if (type === "tEXt") {
+      const split = findNullByte(data, 0);
+      if (split > 0) chunks[decodeLatin1(data.subarray(0, split))] = decodeLatin1(data.subarray(split + 1));
+    } else if (type === "iTXt") {
+      const split = findNullByte(data, 0);
+      if (split > 0 && split + 2 < data.length) {
+        const keyword = decodeLatin1(data.subarray(0, split));
+        const compressed = data[split + 1] === 1;
+        let cursor = split + 3;
+        const languageEnd = findNullByte(data, cursor);
+        if (languageEnd !== -1) {
+          cursor = languageEnd + 1;
+          const translatedEnd = findNullByte(data, cursor);
+          if (translatedEnd !== -1) {
+            cursor = translatedEnd + 1;
+            const textBytes = compressed ? await inflateBytes(data.subarray(cursor)) : data.subarray(cursor);
+            if (textBytes) chunks[keyword] = decodeUtf8(textBytes);
+          }
+        }
+      }
+    } else if (type === "zTXt") {
+      const split = findNullByte(data, 0);
+      if (split > 0 && split + 2 < data.length) {
+        const inflated = await inflateBytes(data.subarray(split + 2));
+        if (inflated) chunks[decodeLatin1(data.subarray(0, split))] = decodeLatin1(inflated);
+      }
+    } else if (type === "IEND") {
+      break;
+    }
+
+    offset = nextOffset;
+  }
+
+  return chunks;
+}
+
+function parseJsonMetadata(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function extractPromptMetadata(chunks) {
+  const prompt = parseJsonMetadata(chunks.prompt || chunks.Prompt);
+  const workflow = parseJsonMetadata(chunks.workflow || chunks.Workflow);
+  const fromPrompt = extractFromPromptGraph(prompt);
+  const fromWorkflow = extractFromWorkflowGraph(workflow);
+  const positive = fromPrompt.positive || fromWorkflow.positive || "";
+  const negative = fromPrompt.negative || fromWorkflow.negative || "";
+  const source = fromPrompt.source || fromWorkflow.source || "";
+
+  return {
+    positive,
+    negative,
+    status: positive || negative
+      ? `Loaded embedded ${source || "prompt"} metadata.`
+      : "No positive/negative prompt found in embedded metadata.",
+  };
+}
+
+function uniqueNonEmpty(values) {
+  const seen = new Set();
+  const results = [];
+
+  for (const value of values.flat()) {
+    const text = String(value || "").trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    results.push(text);
+  }
+
+  return results;
+}
+
+function joinPrompts(values) {
+  return uniqueNonEmpty(values).join("\n\n");
+}
+
+function isPromptLink(value) {
+  return Array.isArray(value)
+    && value.length >= 2
+    && (typeof value[0] === "string" || typeof value[0] === "number")
+    && (typeof value[1] === "number" || typeof value[1] === "string");
+}
+
+function promptNodeClass(node) {
+  return String(node?.class_type || node?.type || "");
+}
+
+function isTextEncodeNode(node) {
+  return /text.*encode|clip.*text/i.test(promptNodeClass(node));
+}
+
+function isTextCarrierNode(node) {
+  const nodeClass = promptNodeClass(node);
+  const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
+  if (isTextEncodeNode(node)) return true;
+  return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeClass} ${title}`);
+}
+
+function collectStringValues(value, results = []) {
+  if (typeof value === "string" && value.trim()) {
+    results.push(value);
+  } else if (Array.isArray(value)) {
+    for (const child of value) collectStringValues(child, results);
+  } else if (value && typeof value === "object") {
+    for (const child of Object.values(value)) collectStringValues(child, results);
+  }
+
+  return results;
+}
+
+function collectPromptInputTexts(node) {
+  const inputs = node?.inputs || {};
+  const textInputNames = new Set(["text", "value", "string", "prompt", "text_a", "text_b", "positive", "negative"]);
+  const texts = [];
+
+  for (const [name, value] of Object.entries(inputs)) {
+    if (!textInputNames.has(name) && !/text|string|prompt|caption/i.test(name)) continue;
+    if (isPromptLink(value)) continue;
+    texts.push(...collectStringValues(value));
+  }
+
+  return uniqueNonEmpty(texts);
+}
+
+function collectPromptNodeStrings(node) {
+  const texts = [];
+  texts.push(...collectPromptInputTexts(node));
+  texts.push(...collectStringValues(node?.widgets_values || []));
+  texts.push(...collectStringValues(node?.widgets || []));
+  return uniqueNonEmpty(texts);
+}
+
+function promptNodeHasPolarityInputs(node) {
+  const names = new Set(Object.keys(node?.inputs || {}));
+  return names.has("positive") && names.has("negative");
+}
+
+function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceText = false, polarity = "") {
+  if (!prompt || !isPromptLink(reference)) return [];
+
+  const nodeId = String(reference[0]);
+  if (visited.has(nodeId)) return [];
+  visited.add(nodeId);
+
+  const node = prompt[nodeId];
+  const inputs = node?.inputs || {};
+  if (!node) return [];
+
+  const texts = [];
+  const textCarrier = isTextCarrierNode(node);
+  if (forceText || textCarrier) texts.push(...collectPromptNodeStrings(node));
+
+  for (const [name, value] of Object.entries(inputs)) {
+    if (
+      polarity
+      && promptNodeHasPolarityInputs(node)
+      && name !== polarity
+    ) {
+      continue;
+    }
+
+    const isTextInput = /text|string|prompt|caption/i.test(name);
+    if (textCarrier && !isTextInput) continue;
+
+    if (isPromptLink(value)) {
+      texts.push(...collectPromptNodeTexts(prompt, value, visited, isTextInput, polarity));
+    } else if (Array.isArray(value)) {
+      for (const child of value) {
+        if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, forceText, polarity));
+      }
+    }
+  }
+
+  return uniqueNonEmpty(texts);
+}
+
+function extractFromPromptGraph(prompt) {
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return {};
+
+  const positives = [];
+  const negatives = [];
+
+  for (const node of Object.values(prompt)) {
+    const inputs = node?.inputs || {};
+    if (!inputs.positive || !inputs.negative) continue;
+    if (!/sampler/i.test(promptNodeClass(node)) && !isPromptLink(inputs.positive)) continue;
+
+    positives.push(...collectPromptNodeTexts(prompt, inputs.positive, new Set(), false, "positive"));
+    negatives.push(...collectPromptNodeTexts(prompt, inputs.negative, new Set(), false, "negative"));
+  }
+
+  return {
+    positive: joinPrompts(positives),
+    negative: joinPrompts(negatives),
+    source: positives.length || negatives.length ? "prompt" : "",
+  };
+}
+
+function workflowNodeType(node) {
+  return String(node?.type || node?.class_type || "");
+}
+
+function isWorkflowTextCarrierNode(node) {
+  const nodeType = workflowNodeType(node);
+  const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
+  const outputTypes = (node?.outputs || []).map((output) => `${output?.name || ""} ${output?.type || ""}`).join(" ");
+  if (isTextEncodeNode({ class_type: nodeType })) return true;
+  return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeType} ${title} ${outputTypes}`);
+}
+
+function workflowNodeId(node) {
+  return node?.id === undefined || node?.id === null ? "" : String(node.id);
+}
+
+function workflowInputLink(node, name) {
+  if (!Array.isArray(node?.inputs)) return null;
+  const input = node.inputs.find((current) => current?.name === name);
+  return input?.link === undefined || input?.link === null ? null : String(input.link);
+}
+
+function workflowOutputName(node, slot) {
+  const output = node?.outputs?.[Number(slot)];
+  return String(output?.name || "").toLowerCase();
+}
+
+function buildWorkflowMaps(workflow) {
+  const nodes = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
+  const nodeMap = new Map(nodes.map((node) => [workflowNodeId(node), node]));
+  const linkMap = new Map();
+
+  for (const link of workflow?.links || []) {
+    if (Array.isArray(link) && link.length >= 3) {
+      const originId = String(link[1]);
+      const originSlot = link[2];
+      const originNode = nodeMap.get(originId);
+      linkMap.set(String(link[0]), {
+        originId,
+        originSlot,
+        outputName: workflowOutputName(originNode, originSlot),
+      });
+    } else if (link && typeof link === "object") {
+      const id = link.id ?? link.link_id;
+      const originId = link.origin_id ?? link.originId ?? link.from_node_id;
+      const originSlot = link.origin_slot ?? link.originSlot ?? link.from_slot ?? link.from_socket;
+      if (id !== undefined && originId !== undefined) {
+        const originKey = String(originId);
+        const originNode = nodeMap.get(originKey);
+        linkMap.set(String(id), {
+          originId: originKey,
+          originSlot,
+          outputName: workflowOutputName(originNode, originSlot),
+        });
+      }
+    }
+  }
+
+  return { nodes, nodeMap, linkMap };
+}
+
+function workflowLinkOrigin(maps, linkId) {
+  return maps.linkMap.get(String(linkId)) || null;
+}
+
+function workflowNodeHasPolarityInputs(node) {
+  if (!Array.isArray(node?.inputs)) return false;
+  const names = new Set(node.inputs.map((input) => input?.name));
+  return names.has("positive") && names.has("negative");
+}
+
+function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "") {
+  if (!nodeId || visited.has(nodeId)) return [];
+  visited.add(nodeId);
+
+  const node = maps.nodeMap.get(String(nodeId));
+  if (!node) return [];
+
+  const texts = [];
+  const textCarrier = isWorkflowTextCarrierNode(node);
+  if (forceText || textCarrier) {
+    texts.push(...collectStringValues(node.widgets_values || []));
+  }
+
+  for (const input of node.inputs || []) {
+    if (input?.link === undefined || input?.link === null) continue;
+    const isTextInput = /text|string|prompt|caption/i.test(String(input.name || ""));
+    if (textCarrier && !isTextInput) continue;
+
+    if (
+      polarity
+      && workflowNodeHasPolarityInputs(node)
+      && input.name !== polarity
+    ) {
+      continue;
+    }
+
+    const origin = workflowLinkOrigin(maps, input.link);
+    if (!origin) continue;
+    const nextPolarity = origin.outputName === "positive" || origin.outputName === "negative"
+      ? origin.outputName
+      : polarity;
+    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, isTextInput, nextPolarity));
+  }
+
+  return uniqueNonEmpty(texts);
+}
+
+function extractFromWorkflowGraph(workflow) {
+  if (!workflow || typeof workflow !== "object") return {};
+
+  const maps = buildWorkflowMaps(workflow);
+  const positives = [];
+  const negatives = [];
+
+  for (const node of maps.nodes) {
+    const positiveLink = workflowInputLink(node, "positive");
+    const negativeLink = workflowInputLink(node, "negative");
+    if (!positiveLink || !negativeLink) continue;
+
+    const positiveOrigin = workflowLinkOrigin(maps, positiveLink);
+    const negativeOrigin = workflowLinkOrigin(maps, negativeLink);
+    positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive"));
+    negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative"));
+  }
+
+  return {
+    positive: joinPrompts(positives),
+    negative: joinPrompts(negatives),
+    source: positives.length || negatives.length ? "workflow" : "",
+  };
 }
 
 function createCard(item) {
@@ -1266,6 +1880,7 @@ function createView(root, kind = "embedded") {
     state.items = [];
     state.itemKeys.clear();
     decodedImageCache.clear();
+    promptMetadataCache.clear();
     updateViews(false);
   });
 
@@ -1461,6 +2076,18 @@ app.registerExtension({
       onChange: (newValue) => {
         placementSettingSeen = true;
         setPlacement(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.show-prompts",
+      name: "Show prompts in viewer",
+      type: "boolean",
+      defaultValue: loadSavedShowPrompts(),
+      category: ["Media Feed", "Viewer", "Show prompts in viewer"],
+      tooltip: "Read embedded PNG metadata and show inferred positive and negative prompts when viewing an image.",
+      onChange: (newValue) => {
+        promptSettingSeen = true;
+        setShowPrompts(newValue);
       },
     },
   ],
