@@ -99,50 +99,6 @@ let scaleViewerMediaSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
-function isJapaneseLocale() {
-  const languages = [
-    ...((typeof navigator !== "undefined" && navigator.languages) || []),
-    typeof navigator !== "undefined" ? navigator.language : "",
-  ];
-  return languages.some((language) => String(language || "").toLowerCase().startsWith("ja"));
-}
-
-function getSettingLabels() {
-  if (!isJapaneseLocale()) {
-    return {
-      panel: "Panel",
-      viewer: "Viewer",
-      placement: "Placement",
-      placementTooltip: "Choose where the floating Media Feed panel appears.",
-      bottom: "Bottom",
-      top: "Top",
-      left: "Left",
-      right: "Right",
-      showPrompts: "Show prompts in viewer",
-      showPromptsTooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
-      fitMedia: "Fit media to viewer",
-      fitMediaTooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
-    };
-  }
-
-  return {
-    panel: "パネル",
-    viewer: "ビューア",
-    placement: "配置",
-    placementTooltip: "フローティング表示時の Media Feed パネルの位置を選びます。",
-    bottom: "下",
-    top: "上",
-    left: "左",
-    right: "右",
-    showPrompts: "ビューアにメタデータを表示",
-    showPromptsTooltip: "埋め込みメタデータを読み取り、ビューアにプロンプト、ネガティブプロンプト、Seed を表示します。",
-    fitMedia: "メディアをビューアに合わせる",
-    fitMediaTooltip: "小さい画像や動画を、全体がビューア内に収まる最大サイズで表示します。",
-  };
-}
-
-const SETTING_LABELS = getSettingLabels();
-
 function getExtension(filename) {
   const cleanName = String(filename || "").split(/[?#]/, 1)[0];
   const dot = cleanName.lastIndexOf(".");
@@ -3036,17 +2992,17 @@ app.registerExtension({
   settings: [
     {
       id: "comfyui-media-feed.placement",
-      name: SETTING_LABELS.placement,
+      name: "Placement",
       type: "combo",
       defaultValue: loadSavedPlacement(),
       options: [
-        { text: SETTING_LABELS.bottom, value: "bottom" },
-        { text: SETTING_LABELS.top, value: "top" },
-        { text: SETTING_LABELS.left, value: "left" },
-        { text: SETTING_LABELS.right, value: "right" },
+        { text: "Bottom", value: "bottom" },
+        { text: "Top", value: "top" },
+        { text: "Left", value: "left" },
+        { text: "Right", value: "right" },
       ],
-      category: ["Media Feed", SETTING_LABELS.panel, SETTING_LABELS.placement],
-      tooltip: SETTING_LABELS.placementTooltip,
+      category: ["Media Feed", "Panel", "Placement"],
+      tooltip: "Choose where the floating Media Feed panel appears.",
       onChange: (newValue) => {
         placementSettingSeen = true;
         setPlacement(newValue);
@@ -3054,11 +3010,11 @@ app.registerExtension({
     },
     {
       id: "comfyui-media-feed.show-prompts",
-      name: SETTING_LABELS.showPrompts,
+      name: "Show prompts in viewer",
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
-      category: ["Media Feed", SETTING_LABELS.viewer, SETTING_LABELS.showPrompts],
-      tooltip: SETTING_LABELS.showPromptsTooltip,
+      category: ["Media Feed", "Viewer", "Show prompts in viewer"],
+      tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);
@@ -3066,11 +3022,11 @@ app.registerExtension({
     },
     {
       id: "comfyui-media-feed.scale-viewer-media",
-      name: SETTING_LABELS.fitMedia,
+      name: "Fit media to viewer",
       type: "boolean",
       defaultValue: loadSavedScaleViewerMedia(),
-      category: ["Media Feed", SETTING_LABELS.viewer, SETTING_LABELS.fitMedia],
-      tooltip: SETTING_LABELS.fitMediaTooltip,
+      category: ["Media Feed", "Viewer", "Fit media to viewer"],
+      tooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
       onChange: (newValue) => {
         scaleViewerMediaSettingSeen = true;
         setScaleViewerMedia(newValue);

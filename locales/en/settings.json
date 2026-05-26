@@ -1,0 +1,20 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "Placement",
+    "tooltip": "Choose where the floating Media Feed panel appears.",
+    "options": {
+      "bottom": "Bottom",
+      "top": "Top",
+      "left": "Left",
+      "right": "Right"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "Show prompts in viewer",
+    "tooltip": "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media."
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "Fit media to viewer",
+    "tooltip": "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio."
+  }
+}

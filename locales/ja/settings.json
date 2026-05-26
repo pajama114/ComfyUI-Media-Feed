@@ -1,0 +1,20 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "配置",
+    "tooltip": "フローティング表示時の Media Feed パネルの位置を選びます。",
+    "options": {
+      "bottom": "下",
+      "top": "上",
+      "left": "左",
+      "right": "右"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "ビューアにメタデータを表示",
+    "tooltip": "埋め込みメタデータを読み取り、ビューアにプロンプト、ネガティブプロンプト、Seed を表示します。"
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "メディアをビューアに合わせる",
+    "tooltip": "小さい画像や動画を、全体がビューア内に収まる最大サイズで表示します。"
+  }
+}
