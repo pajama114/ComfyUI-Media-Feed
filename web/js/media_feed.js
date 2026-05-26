@@ -17,6 +17,8 @@ const OVERSCAN = 5;
 const FALLBACK_PANEL_EXTRA_HEIGHT = 80;
 const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
 const DEFAULT_PLACEMENT = "bottom";
+const DEFAULT_SHOW_PROMPTS = true;
+const DEFAULT_SCALE_VIEWER_MEDIA = false;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const STORAGE_KEYS = {
@@ -82,8 +84,8 @@ const state = {
   itemHeight: DEFAULT_ITEM_HEIGHT,
   itemWidth: DEFAULT_ITEM_WIDTH,
   placement: DEFAULT_PLACEMENT,
-  showPrompts: false,
-  scaleViewerMedia: false,
+  showPrompts: DEFAULT_SHOW_PROMPTS,
+  scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
 };
 
 const decodedImageCache = new Map();
@@ -96,6 +98,50 @@ let promptSettingSeen = false;
 let scaleViewerMediaSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
+
+function isJapaneseLocale() {
+  const languages = [
+    ...((typeof navigator !== "undefined" && navigator.languages) || []),
+    typeof navigator !== "undefined" ? navigator.language : "",
+  ];
+  return languages.some((language) => String(language || "").toLowerCase().startsWith("ja"));
+}
+
+function getSettingLabels() {
+  if (!isJapaneseLocale()) {
+    return {
+      panel: "Panel",
+      viewer: "Viewer",
+      placement: "Placement",
+      placementTooltip: "Choose where the floating Media Feed panel appears.",
+      bottom: "Bottom",
+      top: "Top",
+      left: "Left",
+      right: "Right",
+      showPrompts: "Show prompts in viewer",
+      showPromptsTooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
+      fitMedia: "Fit media to viewer",
+      fitMediaTooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
+    };
+  }
+
+  return {
+    panel: "パネル",
+    viewer: "ビューア",
+    placement: "配置",
+    placementTooltip: "フローティング表示時の Media Feed パネルの位置を選びます。",
+    bottom: "下",
+    top: "上",
+    left: "左",
+    right: "右",
+    showPrompts: "ビューアにメタデータを表示",
+    showPromptsTooltip: "埋め込みメタデータを読み取り、ビューアにプロンプト、ネガティブプロンプト、Seed を表示します。",
+    fitMedia: "メディアをビューアに合わせる",
+    fitMediaTooltip: "小さい画像や動画を、全体がビューア内に収まる最大サイズで表示します。",
+  };
+}
+
+const SETTING_LABELS = getSettingLabels();
 
 function getExtension(filename) {
   const cleanName = String(filename || "").split(/[?#]/, 1)[0];
@@ -288,17 +334,19 @@ function loadSavedPlacement() {
 
 function loadSavedShowPrompts() {
   try {
-    return normalizeBooleanSetting(window.localStorage?.getItem(STORAGE_KEYS.showPrompts));
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.showPrompts);
+    return savedValue === null ? DEFAULT_SHOW_PROMPTS : normalizeBooleanSetting(savedValue);
   } catch {
-    return false;
+    return DEFAULT_SHOW_PROMPTS;
   }
 }
 
 function loadSavedScaleViewerMedia() {
   try {
-    return normalizeBooleanSetting(window.localStorage?.getItem(STORAGE_KEYS.scaleViewerMedia));
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.scaleViewerMedia);
+    return savedValue === null ? DEFAULT_SCALE_VIEWER_MEDIA : normalizeBooleanSetting(savedValue);
   } catch {
-    return false;
+    return DEFAULT_SCALE_VIEWER_MEDIA;
   }
 }
 
@@ -2988,17 +3036,17 @@ app.registerExtension({
   settings: [
     {
       id: "comfyui-media-feed.placement",
-      name: "Placement",
+      name: SETTING_LABELS.placement,
       type: "combo",
       defaultValue: loadSavedPlacement(),
       options: [
-        { text: "Bottom", value: "bottom" },
-        { text: "Top", value: "top" },
-        { text: "Left", value: "left" },
-        { text: "Right", value: "right" },
+        { text: SETTING_LABELS.bottom, value: "bottom" },
+        { text: SETTING_LABELS.top, value: "top" },
+        { text: SETTING_LABELS.left, value: "left" },
+        { text: SETTING_LABELS.right, value: "right" },
       ],
-      category: ["Media Feed", "Panel", "Placement"],
-      tooltip: "Choose where the floating Media Feed panel appears.",
+      category: ["Media Feed", SETTING_LABELS.panel, SETTING_LABELS.placement],
+      tooltip: SETTING_LABELS.placementTooltip,
       onChange: (newValue) => {
         placementSettingSeen = true;
         setPlacement(newValue);
@@ -3006,11 +3054,11 @@ app.registerExtension({
     },
     {
       id: "comfyui-media-feed.show-prompts",
-      name: "Show prompts in viewer",
+      name: SETTING_LABELS.showPrompts,
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
-      category: ["Media Feed", "Viewer", "Show prompts in viewer"],
-      tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
+      category: ["Media Feed", SETTING_LABELS.viewer, SETTING_LABELS.showPrompts],
+      tooltip: SETTING_LABELS.showPromptsTooltip,
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);
@@ -3018,11 +3066,11 @@ app.registerExtension({
     },
     {
       id: "comfyui-media-feed.scale-viewer-media",
-      name: "Fit media to viewer",
+      name: SETTING_LABELS.fitMedia,
       type: "boolean",
       defaultValue: loadSavedScaleViewerMedia(),
-      category: ["Media Feed", "Viewer", "Fit media to viewer"],
-      tooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
+      category: ["Media Feed", SETTING_LABELS.viewer, SETTING_LABELS.fitMedia],
+      tooltip: SETTING_LABELS.fitMediaTooltip,
       onChange: (newValue) => {
         scaleViewerMediaSettingSeen = true;
         setScaleViewerMedia(newValue);
