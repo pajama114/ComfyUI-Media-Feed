@@ -23,6 +23,7 @@ const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
   showPrompts: "comfyui-media-feed:show-prompts",
+  scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
 };
 const ICONS = {
   chevronLeft: `
@@ -82,6 +83,7 @@ const state = {
   itemWidth: DEFAULT_ITEM_WIDTH,
   placement: DEFAULT_PLACEMENT,
   showPrompts: false,
+  scaleViewerMedia: false,
 };
 
 const decodedImageCache = new Map();
@@ -91,6 +93,7 @@ let floatingView = null;
 let setupComplete = false;
 let placementSettingSeen = false;
 let promptSettingSeen = false;
+let scaleViewerMediaSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -271,6 +274,10 @@ function applyShowPrompts(nextValue) {
   state.showPrompts = normalizeBooleanSetting(nextValue);
 }
 
+function applyScaleViewerMedia(nextValue) {
+  state.scaleViewerMedia = normalizeBooleanSetting(nextValue);
+}
+
 function loadSavedPlacement() {
   try {
     return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -287,6 +294,14 @@ function loadSavedShowPrompts() {
   }
 }
 
+function loadSavedScaleViewerMedia() {
+  try {
+    return normalizeBooleanSetting(window.localStorage?.getItem(STORAGE_KEYS.scaleViewerMedia));
+  } catch {
+    return false;
+  }
+}
+
 function loadSettings() {
   try {
     const savedHeight = window.localStorage?.getItem(STORAGE_KEYS.itemHeight);
@@ -297,6 +312,7 @@ function loadSettings() {
 
   if (!placementSettingSeen) applyPlacement(loadSavedPlacement());
   if (!promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
+  if (!scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
 }
 
 function saveThumbnailHeight() {
@@ -323,6 +339,14 @@ function saveShowPrompts() {
   }
 }
 
+function saveScaleViewerMedia() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.scaleViewerMedia, String(state.scaleViewerMedia));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
   saveThumbnailHeight();
@@ -333,6 +357,12 @@ function setShowPrompts(nextValue) {
   applyShowPrompts(nextValue);
   saveShowPrompts();
   updateViewerPromptPanel();
+}
+
+function setScaleViewerMedia(nextValue) {
+  applyScaleViewerMedia(nextValue);
+  saveScaleViewerMedia();
+  syncViewerScaleMedia();
 }
 
 function setPlacement(nextPlacement) {
@@ -817,10 +847,12 @@ function ensureStyles() {
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       gap: 14px;
       place-items: center;
       min-width: 0;
       min-height: 0;
+      overflow: hidden;
       padding: 14px;
     }
 
@@ -838,6 +870,7 @@ function ensureStyles() {
       height: 100%;
       min-width: 0;
       min-height: 0;
+      overflow: hidden;
     }
 
     .cmf-viewer-media {
@@ -847,13 +880,23 @@ function ensureStyles() {
       height: 100%;
       min-width: 0;
       min-height: 0;
+      overflow: hidden;
     }
 
     .cmf-viewer-media img,
     .cmf-viewer-media video {
+      display: block;
+      min-width: 0;
+      min-height: 0;
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+    }
+
+    .cmf-viewer[data-scale-media="true"] .cmf-viewer-media img,
+    .cmf-viewer[data-scale-media="true"] .cmf-viewer-media video {
+      width: 100%;
+      height: 100%;
     }
 
     .cmf-viewer-media audio {
@@ -1063,6 +1106,7 @@ function ensureViewer() {
   const root = document.createElement("div");
   root.className = "cmf-viewer";
   root.tabIndex = -1;
+  root.dataset.scaleMedia = String(state.scaleViewerMedia);
   root.innerHTML = `
     <div class="cmf-viewer-bar">
       <div class="cmf-viewer-title"></div>
@@ -1104,11 +1148,7 @@ function ensureViewer() {
     </div>
   `;
 
-  root.addEventListener("click", (event) => {
-    if (event.target === root || event.target === viewer?.body || event.target === viewer?.main || event.target === viewer?.media) {
-      closeViewer();
-    }
-  });
+  root.addEventListener("click", handleViewerBackdropClick);
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
@@ -1149,6 +1189,11 @@ function ensureViewer() {
     index: -1,
   };
   return viewer;
+}
+
+function syncViewerScaleMedia() {
+  if (!viewer) return;
+  viewer.root.dataset.scaleMedia = String(state.scaleViewerMedia);
 }
 
 function closeViewer() {
@@ -1260,6 +1305,59 @@ function handleViewerWheel(event) {
 
   const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
   showViewerRelative(dominantDelta > 0 ? 1 : -1);
+}
+
+function viewerMediaNaturalSize(element) {
+  if (element instanceof HTMLImageElement) {
+    return { width: element.naturalWidth, height: element.naturalHeight };
+  }
+
+  if (element instanceof HTMLVideoElement) {
+    return { width: element.videoWidth, height: element.videoHeight };
+  }
+
+  return { width: 0, height: 0 };
+}
+
+function isInsideContainedMedia(event, element) {
+  const rect = element.getBoundingClientRect();
+  const natural = viewerMediaNaturalSize(element);
+  if (!rect.width || !rect.height || !natural.width || !natural.height) return true;
+
+  const scale = Math.min(rect.width / natural.width, rect.height / natural.height);
+  const width = natural.width * scale;
+  const height = natural.height * scale;
+  const left = rect.left + (rect.width - width) / 2;
+  const top = rect.top + (rect.height - height) / 2;
+  const right = left + width;
+  const bottom = top + height;
+  const tolerance = 1;
+
+  return event.clientX >= left - tolerance
+    && event.clientX <= right + tolerance
+    && event.clientY >= top - tolerance
+    && event.clientY <= bottom + tolerance;
+}
+
+function handleViewerBackdropClick(event) {
+  if (event.target === viewer?.root || event.target === viewer?.body || event.target === viewer?.main || event.target === viewer?.media) {
+    closeViewer();
+    return;
+  }
+
+  if (!state.scaleViewerMedia || !viewer?.media) return;
+
+  const element = event.target instanceof Element
+    ? event.target.closest(".cmf-viewer-media img, .cmf-viewer-media video")
+    : null;
+  if (!element || !viewer.media.contains(element)) return;
+
+  if (element instanceof HTMLVideoElement && element.controls) {
+    const rect = element.getBoundingClientRect();
+    if (event.clientY >= rect.bottom - 48) return;
+  }
+
+  if (!isInsideContainedMedia(event, element)) closeViewer();
 }
 
 async function renderViewerItem(item, thumbnail) {
@@ -2912,10 +3010,22 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
       category: ["Media Feed", "Viewer", "Show prompts in viewer"],
-      tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred positive and negative prompts when viewing media.",
+      tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.scale-viewer-media",
+      name: "Fit media to viewer",
+      type: "boolean",
+      defaultValue: loadSavedScaleViewerMedia(),
+      category: ["Media Feed", "Viewer", "Fit media to viewer"],
+      tooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
+      onChange: (newValue) => {
+        scaleViewerMediaSettingSeen = true;
+        setScaleViewerMedia(newValue);
       },
     },
   ],
