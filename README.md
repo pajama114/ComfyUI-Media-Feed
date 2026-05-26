@@ -97,7 +97,7 @@ aac, flac, m4a, mp3, ogg, opus, wav
   `subfolder`, and `type` in their execution payload.
 - The extension uses ComfyUI's local `/view` route. Remote or hosted setups may
   need additional adapter work.
-- Prompt display reads embedded PNG, GIF, MP4, and WebM metadata and may not infer
+- Prompt display reads embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, and Opus metadata and may not infer
   prompts from every custom workflow.
 
 ## Registry Checklist

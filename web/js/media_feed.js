@@ -64,6 +64,7 @@ const ICONS = {
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "opus", "wav"]);
+const PROMPT_AUDIO_EXTENSIONS = new Set(["flac", "m4a", "mp3", "ogg", "opus"]);
 
 const state = {
   items: [],
@@ -1231,7 +1232,7 @@ function updateViewerPromptPanel() {
   if (!viewer || viewer.root.dataset.open !== "true") return;
 
   const item = viewer.item;
-  const shouldShow = state.showPrompts && (item?.kind === "image" || item?.kind === "video");
+  const shouldShow = state.showPrompts && (item?.kind === "image" || item?.kind === "video" || item?.kind === "audio");
   viewer.promptRequestId++;
   viewer.body.dataset.prompts = String(shouldShow);
   viewer.promptPanel.hidden = !shouldShow;
@@ -1320,11 +1321,30 @@ async function loadPromptMetadata(item) {
     return rememberPromptMetadata(item.key, result);
   }
 
+  if (PROMPT_AUDIO_EXTENSIONS.has(extension)) {
+    const response = await fetch(item.url);
+    if (!response.ok) throw new Error(`Failed to fetch audio metadata: ${response.status}`);
+
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_METADATA_BYTES) {
+      return rememberPromptMetadata(item.key, {
+        positive: "",
+        negative: "",
+        status: "Media is too large to scan prompt metadata.",
+      });
+    }
+
+    const bytes = new Uint8Array(buffer);
+    const chunks = parseAudioTextMetadata(bytes, extension);
+    const result = extractPromptMetadata(chunks);
+    return rememberPromptMetadata(item.key, result);
+  }
+
   {
     return rememberPromptMetadata(item.key, {
       positive: "",
       negative: "",
-      status: "Embedded prompt reading currently supports PNG, GIF, MP4, and WebM metadata.",
+      status: "Embedded prompt reading currently supports PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, and Opus metadata.",
     });
   }
 }
@@ -1338,12 +1358,38 @@ function readUint32(bytes, offset) {
   ) >>> 0;
 }
 
+function readUint32LittleEndian(bytes, offset) {
+  return (
+    bytes[offset] +
+    bytes[offset + 1] * 0x100 +
+    bytes[offset + 2] * 0x10000 +
+    bytes[offset + 3] * 0x1000000
+  ) >>> 0;
+}
+
+function readSyncsafeUint28(bytes, offset) {
+  return (
+    bytes[offset] * 0x200000 +
+    bytes[offset + 1] * 0x4000 +
+    bytes[offset + 2] * 0x80 +
+    bytes[offset + 3]
+  ) >>> 0;
+}
+
 function decodeLatin1(bytes) {
   return new TextDecoder("latin1").decode(bytes);
 }
 
 function decodeUtf8(bytes) {
   return new TextDecoder("utf-8").decode(bytes);
+}
+
+function decodeUtf16(bytes, bigEndian = false) {
+  try {
+    return new TextDecoder(bigEndian ? "utf-16be" : "utf-16le").decode(bytes);
+  } catch {
+    return decodeUtf8(bytes);
+  }
 }
 
 function findNullByte(bytes, start, end = bytes.length) {
@@ -1638,6 +1684,205 @@ function parseWebmTextMetadata(bytes) {
   if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
   if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
   return chunks;
+}
+
+function setMetadataText(chunks, key, value) {
+  const normalizedKey = String(key || "").trim();
+  const text = String(value || "").trim();
+  if (!normalizedKey || !text) return;
+
+  chunks[normalizedKey] = text;
+
+  const lowerKey = normalizedKey.toLowerCase();
+  if (lowerKey === "prompt") chunks.prompt = text;
+  if (lowerKey === "workflow") chunks.workflow = text;
+
+  const parsed = parseJsonMetadata(text) || findJsonMetadataObject(text);
+  if (!parsed || typeof parsed !== "object") return;
+  if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
+  if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
+  if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
+  if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+}
+
+function decodeId3Text(bytes, encoding) {
+  if (encoding === 0) return decodeLatin1(bytes).replace(/\0+$/g, "");
+  if (encoding === 3) return decodeUtf8(bytes).replace(/\0+$/g, "");
+
+  if (encoding === 1 && bytes.length >= 2) {
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+      return decodeUtf16(bytes.subarray(2), true).replace(/\0+$/g, "");
+    }
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+      return decodeUtf16(bytes.subarray(2), false).replace(/\0+$/g, "");
+    }
+  }
+
+  return decodeUtf16(bytes, encoding === 2).replace(/\0+$/g, "");
+}
+
+function findId3TextTerminator(bytes, encoding) {
+  if (encoding === 1 || encoding === 2) {
+    for (let index = 0; index + 1 < bytes.length; index += 2) {
+      if (bytes[index] === 0 && bytes[index + 1] === 0) return index;
+    }
+    return -1;
+  }
+
+  return findNullByte(bytes, 0);
+}
+
+function parseId3TextMetadata(bytes) {
+  const chunks = {};
+  if (bytes.length < 10 || decodeLatin1(bytes.subarray(0, 3)) !== "ID3") return chunks;
+
+  const version = bytes[3];
+  const flags = bytes[5];
+  const tagEnd = Math.min(bytes.length, 10 + readSyncsafeUint28(bytes, 6));
+  let offset = 10;
+
+  if (flags & 0x40) {
+    if (version === 4 && offset + 4 <= tagEnd) {
+      offset += readSyncsafeUint28(bytes, offset);
+    } else if (version === 3 && offset + 4 <= tagEnd) {
+      offset += readUint32(bytes, offset) + 4;
+    }
+  }
+
+  while (offset + 10 <= tagEnd) {
+    const frameId = decodeLatin1(bytes.subarray(offset, offset + 4));
+    if (!/^[A-Z0-9]{4}$/.test(frameId)) break;
+
+    const frameSize = version === 4
+      ? readSyncsafeUint28(bytes, offset + 4)
+      : readUint32(bytes, offset + 4);
+    const dataStart = offset + 10;
+    const dataEnd = dataStart + frameSize;
+    if (!frameSize || dataEnd > tagEnd) break;
+
+    const data = bytes.subarray(dataStart, dataEnd);
+    if (frameId === "TXXX" && data.length > 1) {
+      const encoding = data[0];
+      const payload = data.subarray(1);
+      const separator = findId3TextTerminator(payload, encoding);
+      const terminatorSize = encoding === 1 || encoding === 2 ? 2 : 1;
+      const descriptionBytes = separator === -1 ? payload : payload.subarray(0, separator);
+      const valueBytes = separator === -1 ? new Uint8Array() : payload.subarray(separator + terminatorSize);
+      const description = decodeId3Text(descriptionBytes, encoding);
+      const value = decodeId3Text(valueBytes, encoding);
+      setMetadataText(chunks, description, value);
+    } else if (frameId[0] === "T" && data.length > 1) {
+      setMetadataText(chunks, frameId, decodeId3Text(data.subarray(1), data[0]));
+    }
+
+    offset = dataEnd;
+  }
+
+  return chunks;
+}
+
+function parseVorbisCommentData(bytes, offset = 0) {
+  const chunks = {};
+  if (offset + 8 > bytes.length) return chunks;
+
+  const vendorLength = readUint32LittleEndian(bytes, offset);
+  let cursor = offset + 4 + vendorLength;
+  if (cursor + 4 > bytes.length) return chunks;
+
+  const commentCount = readUint32LittleEndian(bytes, cursor);
+  cursor += 4;
+
+  for (let index = 0; index < commentCount && cursor + 4 <= bytes.length; index++) {
+    const length = readUint32LittleEndian(bytes, cursor);
+    cursor += 4;
+    if (cursor + length > bytes.length) break;
+
+    const comment = decodeUtf8(bytes.subarray(cursor, cursor + length));
+    cursor += length;
+    const split = comment.indexOf("=");
+    if (split > 0) setMetadataText(chunks, comment.slice(0, split), comment.slice(split + 1));
+  }
+
+  return chunks;
+}
+
+function parseFlacTextMetadata(bytes) {
+  const chunks = {};
+  if (bytes.length < 4 || decodeLatin1(bytes.subarray(0, 4)) !== "fLaC") return chunks;
+
+  let offset = 4;
+  while (offset + 4 <= bytes.length) {
+    const header = bytes[offset];
+    const isLast = Boolean(header & 0x80);
+    const type = header & 0x7f;
+    const length = bytes[offset + 1] * 0x10000 + bytes[offset + 2] * 0x100 + bytes[offset + 3];
+    const dataStart = offset + 4;
+    const dataEnd = dataStart + length;
+    if (dataEnd > bytes.length) break;
+
+    if (type === 4) {
+      Object.assign(chunks, parseVorbisCommentData(bytes.subarray(dataStart, dataEnd)));
+      break;
+    }
+
+    offset = dataEnd;
+    if (isLast) break;
+  }
+
+  return chunks;
+}
+
+function parseOggTextMetadata(bytes) {
+  let offset = 0;
+  let packetParts = [];
+
+  while (offset + 27 <= bytes.length) {
+    if (decodeLatin1(bytes.subarray(offset, offset + 4)) !== "OggS") break;
+
+    const segmentCount = bytes[offset + 26];
+    const segmentTableStart = offset + 27;
+    const dataStart = segmentTableStart + segmentCount;
+    if (dataStart > bytes.length) break;
+
+    const segments = bytes.subarray(segmentTableStart, dataStart);
+    let cursor = dataStart;
+    for (const segmentLength of segments) {
+      if (cursor + segmentLength > bytes.length) return {};
+      packetParts.push(bytes.subarray(cursor, cursor + segmentLength));
+      cursor += segmentLength;
+
+      if (segmentLength < 255) {
+        const total = packetParts.reduce((sum, part) => sum + part.length, 0);
+        const packet = new Uint8Array(total);
+        let writeOffset = 0;
+        for (const part of packetParts) {
+          packet.set(part, writeOffset);
+          writeOffset += part.length;
+        }
+        packetParts = [];
+
+        if (packet.length >= 8 && decodeLatin1(packet.subarray(0, 8)) === "OpusTags") {
+          return parseVorbisCommentData(packet, 8);
+        }
+
+        if (packet.length >= 7 && packet[0] === 3 && decodeLatin1(packet.subarray(1, 7)) === "vorbis") {
+          return parseVorbisCommentData(packet, 7);
+        }
+      }
+    }
+
+    offset = cursor;
+  }
+
+  return {};
+}
+
+function parseAudioTextMetadata(bytes, extension) {
+  if (extension === "mp3") return parseId3TextMetadata(bytes);
+  if (extension === "flac") return parseFlacTextMetadata(bytes);
+  if (extension === "opus" || extension === "ogg") return parseOggTextMetadata(bytes);
+  if (extension === "m4a") return parseMp4TextMetadata(bytes);
+  return {};
 }
 
 function parseJsonMetadata(value) {
@@ -2331,7 +2576,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
       category: ["Media Feed", "Viewer", "Show prompts in viewer"],
-      tooltip: "Read embedded PNG, GIF, MP4, or WebM metadata and show inferred positive and negative prompts when viewing media.",
+      tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred positive and negative prompts when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);
