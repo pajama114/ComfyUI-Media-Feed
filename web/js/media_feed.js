@@ -939,6 +939,11 @@ function ensureStyles() {
       overflow-wrap: anywhere;
     }
 
+    .cmf-seed-text {
+      min-height: 0;
+      max-height: 16vh;
+    }
+
     @media (max-width: 860px) {
       .cmf-viewer-body[data-prompts="true"] {
         grid-template-columns: minmax(0, 1fr);
@@ -1088,6 +1093,13 @@ function ensureViewer() {
           </div>
           <pre class="cmf-prompt-text cmf-prompt-negative"></pre>
         </section>
+        <section class="cmf-prompt-section">
+          <div class="cmf-prompt-section-header">
+            <h2 class="cmf-prompt-heading">Seed</h2>
+            <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-seed" type="button" title="Copy seed" aria-label="Copy seed">${ICONS.copy}</button>
+          </div>
+          <pre class="cmf-prompt-text cmf-seed-text"></pre>
+        </section>
       </aside>
     </div>
   `;
@@ -1098,6 +1110,7 @@ function ensureViewer() {
     }
   });
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
+  root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
   root.addEventListener("keydown", handleViewerControlKeydown, true);
@@ -1124,6 +1137,7 @@ function ensureViewer() {
     media: root.querySelector(".cmf-viewer-media"),
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
+    promptSeed: root.querySelector(".cmf-seed-text"),
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
     openLink: root.querySelector(".cmf-open-link"),
@@ -1305,6 +1319,7 @@ async function renderViewerItem(item, thumbnail) {
 function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
   viewer.promptStatus.textContent = status;
+  viewer.promptSeed.textContent = "";
   viewer.promptPositive.textContent = "";
   viewer.promptNegative.textContent = "";
 }
@@ -1312,6 +1327,7 @@ function resetViewerPromptPanel(status = "") {
 function renderPromptMetadata(result) {
   if (!viewer) return;
   viewer.promptStatus.textContent = result.status || "";
+  viewer.promptSeed.textContent = result.seed || "(not found)";
   viewer.promptPositive.textContent = result.positive || "(not found)";
   viewer.promptNegative.textContent = result.negative || "(not found)";
 }
@@ -1341,6 +1357,7 @@ function updateViewerPromptPanel() {
     .catch(() => {
       if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
       renderPromptMetadata({
+        seed: "",
         positive: "",
         negative: "",
         status: "Could not read embedded prompt metadata.",
@@ -1363,7 +1380,7 @@ function rememberPromptMetadata(key, result) {
 
 async function loadPromptMetadata(item) {
   if (!item?.key) {
-    return { positive: "", negative: "", status: "No media item selected." };
+    return { seed: "", positive: "", negative: "", status: "No media item selected." };
   }
 
   if (promptMetadataCache.has(item.key)) return promptMetadataCache.get(item.key);
@@ -1376,6 +1393,7 @@ async function loadPromptMetadata(item) {
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_METADATA_BYTES) {
       return rememberPromptMetadata(item.key, {
+        seed: "",
         positive: "",
         negative: "",
         status: "Media is too large to scan prompt metadata.",
@@ -1395,6 +1413,7 @@ async function loadPromptMetadata(item) {
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_METADATA_BYTES) {
       return rememberPromptMetadata(item.key, {
+        seed: "",
         positive: "",
         negative: "",
         status: "Media is too large to scan prompt metadata.",
@@ -1416,6 +1435,7 @@ async function loadPromptMetadata(item) {
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_METADATA_BYTES) {
       return rememberPromptMetadata(item.key, {
+        seed: "",
         positive: "",
         negative: "",
         status: "Media is too large to scan prompt metadata.",
@@ -1430,6 +1450,7 @@ async function loadPromptMetadata(item) {
 
   {
     return rememberPromptMetadata(item.key, {
+      seed: "",
       positive: "",
       negative: "",
       status: "Embedded prompt reading currently supports PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, and Opus metadata.",
@@ -1986,18 +2007,22 @@ function parseJsonMetadata(value) {
 function extractPromptMetadata(chunks) {
   const prompt = parseJsonMetadata(chunks.prompt || chunks.Prompt);
   const workflow = parseJsonMetadata(chunks.workflow || chunks.Workflow);
+  const fromChunks = extractFromLooseMetadata(chunks);
   const fromPrompt = extractFromPromptGraph(prompt);
   const fromWorkflow = extractFromWorkflowGraph(workflow);
+  const seed = fromPrompt.seed || fromWorkflow.seed || fromChunks.seed || "";
   const positive = fromPrompt.positive || fromWorkflow.positive || "";
   const negative = fromPrompt.negative || fromWorkflow.negative || "";
-  const source = fromPrompt.source || fromWorkflow.source || "";
+  const source = fromPrompt.source || fromWorkflow.source || fromChunks.source || "";
+  const found = seed || positive || negative;
 
   return {
+    seed,
     positive,
     negative,
-    status: positive || negative
+    status: found
       ? `Loaded embedded ${source || "prompt"} metadata.`
-      : "No positive/negative prompt found in embedded metadata.",
+      : "No prompt or seed metadata found in embedded metadata.",
   };
 }
 
@@ -2017,6 +2042,86 @@ function uniqueNonEmpty(values) {
 
 function joinPrompts(values) {
   return uniqueNonEmpty(values).join("\n\n");
+}
+
+function isSeedFieldName(name) {
+  const normalized = String(name || "").replace(/[_-]+/g, " ").toLowerCase();
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  if (!parts.includes("seed")) return false;
+  return !/(behavior|mode|control|action|randomize|fixed)/i.test(normalized);
+}
+
+function normalizeSeedValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value !== "string") return "";
+
+  const text = value.trim();
+  if (!text || text.length > 100) return "";
+  return /^[+-]?\d+(?:\.\d+)?$/.test(text) ? text : "";
+}
+
+function collectSeedValues(value, results = []) {
+  const normalized = normalizeSeedValue(value);
+  if (normalized) {
+    results.push(normalized);
+  } else if (Array.isArray(value) && !isPromptLink(value)) {
+    for (const child of value) collectSeedValues(child, results);
+  } else if (value && typeof value === "object") {
+    for (const key of ["value", "default", "seed"]) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) collectSeedValues(value[key], results);
+    }
+  }
+
+  return uniqueNonEmpty(results);
+}
+
+function formatSeedEntries(entries) {
+  const seedEntries = entries.filter((entry) => entry?.value);
+  const uniqueValues = uniqueNonEmpty(seedEntries.map((entry) => entry.value));
+  if (uniqueValues.length <= 1) return uniqueValues[0] || "";
+
+  const seen = new Set();
+  const lines = [];
+  for (const entry of seedEntries) {
+    const label = String(entry.label || "Seed").trim() || "Seed";
+    const line = `${label}: ${entry.value}`;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    lines.push(line);
+  }
+
+  return lines.join("\n");
+}
+
+function extractSeedEntriesFromText(text, label) {
+  if (typeof text !== "string" || !text.trim() || text.length > 200000) return [];
+
+  const entries = [];
+  const pattern = /(?:^|[,;\n\r])\s*(seed|noise[_\s-]*seed|random[_\s-]*seed|rand[_\s-]*seed)\s*:\s*([+-]?\d+(?:\.\d+)?)/gi;
+  for (const match of text.matchAll(pattern)) {
+    entries.push({ label: `${label || "Metadata"} ${match[1]}`, value: match[2] });
+  }
+  return entries;
+}
+
+function extractFromLooseMetadata(chunks) {
+  const entries = [];
+  for (const [key, value] of Object.entries(chunks || {})) {
+    if (isSeedFieldName(key)) {
+      for (const seed of collectSeedValues(value)) entries.push({ label: key, value: seed });
+    }
+
+    const lowerKey = String(key || "").toLowerCase();
+    if (/parameters|settings|comment|description/.test(lowerKey)) {
+      entries.push(...extractSeedEntriesFromText(value, key));
+    }
+  }
+
+  return {
+    seed: formatSeedEntries(entries),
+    source: entries.length ? "metadata" : "",
+  };
 }
 
 function isPromptLink(value) {
@@ -2080,6 +2185,61 @@ function promptNodeHasPolarityInputs(node) {
   return names.has("positive") && names.has("negative");
 }
 
+function promptNodeLabel(node, nodeId) {
+  return String(node?.title || node?.properties?.["Node name for S&R"] || promptNodeClass(node) || `Node ${nodeId}`).trim();
+}
+
+function collectLinkedPromptSeedValues(prompt, reference, visited = new Set()) {
+  if (!prompt || !isPromptLink(reference)) return [];
+
+  const nodeId = String(reference[0]);
+  if (visited.has(nodeId)) return [];
+  visited.add(nodeId);
+
+  const node = prompt[nodeId];
+  const inputs = node?.inputs || {};
+  if (!node) return [];
+
+  const seeds = [];
+  const seedishNode = /seed|primitive|integer|number/i.test(promptNodeClass(node));
+  for (const [name, value] of Object.entries(inputs)) {
+    const valueName = String(name || "").toLowerCase();
+    const valueIsSeed = isSeedFieldName(name) || (seedishNode && /^(value|int|integer|number)$/.test(valueName));
+    if (valueIsSeed && !isPromptLink(value)) seeds.push(...collectSeedValues(value));
+
+    if (isPromptLink(value)) {
+      seeds.push(...collectLinkedPromptSeedValues(prompt, value, visited));
+    } else if (Array.isArray(value)) {
+      for (const child of value) {
+        if (isPromptLink(child)) seeds.push(...collectLinkedPromptSeedValues(prompt, child, visited));
+      }
+    }
+  }
+
+  if (seedishNode) seeds.push(...collectSeedValues(node.widgets_values || []));
+  return uniqueNonEmpty(seeds);
+}
+
+function collectPromptSeedEntries(prompt) {
+  const entries = [];
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return entries;
+
+  for (const [nodeId, node] of Object.entries(prompt)) {
+    const inputs = node?.inputs || {};
+    const nodeLabel = promptNodeLabel(node, nodeId);
+    for (const [name, value] of Object.entries(inputs)) {
+      if (!isSeedFieldName(name)) continue;
+
+      const seeds = isPromptLink(value)
+        ? collectLinkedPromptSeedValues(prompt, value, new Set())
+        : collectSeedValues(value);
+      for (const seed of seeds) entries.push({ label: `${nodeLabel}.${name}`, value: seed });
+    }
+  }
+
+  return entries;
+}
+
 function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceText = false, polarity = "") {
   if (!prompt || !isPromptLink(reference)) return [];
 
@@ -2124,6 +2284,7 @@ function extractFromPromptGraph(prompt) {
 
   const positives = [];
   const negatives = [];
+  const seedEntries = collectPromptSeedEntries(prompt);
 
   for (const node of Object.values(prompt)) {
     const inputs = node?.inputs || {};
@@ -2135,9 +2296,10 @@ function extractFromPromptGraph(prompt) {
   }
 
   return {
+    seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
-    source: positives.length || negatives.length ? "prompt" : "",
+    source: seedEntries.length || positives.length || negatives.length ? "prompt" : "",
   };
 }
 
@@ -2212,6 +2374,90 @@ function workflowNodeHasPolarityInputs(node) {
   return names.has("positive") && names.has("negative");
 }
 
+function workflowNodeLabel(node) {
+  return String(node?.title || node?.properties?.["Node name for S&R"] || workflowNodeType(node) || `Node ${workflowNodeId(node)}`).trim();
+}
+
+function collectWorkflowPropertySeedEntries(object, label) {
+  const entries = [];
+  if (!object || typeof object !== "object" || Array.isArray(object)) return entries;
+
+  for (const [key, value] of Object.entries(object)) {
+    if (!isSeedFieldName(key)) continue;
+    for (const seed of collectSeedValues(value)) entries.push({ label: `${label}.${key}`, value: seed });
+  }
+
+  return entries;
+}
+
+function collectLinkedWorkflowSeedValues(maps, nodeId, visited = new Set(), forceValue = false) {
+  if (!nodeId || visited.has(String(nodeId))) return [];
+  visited.add(String(nodeId));
+
+  const node = maps.nodeMap.get(String(nodeId));
+  if (!node) return [];
+
+  const seeds = [];
+  const seedishNode = /seed|primitive|integer|number/i.test(workflowNodeType(node));
+  const singleWidgetValue = forceValue && Array.isArray(node.widgets_values) && node.widgets_values.length === 1;
+  if (seedishNode || singleWidgetValue) seeds.push(...collectSeedValues(node.widgets_values || []));
+
+  for (const input of node.inputs || []) {
+    const inputName = String(input?.name || "");
+    const valueIsSeed = isSeedFieldName(inputName);
+    if (valueIsSeed) seeds.push(...collectSeedValues(input?.value ?? input?.default ?? input?.widget?.value));
+
+    if (input?.link !== undefined && input?.link !== null && (forceValue || seedishNode || valueIsSeed)) {
+      const origin = workflowLinkOrigin(maps, input.link);
+      seeds.push(...collectLinkedWorkflowSeedValues(maps, origin?.originId, visited, forceValue || valueIsSeed));
+    }
+  }
+
+  return uniqueNonEmpty(seeds);
+}
+
+function collectWorkflowSeedEntries(workflow, maps = buildWorkflowMaps(workflow)) {
+  const entries = [];
+  if (!workflow || typeof workflow !== "object") return entries;
+
+  for (const node of maps.nodes) {
+    const nodeLabel = workflowNodeLabel(node);
+    entries.push(...collectWorkflowPropertySeedEntries(node.properties, nodeLabel));
+
+    for (const input of node.inputs || []) {
+      const inputName = String(input?.name || "");
+      if (!isSeedFieldName(inputName)) continue;
+
+      const directSeeds = collectSeedValues(input?.value ?? input?.default ?? input?.widget?.value);
+      for (const seed of directSeeds) entries.push({ label: `${nodeLabel}.${inputName}`, value: seed });
+
+      if (input?.link === undefined || input?.link === null) continue;
+      const origin = workflowLinkOrigin(maps, input.link);
+      for (const seed of collectLinkedWorkflowSeedValues(maps, origin?.originId, new Set(), true)) {
+        entries.push({ label: `${nodeLabel}.${inputName}`, value: seed });
+      }
+    }
+
+    if (Array.isArray(node.widgets)) {
+      node.widgets.forEach((widget, index) => {
+        const widgetName = String(widget?.name || widget?.label || "");
+        if (!isSeedFieldName(widgetName)) return;
+        const value = widget?.value ?? node.widgets_values?.[index];
+        for (const seed of collectSeedValues(value)) entries.push({ label: `${nodeLabel}.${widgetName}`, value: seed });
+      });
+    }
+
+    if (Array.isArray(node.widgets_values)) {
+      for (const value of node.widgets_values) {
+        if (!value || typeof value !== "object") continue;
+        entries.push(...collectWorkflowPropertySeedEntries(value, nodeLabel));
+      }
+    }
+  }
+
+  return entries;
+}
+
 function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "") {
   if (!nodeId || visited.has(nodeId)) return [];
   visited.add(nodeId);
@@ -2255,6 +2501,7 @@ function extractFromWorkflowGraph(workflow) {
   const maps = buildWorkflowMaps(workflow);
   const positives = [];
   const negatives = [];
+  const seedEntries = collectWorkflowSeedEntries(workflow, maps);
 
   for (const node of maps.nodes) {
     const positiveLink = workflowInputLink(node, "positive");
@@ -2268,9 +2515,10 @@ function extractFromWorkflowGraph(workflow) {
   }
 
   return {
+    seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
-    source: positives.length || negatives.length ? "workflow" : "",
+    source: seedEntries.length || positives.length || negatives.length ? "workflow" : "",
   };
 }
 
