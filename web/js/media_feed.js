@@ -819,9 +819,19 @@ function ensureStyles() {
     }
 
     .cmf-viewer-body[data-prompts="true"] {
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 32vw);
+      grid-template-columns: minmax(0, 1fr) clamp(260px, 26vw, 360px);
       align-items: stretch;
       place-items: stretch;
+    }
+
+    .cmf-viewer-main {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
     }
 
     .cmf-viewer-media {
@@ -850,7 +860,6 @@ function ensureStyles() {
       gap: 10px;
       width: 100%;
       min-width: 0;
-      max-width: 460px;
       min-height: 0;
       overflow: auto;
       padding: 12px;
@@ -862,6 +871,12 @@ function ensureStyles() {
 
     .cmf-prompt-panel[hidden] {
       display: none;
+    }
+
+    .cmf-prompt-panel-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
     }
 
     .cmf-prompt-status {
@@ -902,7 +917,7 @@ function ensureStyles() {
     @media (max-width: 860px) {
       .cmf-viewer-body[data-prompts="true"] {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr) minmax(150px, 32vh);
+        grid-template-rows: minmax(0, 1fr) minmax(180px, 34vh);
       }
 
       .cmf-prompt-panel {
@@ -911,7 +926,7 @@ function ensureStyles() {
     }
 
     .cmf-nav-button {
-      position: fixed;
+      position: absolute;
       top: 50%;
       z-index: 1;
       width: 42px;
@@ -933,11 +948,11 @@ function ensureStyles() {
     }
 
     .cmf-nav-prev {
-      left: 18px;
+      left: 12px;
     }
 
     .cmf-nav-next {
-      right: 18px;
+      right: 12px;
     }
   `;
   document.head.appendChild(style);
@@ -990,10 +1005,13 @@ function ensureViewer() {
       <button class="cmf-button cmf-icon-button cmf-close" type="button" title="Close" aria-label="Close">${ICONS.close}</button>
     </div>
     <div class="cmf-viewer-body">
-      <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-prev" type="button" title="Previous" aria-label="Previous">${ICONS.chevronLeft}</button>
-      <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-next" type="button" title="Next" aria-label="Next">${ICONS.chevronRight}</button>
-      <div class="cmf-viewer-media"></div>
-      <aside class="cmf-prompt-panel" hidden aria-label="Embedded prompts">
+      <section class="cmf-viewer-main" aria-label="Media preview">
+        <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-prev" type="button" title="Previous" aria-label="Previous">${ICONS.chevronLeft}</button>
+        <button class="cmf-button cmf-icon-button cmf-nav-button cmf-nav-next" type="button" title="Next" aria-label="Next">${ICONS.chevronRight}</button>
+        <div class="cmf-viewer-media"></div>
+      </section>
+      <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
+        <h2 class="cmf-prompt-panel-title">Metadata</h2>
         <div class="cmf-prompt-status"></div>
         <section class="cmf-prompt-section">
           <h2 class="cmf-prompt-heading">Prompt</h2>
@@ -1008,7 +1026,7 @@ function ensureViewer() {
   `;
 
   root.addEventListener("click", (event) => {
-    if (event.target === root || event.target === viewer?.body || event.target === viewer?.media) {
+    if (event.target === root || event.target === viewer?.body || event.target === viewer?.main || event.target === viewer?.media) {
       closeViewer();
     }
   });
@@ -1033,6 +1051,7 @@ function ensureViewer() {
     root,
     title: root.querySelector(".cmf-viewer-title"),
     body: root.querySelector(".cmf-viewer-body"),
+    main: root.querySelector(".cmf-viewer-main"),
     media: root.querySelector(".cmf-viewer-media"),
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
