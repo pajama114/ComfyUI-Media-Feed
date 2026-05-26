@@ -41,6 +41,12 @@ const ICONS = {
       <path d="m6 6 12 12"></path>
     </svg>
   `,
+  copy: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  `,
   externalLink: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M15 3h6v6"></path>
@@ -890,13 +896,32 @@ function ensureStyles() {
       min-height: 0;
     }
 
+    .cmf-prompt-section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .cmf-prompt-heading {
       margin: 0;
+      flex: 1 1 auto;
       color: var(--cmf-muted);
       font-size: 11px;
       font-weight: 650;
       letter-spacing: 0;
       text-transform: uppercase;
+    }
+
+    .cmf-prompt-copy {
+      width: 26px;
+      min-width: 26px;
+      height: 24px;
+    }
+
+    .cmf-prompt-copy svg {
+      width: 14px;
+      height: 14px;
     }
 
     .cmf-prompt-text {
@@ -909,7 +934,7 @@ function ensureStyles() {
       border-radius: 6px;
       background: var(--cmf-panel);
       color: var(--cmf-text);
-      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font: 13.2px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
@@ -989,6 +1014,42 @@ function warmImage(url) {
   });
 }
 
+async function copyPromptText(event, source) {
+  const button = event.currentTarget;
+  button.blur();
+
+  const text = String(source?.textContent || "");
+  if (!text.trim()) return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      try {
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+      } finally {
+        textarea.remove();
+      }
+    }
+  } catch {
+    return;
+  }
+
+  const previousTitle = button.title;
+  button.title = "Copied";
+  button.setAttribute("aria-label", "Copied");
+  window.setTimeout(() => {
+    button.title = previousTitle;
+    button.setAttribute("aria-label", previousTitle);
+  }, 900);
+}
+
 function ensureViewer() {
   if (viewer) return viewer;
 
@@ -1014,11 +1075,17 @@ function ensureViewer() {
         <h2 class="cmf-prompt-panel-title">Metadata</h2>
         <div class="cmf-prompt-status"></div>
         <section class="cmf-prompt-section">
-          <h2 class="cmf-prompt-heading">Prompt</h2>
+          <div class="cmf-prompt-section-header">
+            <h2 class="cmf-prompt-heading">Prompt</h2>
+            <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-positive" type="button" title="Copy prompt" aria-label="Copy prompt">${ICONS.copy}</button>
+          </div>
           <pre class="cmf-prompt-text cmf-prompt-positive"></pre>
         </section>
         <section class="cmf-prompt-section">
-          <h2 class="cmf-prompt-heading">Negative Prompt</h2>
+          <div class="cmf-prompt-section-header">
+            <h2 class="cmf-prompt-heading">Negative Prompt</h2>
+            <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-negative" type="button" title="Copy negative prompt" aria-label="Copy negative prompt">${ICONS.copy}</button>
+          </div>
           <pre class="cmf-prompt-text cmf-prompt-negative"></pre>
         </section>
       </aside>
@@ -1031,6 +1098,8 @@ function ensureViewer() {
     }
   });
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
+  root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
+  root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
   root.addEventListener("keydown", handleViewerControlKeydown, true);
   for (const button of root.querySelectorAll(".cmf-nav-button")) {
     button.addEventListener("mousedown", (event) => event.preventDefault());
