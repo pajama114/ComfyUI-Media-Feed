@@ -3,6 +3,13 @@
 Media Feed adds a lightweight media browser to ComfyUI for generated images,
 videos, and audio.
 
+## Preview
+
+<p>
+  <img src="sample1.jpg" alt="Media Feed preview showing generated images" width="49%">
+  <img src="sample2.jpg" alt="Media Feed media viewer preview" width="49%">
+</p>
+
 It is designed as a focused feed extension: generated media appears in a bottom
 panel when the ComfyUI frontend supports bottom-panel tabs, and in a fixed
 fallback panel on older frontends or when a floating placement is selected.
