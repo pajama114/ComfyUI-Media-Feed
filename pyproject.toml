@@ -30,4 +30,4 @@ Issues = "https://github.com/pajama114/ComfyUI-Media-Feed/issues"
 [tool.comfy]
 PublisherId = "pajama"
 DisplayName = "Media Feed"
-Icon = "icon.png"
+Icon = "https://raw.githubusercontent.com/pajama114/ComfyUI-Media-Feed/main/icon.png"
