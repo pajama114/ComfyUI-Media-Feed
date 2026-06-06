@@ -423,7 +423,6 @@ function ensureStyles() {
       overflow: hidden;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
-      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
     }
 
     .cmf-root.cmf-fallback[data-orientation="horizontal"] {
