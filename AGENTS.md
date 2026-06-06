@@ -11,7 +11,9 @@ Python dependencies.
 ## Repository Layout
 
 - `__init__.py` exposes `WEB_DIRECTORY = "./web/js"` for ComfyUI.
-- `web/js/media_feed.js` contains the extension UI and all runtime behavior.
+- `web/js/media_feed.js` is the extension entrypoint and contains the feed UI.
+- `web/js/icons.js` contains shared inline SVG icons.
+- `web/js/metadata.js` contains embedded prompt metadata loading and parsing.
 - `pyproject.toml` contains Comfy Registry metadata.
 - `README.md` is the public user-facing documentation.
 - `icon.png` is referenced by `[tool.comfy] Icon`.
@@ -21,7 +23,8 @@ Python dependencies.
 
 - Keep the extension frontend-only unless there is a clear need for backend
   routes or custom nodes.
-- Prefer small, focused changes in `web/js/media_feed.js`.
+- Prefer small, focused changes in the existing `web/js/*.js` module that owns
+  the behavior being edited.
 - Do not add npm, bundler, or Python runtime dependencies without a strong
   reason. ComfyUI loads this file directly as browser JavaScript.
 - Preserve compatibility with older ComfyUI frontends: the fallback fixed panel
@@ -42,6 +45,8 @@ Run these before committing:
 
 ```bash
 node --check web/js/media_feed.js
+node --check web/js/icons.js
+node --check web/js/metadata.js
 python -m py_compile __init__.py
 python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"
 git diff --check
