@@ -28,6 +28,14 @@ const STORAGE_KEYS = {
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
 };
 const ICONS = {
+  grid: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+      <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+    </svg>
+  `,
   chevronLeft: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="m15 18-6-6 6-6"></path>
@@ -50,11 +58,39 @@ const ICONS = {
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
     </svg>
   `,
+  eye: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  `,
+  eyeOff: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m2 2 20 20"></path>
+      <path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.3 3.5"></path>
+      <path d="M14.1 14.1A3 3 0 0 1 9.9 9.9"></path>
+      <path d="M6.6 6.6C3.5 8.7 2 12 2 12s3.5 8 10 8a10.5 10.5 0 0 0 4.1-.8"></path>
+    </svg>
+  `,
   externalLink: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M15 3h6v6"></path>
       <path d="M10 14 21 3"></path>
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+    </svg>
+  `,
+  image: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+      <circle cx="8.5" cy="10.5" r="1.5"></circle>
+      <path d="m21 15-5-5L5 19"></path>
+    </svg>
+  `,
+  music: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 18V5l12-2v13"></path>
+      <circle cx="6" cy="18" r="3"></circle>
+      <circle cx="18" cy="16" r="3"></circle>
     </svg>
   `,
   pause: `
@@ -66,6 +102,21 @@ const ICONS = {
   play: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="m8 5 11 7-11 7V5Z"></path>
+    </svg>
+  `,
+  trash: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 6h18"></path>
+      <path d="M8 6V4h8v2"></path>
+      <path d="M19 6 18 20H6L5 6"></path>
+      <path d="M10 11v5"></path>
+      <path d="M14 11v5"></path>
+    </svg>
+  `,
+  video: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m16 13 5 3V8l-5 3v2Z"></path>
+      <rect x="3" y="6" width="13" height="12" rx="2"></rect>
     </svg>
   `,
 };
@@ -500,7 +551,6 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter button {
       flex: 1 1 auto;
-      padding: 0 7px;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-viewport {
@@ -654,14 +704,27 @@ function ensureStyles() {
     }
 
     .cmf-filter button {
+      display: grid;
+      place-items: center;
+      width: 34px;
       height: 28px;
-      padding: 0 10px;
+      padding: 0;
       border: 0;
       border-right: 1px solid var(--cmf-border);
       background: transparent;
       color: var(--cmf-muted);
       cursor: pointer;
       font: inherit;
+    }
+
+    .cmf-filter svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
     }
 
     .cmf-filter button:last-child {
@@ -2757,10 +2820,10 @@ function createView(root, kind = "embedded") {
     <div class="cmf-toolbar">
       <strong class="cmf-title">Media Feed</strong>
       <div class="cmf-filter" role="group" aria-label="Media filter">
-        <button type="button" data-filter="all" aria-pressed="true">All</button>
-        <button type="button" data-filter="image" aria-pressed="false">Images</button>
-        <button type="button" data-filter="video" aria-pressed="false">Videos</button>
-        <button type="button" data-filter="audio" aria-pressed="false">Audio</button>
+        <button type="button" data-filter="all" aria-pressed="true" title="All" aria-label="All">${ICONS.grid}</button>
+        <button type="button" data-filter="image" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}</button>
+        <button type="button" data-filter="video" aria-pressed="false" title="Movies" aria-label="Movies">${ICONS.video}</button>
+        <button type="button" data-filter="audio" aria-pressed="false" title="Sound" aria-label="Sound">${ICONS.music}</button>
       </div>
       <span class="cmf-count"></span>
       <div class="cmf-spacer"></div>
@@ -2768,8 +2831,8 @@ function createView(root, kind = "embedded") {
         <span>Size</span>
         <input class="cmf-size-slider" type="range" min="${MIN_ITEM_HEIGHT}" max="${MAX_ITEM_HEIGHT}" value="${state.itemHeight}">
       </label>
-      <button class="cmf-button cmf-collapse" type="button" hidden>Hide</button>
-      <button class="cmf-button cmf-clear" type="button">Clear</button>
+      <button class="cmf-button cmf-icon-button cmf-clear" type="button" title="Clear" aria-label="Clear">${ICONS.trash}</button>
+      <button class="cmf-button cmf-icon-button cmf-collapse" type="button" title="Hide" aria-label="Hide" hidden>${ICONS.eyeOff}</button>
     </div>
     <div class="cmf-viewport">
       <div class="cmf-rail"></div>
@@ -2845,7 +2908,10 @@ function createFloatingPanel() {
   collapseButton.addEventListener("click", () => {
     const collapsed = root.dataset.collapsed === "true";
     root.dataset.collapsed = String(!collapsed);
-    collapseButton.textContent = collapsed ? "Hide" : "Show";
+    const label = collapsed ? "Hide" : "Show";
+    collapseButton.innerHTML = collapsed ? ICONS.eyeOff : ICONS.eye;
+    collapseButton.title = label;
+    collapseButton.setAttribute("aria-label", label);
   });
 
   return view;
