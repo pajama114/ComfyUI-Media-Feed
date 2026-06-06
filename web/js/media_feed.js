@@ -358,6 +358,9 @@ function ensureStyles() {
       --cmf-safe-left: 76px;
       --cmf-safe-right: 300px;
       --cmf-safe-top: 118px;
+      --cmf-placement-top: calc(var(--cmf-safe-top) + 13px);
+      --cmf-side-outset: 5px;
+      --cmf-right-bottom-extension: 20px;
       --cmf-safe-bottom: 12px;
       --cmf-minimap-height: 300px;
       box-sizing: border-box;
@@ -381,23 +384,23 @@ function ensureStyles() {
     }
 
     .cmf-root.cmf-fallback[data-orientation="horizontal"] {
-      left: var(--cmf-safe-left);
-      height: min(var(--cmf-panel-height), calc(100vh - var(--cmf-safe-top) - 24px));
+      left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
+      height: min(var(--cmf-panel-height), calc(100vh - var(--cmf-placement-top) - 24px));
       min-height: 0;
     }
 
     .cmf-root.cmf-fallback[data-placement="bottom"] {
-      right: var(--cmf-safe-right);
+      right: calc(var(--cmf-safe-right) - var(--cmf-side-outset));
       bottom: var(--cmf-safe-bottom);
     }
 
     .cmf-root.cmf-fallback[data-placement="top"] {
-      top: var(--cmf-safe-top);
-      right: 12px;
+      top: var(--cmf-placement-top);
+      right: calc(12px - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] {
-      top: var(--cmf-safe-top);
+      top: var(--cmf-placement-top);
       width: clamp(196px, calc(var(--cmf-item-width) + 58px), 340px);
       height: auto;
       min-height: 0;
@@ -405,12 +408,12 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback[data-placement="left"] {
       bottom: 24px;
-      left: var(--cmf-safe-left);
+      left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-placement="right"] {
-      right: 12px;
-      bottom: var(--cmf-minimap-height);
+      right: calc(12px - var(--cmf-side-outset));
+      bottom: calc(var(--cmf-minimap-height) - var(--cmf-right-bottom-extension));
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar {
@@ -485,18 +488,18 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
       bottom: var(--cmf-safe-bottom);
-      left: var(--cmf-safe-left);
+      left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="top"],
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="left"] {
-      top: var(--cmf-safe-top);
-      left: var(--cmf-safe-left);
+      top: var(--cmf-placement-top);
+      left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="right"] {
-      top: var(--cmf-safe-top);
-      right: 12px;
+      top: var(--cmf-placement-top);
+      right: calc(12px - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
