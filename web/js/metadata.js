@@ -339,7 +339,7 @@ function readMp4Size(bytes, offset) {
 
 function parseMp4TextMetadata(bytes) {
   const chunks = {};
-  const texts = [];
+  const metadataKeys = new Map();
   const containerTypes = new Set(["moov", "udta", "meta", "ilst"]);
 
   function parseBoxes(start, end, parentType = "") {
@@ -352,13 +352,13 @@ function parseMp4TextMetadata(bytes) {
       const dataStart = offset + box.headerSize;
       const dataEnd = offset + box.size;
 
-      if (type === "data" && dataStart + 8 <= dataEnd) {
+      if (type === "keys" && dataStart + 8 <= dataEnd) {
+        parseMp4Keys(dataStart, dataEnd);
+      } else if (type === "data" && dataStart + 8 <= dataEnd) {
         const payload = bytes.subarray(dataStart + 8, dataEnd);
         const text = decodeUtf8(payload).replace(/\0+$/g, "").trim();
-        if (text) {
-          texts.push(text);
-          chunks[parentType || `mp4_${texts.length}`] = text;
-        }
+        const key = mp4MetadataKey(parentType, metadataKeys) || `mp4_${Object.keys(chunks).length + 1}`;
+        setMetadataText(chunks, key, text);
       } else if (containerTypes.has(type) || parentType === "ilst") {
         parseBoxes(dataStart + (type === "meta" ? 4 : 0), dataEnd, type);
       } else if (parentType === "ilst") {
@@ -369,18 +369,49 @@ function parseMp4TextMetadata(bytes) {
     }
   }
 
+  function parseMp4Keys(start, end) {
+    let cursor = start + 4;
+    if (cursor + 4 > end) return;
+
+    const count = readUint32(bytes, cursor);
+    cursor += 4;
+    for (let index = 1; index <= count && cursor + 8 <= end; index++) {
+      const size = readUint32(bytes, cursor);
+      if (!size || cursor + size > end) break;
+
+      const namespace = decodeLatin1(bytes.subarray(cursor + 4, cursor + 8));
+      const name = decodeUtf8(bytes.subarray(cursor + 8, cursor + size)).replace(/\0+$/g, "").trim();
+      if (namespace === "mdta" && name) metadataKeys.set(index, name);
+      cursor += size;
+    }
+  }
+
   parseBoxes(0, bytes.length);
 
-  for (const text of texts) {
-    const parsed = parseJsonMetadata(text);
-    if (!parsed || typeof parsed !== "object") continue;
+  const parsed = findJsonMetadataObject(decodeUtf8(bytes));
+  if (parsed) {
     if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
     if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
     if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
     if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+    if (!chunks.workflow && looksLikeWorkflow(parsed)) chunks.workflow = parsed;
   }
 
   return chunks;
+}
+
+function mp4MetadataKey(type, metadataKeys) {
+  if (!type) return "";
+
+  if (metadataKeys.size === 0) return type;
+  const bytes = [...type].map((char) => char.charCodeAt(0));
+  const index = (
+    (bytes[0] || 0) * 0x1000000 +
+    (bytes[1] || 0) * 0x10000 +
+    (bytes[2] || 0) * 0x100 +
+    (bytes[3] || 0)
+  ) >>> 0;
+  return metadataKeys.get(index) || type;
 }
 
 function findMatchingJsonEnd(text, start) {
@@ -415,7 +446,7 @@ function findMatchingJsonEnd(text, start) {
 }
 
 function findJsonMetadataObject(text) {
-  const needles = ["{\"prompt\"", "{\"workflow\"", "{\"Prompt\"", "{\"Workflow\""];
+  const needles = ["{\"prompt\"", "{\"workflow\"", "{\"Prompt\"", "{\"Workflow\"", "{\"id\"", "{\"nodes\"", "{\"extra\""];
   const starts = needles
     .map((needle) => text.indexOf(needle))
     .filter((index) => index !== -1)
@@ -429,6 +460,14 @@ function findJsonMetadataObject(text) {
   }
 
   return null;
+}
+
+function looksLikeWorkflow(value) {
+  return Boolean(value && typeof value === "object" && (
+    Array.isArray(value.nodes)
+    || value.extra?.prompt
+    || Array.isArray(value.definitions?.subgraphs)
+  ));
 }
 
 function parseWebmTextMetadata(bytes) {
@@ -461,6 +500,7 @@ function setMetadataText(chunks, key, value) {
   if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
   if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
   if (parsed.Workflow !== undefined) chunks.Workflow = parsed.Workflow;
+  if (!chunks.workflow && looksLikeWorkflow(parsed)) chunks.workflow = parsed;
 }
 
 function decodeId3Text(bytes, encoding) {
@@ -654,18 +694,22 @@ function parseJsonMetadata(value) {
 }
 
 function extractPromptMetadata(chunks) {
-  const prompt = parseJsonMetadata(chunks.prompt || chunks.Prompt);
   const workflow = parseJsonMetadata(chunks.workflow || chunks.Workflow);
+  const prompt = parseJsonMetadata(chunks.prompt || chunks.Prompt) || parseJsonMetadata(workflow?.extra?.prompt);
   const fromChunks = extractFromLooseMetadata(chunks);
   const fromPrompt = extractFromPromptGraph(prompt);
   const fromWorkflow = extractFromWorkflowGraph(workflow);
-  const seed = fromPrompt.seed || fromWorkflow.seed || fromChunks.seed || "";
-  const positive = fromPrompt.positive || fromWorkflow.positive || "";
-  const negative = fromPrompt.negative || fromWorkflow.negative || "";
-  const source = fromPrompt.source || fromWorkflow.source || fromChunks.source || "";
+  const fromDefinitions = extractFromWorkflowDefinitions(workflow);
+  const seed = fromPrompt.seed || fromWorkflow.seed || fromDefinitions.seed || fromChunks.seed || "";
+  const positive = fromPrompt.positive || fromWorkflow.positive || fromDefinitions.positive || "";
+  const negative = fromPrompt.negative || fromWorkflow.negative || fromDefinitions.negative || "";
+  const source = fromPrompt.source || fromWorkflow.source || fromDefinitions.source || fromChunks.source || "";
+  const graphDetails = mergeMetadataDetailsByLabel(
+    mergeMetadataDetailsByLabel(fromPrompt.details || [], fromWorkflow.details || []),
+    fromDefinitions.details || [],
+  );
   const details = formatMetadataEntries([
-    ...(fromPrompt.details || []),
-    ...(fromWorkflow.details || []),
+    ...graphDetails,
     ...(fromChunks.details || []),
   ]);
   const found = seed || positive || negative || details.length;
@@ -786,6 +830,29 @@ function formatMetadataEntries(entries) {
 
   results.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
   return results.map(({ label, value }) => ({ label, value }));
+}
+
+function mergeMetadataDetailsByLabel(primary, fallback) {
+  const usedLabels = new Set();
+  const results = [];
+
+  for (const entry of primary) {
+    const label = String(entry?.label || "").trim();
+    const value = normalizeMetadataValue(entry?.value);
+    if (!label || !value) continue;
+    usedLabels.add(label.toLowerCase());
+    results.push(entry);
+  }
+
+  for (const entry of fallback) {
+    const label = String(entry?.label || "").trim();
+    const value = normalizeMetadataValue(entry?.value);
+    if (!label || !value || usedLabels.has(label.toLowerCase())) continue;
+    usedLabels.add(label.toLowerCase());
+    results.push(entry);
+  }
+
+  return results;
 }
 
 function isSeedFieldName(name) {
@@ -999,17 +1066,123 @@ function collectPromptSeedEntries(prompt) {
   for (const [nodeId, node] of Object.entries(prompt)) {
     const inputs = node?.inputs || {};
     const nodeLabel = promptNodeLabel(node, nodeId);
+    const nodeClass = promptNodeClass(node);
     for (const [name, value] of Object.entries(inputs)) {
       if (!isSeedFieldName(name)) continue;
 
       const seeds = isPromptLink(value)
         ? collectLinkedPromptSeedValues(prompt, value, new Set())
         : collectSeedValues(value);
-      for (const seed of seeds) entries.push({ label: `${nodeLabel}.${name}`, value: seed });
+      for (const seed of seeds) entries.push({
+        label: `${nodeLabel}.${name}`,
+        value: seed,
+        nodeId: String(nodeId),
+        nodeClass,
+        fieldName: name,
+      });
     }
   }
 
-  return entries;
+  return selectPromptSeedEntries(prompt, entries);
+}
+
+function promptTerminalNodeIds(prompt) {
+  const consumers = new Set();
+  const terminals = [];
+
+  for (const node of Object.values(prompt || {})) {
+    for (const value of Object.values(node?.inputs || {})) {
+      if (isPromptLink(value)) consumers.add(String(value[0]));
+    }
+  }
+
+  for (const [nodeId, node] of Object.entries(prompt || {})) {
+    const nodeClass = promptNodeClass(node);
+    if (/save|preview|create.*video|video.*combine/i.test(nodeClass) || !consumers.has(String(nodeId))) {
+      terminals.push(String(nodeId));
+    }
+  }
+
+  return terminals;
+}
+
+function promptAncestorDistances(prompt) {
+  const distances = new Map();
+  const queue = promptTerminalNodeIds(prompt).map((nodeId) => [nodeId, 0]);
+
+  for (const [nodeId, distance] of queue) distances.set(nodeId, distance);
+
+  for (let index = 0; index < queue.length; index++) {
+    const [nodeId, distance] = queue[index];
+    const node = prompt?.[nodeId];
+    if (!node) continue;
+
+    for (const value of Object.values(node.inputs || {})) {
+      const links = [];
+      if (isPromptLink(value)) {
+        links.push(value);
+      } else if (Array.isArray(value)) {
+        for (const child of value) {
+          if (isPromptLink(child)) links.push(child);
+        }
+      }
+
+      for (const link of links) {
+        const linkedId = String(link[0]);
+        if (distances.has(linkedId)) continue;
+        distances.set(linkedId, distance + 1);
+        queue.push([linkedId, distance + 1]);
+      }
+    }
+  }
+
+  return distances;
+}
+
+function promptSeedPriority(entry) {
+  const nodeClass = String(entry?.nodeClass || "");
+  const fieldName = String(entry?.fieldName || "");
+  if (/^RandomNoise$/i.test(nodeClass) && /^noise_seed$/i.test(fieldName)) return 0;
+  if (/noise/i.test(nodeClass) && /seed/i.test(fieldName)) return 1;
+  if (/sampler/i.test(nodeClass)) return 2;
+  return 3;
+}
+
+function selectPromptSeedEntries(prompt, entries) {
+  if (entries.length <= 1) return entries;
+
+  const distances = promptAncestorDistances(prompt);
+  const ranked = entries.map((entry) => ({
+    ...entry,
+    priority: promptSeedPriority(entry),
+    distance: distances.get(entry.nodeId) ?? Number.POSITIVE_INFINITY,
+  }));
+  const bestPriority = Math.min(...ranked.map((entry) => entry.priority));
+  const priorityMatches = ranked.filter((entry) => entry.priority === bestPriority);
+  if (bestPriority === 0 && priorityMatches.length > 1) {
+    return labelPromptNoiseSeedEntries(priorityMatches);
+  }
+
+  const bestDistance = Math.min(...priorityMatches.map((entry) => entry.distance));
+  const selected = priorityMatches.filter((entry) => entry.distance === bestDistance);
+
+  return selected.map(({ priority, distance, nodeId, nodeClass, fieldName, ...entry }) => entry);
+}
+
+function labelPromptNoiseSeedEntries(entries) {
+  const sorted = [...entries].sort((a, b) => {
+    const distanceDelta = (b.distance ?? 0) - (a.distance ?? 0);
+    if (distanceDelta) return distanceDelta;
+    return String(a.nodeId || "").localeCompare(String(b.nodeId || ""));
+  });
+
+  return sorted.map(({ priority, distance, nodeId, nodeClass, fieldName, ...entry }, index) => {
+    if (sorted.length === 2) {
+      return { ...entry, label: index === 0 ? "Low" : "High" };
+    }
+
+    return { ...entry, label: `Seed ${index + 1}` };
+  });
 }
 
 function collectPromptMetadataEntries(prompt) {
@@ -1020,11 +1193,13 @@ function collectPromptMetadataEntries(prompt) {
     const inputs = node?.inputs || {};
     const nodeClass = promptNodeClass(node);
     const samplerNode = /sampler/i.test(nodeClass);
+    const schedulerNode = /scheduler/i.test(nodeClass);
+    const guiderNode = /guider|guidance/i.test(nodeClass);
     const latentNode = /latent|empty.*image/i.test(nodeClass);
 
     for (const [name, value] of Object.entries(inputs)) {
       if (isPromptLink(value)) continue;
-      if (!samplerNode && !latentNode) continue;
+      if (!samplerNode && !schedulerNode && !guiderNode && !latentNode) continue;
       addMetadataField(entries, name, value);
     }
   }
@@ -1252,34 +1427,64 @@ function collectWorkflowSeedEntries(workflow, maps = buildWorkflowMaps(workflow)
   return entries;
 }
 
+function workflowInputValue(node, input) {
+  if (!node || !input) return undefined;
+  if (input.link !== undefined && input.link !== null) return undefined;
+
+  const directValue = input.value ?? input.default ?? input.widget?.value;
+  if (directValue !== undefined) return directValue;
+
+  const widgetName = input.widget?.name || input.name;
+  const widgetsValues = node.widgets_values;
+  if (widgetsValues && typeof widgetsValues === "object" && !Array.isArray(widgetsValues)) {
+    if (Object.prototype.hasOwnProperty.call(widgetsValues, widgetName)) return widgetsValues[widgetName];
+    if (Object.prototype.hasOwnProperty.call(widgetsValues, input.name)) return widgetsValues[input.name];
+  }
+
+  if (!Array.isArray(widgetsValues) || !input.widget) return undefined;
+
+  const nodeType = workflowNodeType(node);
+  if (/^KSampler$/i.test(nodeType)) {
+    const samplerIndexes = {
+      seed: 0,
+      steps: 2,
+      cfg: 3,
+      sampler_name: 4,
+      scheduler: 5,
+      denoise: 6,
+    };
+    const index = samplerIndexes[widgetName] ?? samplerIndexes[input.name];
+    if (index !== undefined) return widgetsValues[index];
+  }
+
+  if (/^RandomNoise$/i.test(nodeType) && (widgetName === "noise_seed" || input.name === "noise_seed")) {
+    return widgetsValues[0];
+  }
+
+  let widgetIndex = -1;
+  for (const current of node.inputs || []) {
+    if (current?.widget) widgetIndex++;
+    if (current === input) return widgetsValues[widgetIndex];
+  }
+
+  return undefined;
+}
+
 function collectWorkflowMetadataEntries(workflow, maps = buildWorkflowMaps(workflow)) {
   const entries = [];
   if (!workflow || typeof workflow !== "object") return entries;
 
-  const samplerWidgetNames = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"];
-  const latentWidgetNames = ["width", "height", "batch_size"];
-
   for (const node of maps.nodes) {
     const nodeType = workflowNodeType(node);
     const samplerNode = /sampler/i.test(nodeType);
+    const schedulerNode = /scheduler/i.test(nodeType);
+    const guiderNode = /guider|guidance/i.test(nodeType);
     const latentNode = /latent|empty.*image/i.test(nodeType);
 
     for (const input of node.inputs || []) {
       const name = String(input?.name || "");
-      if (input?.link !== undefined && input?.link !== null) continue;
-      if (!samplerNode && !latentNode) continue;
-      addMetadataField(entries, name, input?.value ?? input?.default ?? input?.widget?.value);
-    }
-
-    if (Array.isArray(node.widgets)) {
-      node.widgets.forEach((widget, index) => {
-        const name = String(widget?.name || widget?.label || "");
-        if (!samplerNode && !latentNode) return;
-        addMetadataField(entries, name, widget?.value ?? node.widgets_values?.[index]);
-      });
-    } else if (Array.isArray(node.widgets_values)) {
-      const names = samplerNode ? samplerWidgetNames : latentNode ? latentWidgetNames : [];
-      names.forEach((name, index) => addMetadataField(entries, name, node.widgets_values[index]));
+      if (!samplerNode && !schedulerNode && !guiderNode && !latentNode) continue;
+      addMetadataField(entries, name, workflowInputValue(node, input));
     }
   }
 
@@ -1349,5 +1554,31 @@ function extractFromWorkflowGraph(workflow) {
     negative: joinPrompts(negatives),
     details,
     source: seedEntries.length || positives.length || negatives.length || details.length ? "workflow" : "",
+  };
+}
+
+function extractFromWorkflowDefinitions(workflow) {
+  const subgraphs = Array.isArray(workflow?.definitions?.subgraphs) ? workflow.definitions.subgraphs : [];
+  if (!subgraphs.length) return {};
+
+  const seeds = [];
+  const positives = [];
+  const negatives = [];
+  const details = [];
+
+  for (const subgraph of subgraphs) {
+    const result = extractFromWorkflowGraph(subgraph);
+    if (result.seed) seeds.push(result.seed);
+    if (result.positive) positives.push(result.positive);
+    if (result.negative) negatives.push(result.negative);
+    details.push(...(result.details || []));
+  }
+
+  return {
+    seed: uniqueNonEmpty(seeds).join("\n"),
+    positive: joinPrompts(positives),
+    negative: joinPrompts(negatives),
+    details,
+    source: seeds.length || positives.length || negatives.length || details.length ? "workflow" : "",
   };
 }

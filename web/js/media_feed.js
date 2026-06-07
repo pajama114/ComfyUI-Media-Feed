@@ -1555,6 +1555,7 @@ async function renderViewerItem(item, thumbnail) {
     if (cached?.complete) {
       image.src = cached.currentSrc || cached.src;
       currentViewer.media.appendChild(image);
+      image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
       return;
     }
 
@@ -1562,11 +1563,13 @@ async function renderViewerItem(item, thumbnail) {
       rememberDecodedImage(item.url, thumbnail);
       image.src = thumbnail.currentSrc || thumbnail.src;
       currentViewer.media.appendChild(image);
+      image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
       return;
     }
 
     image.src = item.url;
     currentViewer.media.appendChild(image);
+    image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
     try {
       await warmImage(item.url);
     } catch {
@@ -1582,6 +1585,7 @@ async function renderViewerItem(item, thumbnail) {
     video.playsInline = true;
     video.src = item.url;
     currentViewer.media.appendChild(video);
+    video.addEventListener("loadedmetadata", refreshViewerPromptPanelDetails, { once: true });
     return;
   }
 
@@ -1594,6 +1598,7 @@ async function renderViewerItem(item, thumbnail) {
 
 function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
+  viewer.lastPromptMetadata = null;
   viewer.promptStatus.textContent = status;
   viewer.metadataGrid.replaceChildren();
   viewer.metadataSection.hidden = true;
@@ -1602,12 +1607,57 @@ function resetViewerPromptPanel(status = "") {
   viewer.promptNegative.textContent = "";
 }
 
+function currentViewerMediaDetails() {
+  if (!viewer?.media) return [];
+
+  const element = viewer.media.querySelector("img, video");
+  const size = viewerMediaNaturalSize(element);
+  if (!size.width || !size.height) return [];
+
+  return [
+    { label: "Width", value: String(size.width) },
+    { label: "Height", value: String(size.height) },
+  ];
+}
+
+function appendMetadataDetails(details, fallbackDetails) {
+  const usedLabels = new Set();
+  const results = [];
+
+  for (const entry of details) {
+    const label = String(entry?.label || "").trim();
+    const value = String(entry?.value || "").trim();
+    if (!label || !value) continue;
+    usedLabels.add(label.toLowerCase());
+    results.push({ label, value });
+  }
+
+  for (const entry of fallbackDetails) {
+    const label = String(entry?.label || "").trim();
+    const value = String(entry?.value || "").trim();
+    if (!label || !value || usedLabels.has(label.toLowerCase())) continue;
+    usedLabels.add(label.toLowerCase());
+    results.push({ label, value });
+  }
+
+  return results;
+}
+
+function refreshViewerPromptPanelDetails() {
+  if (!viewer?.lastPromptMetadata || viewer.root.dataset.open !== "true") return;
+  renderPromptMetadata(viewer.lastPromptMetadata);
+}
+
 function renderPromptMetadata(result) {
   if (!viewer) return;
+  viewer.lastPromptMetadata = result;
   viewer.promptStatus.textContent = result.status || "";
   viewer.metadataGrid.replaceChildren();
 
-  const details = Array.isArray(result.details) ? result.details : [];
+  const details = appendMetadataDetails(
+    Array.isArray(result.details) ? result.details : [],
+    currentViewerMediaDetails(),
+  );
   for (const detail of details) {
     const label = String(detail?.label || "").trim();
     const value = String(detail?.value || "").trim();
