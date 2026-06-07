@@ -504,6 +504,10 @@ function ensureStyles() {
       overflow-y: auto;
     }
 
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-feed-frame {
+      min-height: 0;
+    }
+
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-rail {
       width: 100%;
       min-width: 0;
@@ -541,6 +545,7 @@ function ensureStyles() {
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-feed-frame,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-filter,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-count,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-size-control,
@@ -687,9 +692,22 @@ function ensureStyles() {
       color: var(--cmf-text);
     }
 
+    .cmf-feed-frame {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      min-height: var(--cmf-viewport-height);
+    }
+
+    .cmf-root:not([data-orientation="vertical"]) .cmf-feed-frame {
+      flex: 0 0 var(--cmf-viewport-height);
+    }
+
     .cmf-viewport {
       position: relative;
       flex: 1;
+      width: 100%;
+      height: 100%;
       min-height: var(--cmf-viewport-height);
       overflow-x: auto;
       overflow-y: hidden;
@@ -698,10 +716,6 @@ function ensureStyles() {
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
       background: var(--cmf-view-bg);
-    }
-
-    .cmf-root:not([data-orientation="vertical"]) .cmf-viewport {
-      flex: 0 0 var(--cmf-viewport-height);
     }
 
     .cmf-root[data-scrollable="true"] .cmf-viewport {
@@ -734,6 +748,87 @@ function ensureStyles() {
 
     .cmf-viewport::-webkit-scrollbar-thumb:hover {
       background: #a8a8a8;
+    }
+
+    .cmf-jump {
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 44px;
+      padding: 0;
+      border: 1px solid var(--cmf-border);
+      border-radius: 6px;
+      background: rgba(20, 20, 20, 0.70);
+      color: var(--cmf-text);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%);
+      transition:
+        opacity 120ms ease,
+        background 120ms ease,
+        border-color 120ms ease;
+      cursor: pointer;
+    }
+
+    .cmf-root[data-scrollable="false"] .cmf-jump,
+    .cmf-jump[hidden] {
+      display: none;
+    }
+
+    .cmf-feed-frame:hover .cmf-jump,
+    .cmf-feed-frame:focus-within .cmf-jump {
+      opacity: 0.95;
+      pointer-events: auto;
+    }
+
+    .cmf-jump:hover,
+    .cmf-jump:focus-visible {
+      border-color: var(--cmf-accent);
+      background: rgba(20, 20, 20, 0.9);
+      opacity: 1;
+      outline: none;
+    }
+
+    .cmf-jump svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+    }
+
+    .cmf-jump-latest {
+      left: 8px;
+    }
+
+    .cmf-jump-oldest {
+      right: 8px;
+    }
+
+    .cmf-root[data-orientation="vertical"] .cmf-jump {
+      top: auto;
+      left: 50%;
+      width: 44px;
+      height: 32px;
+      transform: translateX(-50%);
+    }
+
+    .cmf-root[data-orientation="vertical"] .cmf-jump-latest {
+      top: 8px;
+    }
+
+    .cmf-root[data-orientation="vertical"] .cmf-jump-oldest {
+      right: auto;
+      bottom: 8px;
+    }
+
+    .cmf-root[data-orientation="vertical"] .cmf-jump svg {
+      transform: rotate(90deg);
     }
 
     .cmf-rail {
@@ -1643,9 +1738,13 @@ function createView(root, kind = "embedded") {
       <button class="cmf-button cmf-icon-button cmf-clear" type="button" title="Clear" aria-label="Clear">${ICONS.trash}</button>
       <button class="cmf-button cmf-icon-button cmf-collapse" type="button" title="Hide" aria-label="Hide" hidden>${ICONS.eyeOff}</button>
     </div>
-    <div class="cmf-viewport">
-      <div class="cmf-rail"></div>
-      <div class="cmf-empty">Generated media will appear here.</div>
+    <div class="cmf-feed-frame">
+      <div class="cmf-viewport">
+        <div class="cmf-rail"></div>
+        <div class="cmf-empty">Generated media will appear here.</div>
+      </div>
+      <button class="cmf-jump cmf-jump-latest" type="button" data-jump="latest" title="Latest" aria-label="Jump to latest media">${ICONS.chevronLeft}</button>
+      <button class="cmf-jump cmf-jump-oldest" type="button" data-jump="oldest" title="Oldest" aria-label="Jump to oldest media">${ICONS.chevronRight}</button>
     </div>
   `;
 
@@ -1656,15 +1755,28 @@ function createView(root, kind = "embedded") {
     empty: root.querySelector(".cmf-empty"),
     count: root.querySelector(".cmf-count"),
     sizeSlider: root.querySelector(".cmf-size-slider"),
+    jumpLatest: root.querySelector(".cmf-jump-latest"),
+    jumpOldest: root.querySelector(".cmf-jump-oldest"),
     cards: new Map(),
     kind,
     lastRange: "",
   };
 
-  view.viewport.addEventListener("scroll", () => renderVisibleItems(view), { passive: true });
+  view.viewport.addEventListener("scroll", () => {
+    renderVisibleItems(view);
+    updateJumpButtons(view);
+  }, { passive: true });
   view.viewport.addEventListener("wheel", (event) => handleFeedWheel(event, view), { passive: false });
   view.resizeObserver = new ResizeObserver(() => updateView(view, false));
   view.resizeObserver.observe(view.viewport);
+
+  root.querySelectorAll(".cmf-jump").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      scrollFeedToEdge(view, button.dataset.jump);
+    });
+  });
 
   root.querySelector(".cmf-filter").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-filter]");
@@ -1789,6 +1901,42 @@ function handleFeedWheel(event, view) {
   event.preventDefault();
   view.viewport.scrollLeft += dominantDelta;
   renderVisibleItems(view);
+  updateJumpButtons(view);
+}
+
+function feedMaxScroll(view) {
+  const vertical = isVerticalView(view);
+  return vertical
+    ? Math.max(0, view.viewport.scrollHeight - view.viewport.clientHeight)
+    : Math.max(0, view.viewport.scrollWidth - view.viewport.clientWidth);
+}
+
+function feedScrollOffset(view) {
+  return isVerticalView(view) ? view.viewport.scrollTop : view.viewport.scrollLeft;
+}
+
+function updateJumpButtons(view) {
+  const maxScroll = feedMaxScroll(view);
+  const scrollOffset = feedScrollOffset(view);
+  const atLatest = scrollOffset <= 1;
+  const atOldest = scrollOffset >= maxScroll - 1;
+
+  view.jumpLatest.hidden = maxScroll <= 1 || atLatest;
+  view.jumpOldest.hidden = maxScroll <= 1 || atOldest;
+}
+
+function scrollFeedToEdge(view, edge) {
+  const vertical = isVerticalView(view);
+  const maxScroll = feedMaxScroll(view);
+  const scrollOffset = edge === "oldest" ? maxScroll : 0;
+
+  if (vertical) {
+    view.viewport.scrollTop = scrollOffset;
+  } else {
+    view.viewport.scrollLeft = scrollOffset;
+  }
+  renderVisibleItems(view);
+  updateJumpButtons(view);
 }
 
 function updateView(view, scrollToLatest, prependedCount = 0) {
@@ -1825,6 +1973,7 @@ function updateView(view, scrollToLatest, prependedCount = 0) {
   }
   view.lastRange = "";
   renderVisibleItems(view);
+  updateJumpButtons(view);
 }
 
 function renderVisibleItems(view) {
