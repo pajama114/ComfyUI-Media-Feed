@@ -391,7 +391,8 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback[data-orientation="horizontal"] {
       left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
-      height: min(var(--cmf-panel-height), calc(100vh - var(--cmf-placement-top) - 24px));
+      height: auto;
+      max-height: calc(100vh - var(--cmf-placement-top) - 24px);
       min-height: 0;
     }
 
@@ -538,6 +539,11 @@ function ensureStyles() {
       box-sizing: border-box;
     }
 
+    .cmf-root:not([data-orientation="vertical"]) {
+      height: auto;
+      min-height: 0;
+    }
+
     .cmf-toolbar {
       display: flex;
       align-items: center;
@@ -656,11 +662,15 @@ function ensureStyles() {
       min-height: var(--cmf-viewport-height);
       overflow-x: auto;
       overflow-y: hidden;
-      scrollbar-color: rgba(46, 46, 46, 0.82) rgba(42, 42, 42, 0.28);
+      scrollbar-color: #c1c1c1 transparent;
       scrollbar-width: none;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
       background: var(--cmf-view-bg);
+    }
+
+    .cmf-root:not([data-orientation="vertical"]) .cmf-viewport {
+      flex: 0 0 var(--cmf-viewport-height);
     }
 
     .cmf-root[data-scrollable="true"] .cmf-viewport {
@@ -679,22 +689,20 @@ function ensureStyles() {
 
     .cmf-viewport::-webkit-scrollbar-track {
       border-radius: 0 0 8px 8px;
-      background: rgba(42, 42, 42, 0.28);
+      background: transparent;
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb {
       min-width: 36px;
       min-height: 36px;
-      border: 3px solid rgba(92, 92, 92, 0.3);
+      border: 3px solid transparent;
       border-radius: 999px;
-      background: rgba(46, 46, 46, 0.82);
-      box-shadow:
-        0 0 0 1px rgba(12, 12, 12, 0.42),
-        0 1px 3px rgba(0, 0, 0, 0.32);
+      background: #c1c1c1;
+      background-clip: content-box;
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb:hover {
-      background: rgba(32, 32, 32, 0.92);
+      background: #a8a8a8;
     }
 
     .cmf-rail {
