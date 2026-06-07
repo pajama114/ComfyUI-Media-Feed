@@ -20,6 +20,7 @@ const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
 const DEFAULT_PLACEMENT = "bottom";
 const DEFAULT_SHOW_PROMPTS = true;
 const DEFAULT_SCALE_VIEWER_MEDIA = false;
+const DEFAULT_FOLLOW_LATEST = true;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const STORAGE_KEYS = {
@@ -27,6 +28,7 @@ const STORAGE_KEYS = {
   placement: "comfyui-media-feed:placement",
   showPrompts: "comfyui-media-feed:show-prompts",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
+  followLatest: "comfyui-media-feed:follow-latest",
 };
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
@@ -43,6 +45,7 @@ const state = {
   placement: DEFAULT_PLACEMENT,
   showPrompts: DEFAULT_SHOW_PROMPTS,
   scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
+  followLatest: DEFAULT_FOLLOW_LATEST,
 };
 
 const decodedImageCache = new Map();
@@ -52,6 +55,7 @@ let setupComplete = false;
 let placementSettingSeen = false;
 let promptSettingSeen = false;
 let scaleViewerMediaSettingSeen = false;
+let followLatestSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -168,7 +172,7 @@ function addItems(items) {
     if (removed) state.itemKeys.delete(removed.key);
   }
 
-  updateViews(!isViewerOpen());
+  updateViews(state.followLatest && !isViewerOpen(), state.followLatest ? 0 : freshItems.length);
   syncViewerItems();
 }
 
@@ -241,6 +245,10 @@ function applyScaleViewerMedia(nextValue) {
   state.scaleViewerMedia = normalizeBooleanSetting(nextValue);
 }
 
+function applyFollowLatest(nextValue) {
+  state.followLatest = normalizeBooleanSetting(nextValue);
+}
+
 function loadSavedPlacement() {
   try {
     return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -267,6 +275,15 @@ function loadSavedScaleViewerMedia() {
   }
 }
 
+function loadSavedFollowLatest() {
+  try {
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.followLatest);
+    return savedValue === null ? DEFAULT_FOLLOW_LATEST : normalizeBooleanSetting(savedValue);
+  } catch {
+    return DEFAULT_FOLLOW_LATEST;
+  }
+}
+
 function loadSettings() {
   try {
     const savedHeight = window.localStorage?.getItem(STORAGE_KEYS.itemHeight);
@@ -278,6 +295,7 @@ function loadSettings() {
   if (!placementSettingSeen) applyPlacement(loadSavedPlacement());
   if (!promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
   if (!scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
+  if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
 }
 
 function saveThumbnailHeight() {
@@ -312,6 +330,14 @@ function saveScaleViewerMedia() {
   }
 }
 
+function saveFollowLatest() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.followLatest, String(state.followLatest));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
   saveThumbnailHeight();
@@ -328,6 +354,11 @@ function setScaleViewerMedia(nextValue) {
   applyScaleViewerMedia(nextValue);
   saveScaleViewerMedia();
   syncViewerScaleMedia();
+}
+
+function setFollowLatest(nextValue) {
+  applyFollowLatest(nextValue);
+  saveFollowLatest();
 }
 
 function setPlacement(nextPlacement) {
@@ -1731,8 +1762,8 @@ function applyFallbackPlacement(root) {
   root.dataset.orientation = isVerticalPlacement() ? "vertical" : "horizontal";
 }
 
-function updateViews(scrollToLatest) {
-  for (const view of state.views) updateView(view, scrollToLatest);
+function updateViews(scrollToLatest, prependedCount = 0) {
+  for (const view of state.views) updateView(view, scrollToLatest, prependedCount);
 }
 
 function applyViewSizing(view) {
@@ -1760,12 +1791,13 @@ function handleFeedWheel(event, view) {
   renderVisibleItems(view);
 }
 
-function updateView(view, scrollToLatest) {
+function updateView(view, scrollToLatest, prependedCount = 0) {
   applyViewSizing(view);
   const items = filteredItems();
   const pitch = viewPitch(view);
+  const vertical = isVerticalView(view);
 
-  if (isVerticalView(view)) {
+  if (vertical) {
     const totalHeight = Math.max(view.viewport.clientHeight, RAIL_PADDING * 2 + items.length * pitch);
     view.rail.style.width = "100%";
     view.rail.style.height = `${totalHeight}px`;
@@ -1783,6 +1815,13 @@ function updateView(view, scrollToLatest) {
   if (scrollToLatest) {
     view.viewport.scrollLeft = 0;
     view.viewport.scrollTop = 0;
+  } else if (prependedCount > 0) {
+    const prependedDistance = prependedCount * pitch;
+    if (vertical) {
+      view.viewport.scrollTop += prependedDistance;
+    } else {
+      view.viewport.scrollLeft += prependedDistance;
+    }
   }
   view.lastRange = "";
   renderVisibleItems(view);
@@ -1851,6 +1890,18 @@ app.registerExtension({
       onChange: (newValue) => {
         placementSettingSeen = true;
         setPlacement(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.follow-latest",
+      name: "Follow latest media",
+      type: "boolean",
+      defaultValue: loadSavedFollowLatest(),
+      category: ["Media Feed", "Panel", "Follow latest media"],
+      tooltip: "Automatically scroll the feed to newly generated media.",
+      onChange: (newValue) => {
+        followLatestSettingSeen = true;
+        setFollowLatest(newValue);
       },
     },
     {
