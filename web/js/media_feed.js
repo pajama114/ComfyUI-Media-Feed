@@ -522,10 +522,15 @@ function ensureStyles() {
 
     .cmf-root.cmf-fallback[data-collapsed="true"] {
       inset: auto;
-      width: 260px;
+      width: 132px;
       height: 44px;
       min-height: 44px;
       overflow: hidden;
+      cursor: pointer;
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"]:hover {
+      background: var(--cmf-panel);
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
@@ -561,11 +566,21 @@ function ensureStyles() {
     }
 
     @media (max-width: 720px) {
-      .cmf-root.cmf-fallback,
-      .cmf-root.cmf-fallback[data-collapsed="true"] {
+      .cmf-root.cmf-fallback {
         right: 12px;
         left: 12px;
         width: auto;
+      }
+
+      .cmf-root.cmf-fallback[data-collapsed="true"] {
+        right: auto;
+        left: 12px;
+        width: 132px;
+      }
+
+      .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="right"] {
+        right: 12px;
+        left: auto;
       }
     }
 
@@ -1826,13 +1841,21 @@ function createFloatingPanel() {
 
   const collapseButton = root.querySelector(".cmf-collapse");
   collapseButton.hidden = false;
-  collapseButton.addEventListener("click", () => {
+  collapseButton.addEventListener("click", (event) => {
+    event.stopPropagation();
     const collapsed = root.dataset.collapsed === "true";
     root.dataset.collapsed = String(!collapsed);
     const label = collapsed ? "Hide" : "Show";
     collapseButton.innerHTML = collapsed ? ICONS.eyeOff : ICONS.eye;
     collapseButton.title = label;
     collapseButton.setAttribute("aria-label", label);
+  });
+  root.addEventListener("click", () => {
+    if (root.dataset.collapsed !== "true") return;
+    root.dataset.collapsed = "false";
+    collapseButton.innerHTML = ICONS.eyeOff;
+    collapseButton.title = "Hide";
+    collapseButton.setAttribute("aria-label", "Hide");
   });
 
   return view;
