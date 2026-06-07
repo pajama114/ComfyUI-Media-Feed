@@ -11,8 +11,9 @@ const DEFAULT_ITEM_HEIGHT = 143;
 const MIN_ITEM_HEIGHT = 96;
 const MAX_ITEM_HEIGHT = 220;
 const ITEM_GAP = 8;
-const SCROLLBAR_SPACE = 18;
+const SCROLLBAR_SPACE = 14;
 const RAIL_PADDING = 12;
+const CARD_TOP_OFFSET = 10;
 const OVERSCAN = 5;
 const FALLBACK_PANEL_EXTRA_HEIGHT = 80;
 const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
@@ -185,15 +186,20 @@ function viewPitch(view) {
 }
 
 function viewportHeight() {
-  return state.itemHeight + SCROLLBAR_SPACE + 22;
+  return state.itemHeight + CARD_TOP_OFFSET + SCROLLBAR_SPACE;
 }
 
 function railHeight() {
-  return state.itemHeight + SCROLLBAR_SPACE + 20;
+  return state.itemHeight + CARD_TOP_OFFSET;
 }
 
 function fallbackPanelHeight() {
   return state.itemHeight + SCROLLBAR_SPACE + FALLBACK_PANEL_EXTRA_HEIGHT;
+}
+
+function horizontalContentWidth(itemCount) {
+  if (!itemCount) return 0;
+  return RAIL_PADDING * 2 + itemCount * state.itemWidth + (itemCount - 1) * ITEM_GAP;
 }
 
 function normalizeThumbnailHeight(nextHeight) {
@@ -650,31 +656,45 @@ function ensureStyles() {
       min-height: var(--cmf-viewport-height);
       overflow-x: auto;
       overflow-y: hidden;
-      scrollbar-color: color-mix(in srgb, var(--cmf-text) 32%, transparent) color-mix(in srgb, var(--cmf-bg) 82%, transparent);
-      scrollbar-width: thin;
+      scrollbar-color: rgba(46, 46, 46, 0.82) rgba(42, 42, 42, 0.28);
+      scrollbar-width: none;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
       background: var(--cmf-view-bg);
     }
 
+    .cmf-root[data-scrollable="true"] .cmf-viewport {
+      scrollbar-width: thin;
+    }
+
     .cmf-viewport::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    .cmf-root[data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
+      width: 12px;
       height: 12px;
     }
 
     .cmf-viewport::-webkit-scrollbar-track {
       border-radius: 0 0 8px 8px;
-      background: color-mix(in srgb, var(--cmf-bg) 82%, transparent);
+      background: rgba(42, 42, 42, 0.28);
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb {
       min-width: 36px;
-      border: 3px solid color-mix(in srgb, var(--cmf-bg) 82%, transparent);
+      min-height: 36px;
+      border: 3px solid rgba(92, 92, 92, 0.3);
       border-radius: 999px;
-      background: color-mix(in srgb, var(--cmf-text) 32%, transparent);
+      background: rgba(46, 46, 46, 0.82);
+      box-shadow:
+        0 0 0 1px rgba(12, 12, 12, 0.42),
+        0 1px 3px rgba(0, 0, 0, 0.32);
     }
 
     .cmf-viewport::-webkit-scrollbar-thumb:hover {
-      background: color-mix(in srgb, var(--cmf-text) 44%, transparent);
+      background: rgba(32, 32, 32, 0.92);
     }
 
     .cmf-rail {
@@ -694,7 +714,7 @@ function ensureStyles() {
 
     .cmf-card {
       position: absolute;
-      top: 10px;
+      top: ${CARD_TOP_OFFSET}px;
       display: flex;
       flex-direction: column;
       width: var(--cmf-item-width);
@@ -1741,10 +1761,12 @@ function updateView(view, scrollToLatest) {
     const totalHeight = Math.max(view.viewport.clientHeight, RAIL_PADDING * 2 + items.length * pitch);
     view.rail.style.width = "100%";
     view.rail.style.height = `${totalHeight}px`;
+    view.root.dataset.scrollable = String(totalHeight > view.viewport.clientHeight + 1);
   } else {
-    const totalWidth = Math.max(view.viewport.clientWidth, RAIL_PADDING * 2 + items.length * pitch);
+    const totalWidth = Math.max(view.viewport.clientWidth, horizontalContentWidth(items.length));
     view.rail.style.width = `${totalWidth}px`;
     view.rail.style.height = "";
+    view.root.dataset.scrollable = String(totalWidth > view.viewport.clientWidth + 1);
   }
 
   view.empty.style.display = items.length ? "none" : "grid";
