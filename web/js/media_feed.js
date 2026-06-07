@@ -777,7 +777,7 @@ function ensureStyles() {
       border: 1px solid var(--cmf-border);
       border-radius: 6px;
       background: rgba(20, 20, 20, 0.70);
-      color: var(--cmf-text);
+      color: #fff;
       opacity: 0;
       pointer-events: none;
       transform: translateY(-50%);
