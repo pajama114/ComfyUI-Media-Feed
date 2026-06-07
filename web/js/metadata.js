@@ -663,12 +663,18 @@ function extractPromptMetadata(chunks) {
   const positive = fromPrompt.positive || fromWorkflow.positive || "";
   const negative = fromPrompt.negative || fromWorkflow.negative || "";
   const source = fromPrompt.source || fromWorkflow.source || fromChunks.source || "";
-  const found = seed || positive || negative;
+  const details = formatMetadataEntries([
+    ...(fromPrompt.details || []),
+    ...(fromWorkflow.details || []),
+    ...(fromChunks.details || []),
+  ]);
+  const found = seed || positive || negative || details.length;
 
   return {
     seed,
     positive,
     negative,
+    details,
     status: found
       ? `Loaded embedded ${source || "prompt"} metadata.`
       : "No prompt or seed metadata found in embedded metadata.",
@@ -691,6 +697,95 @@ function uniqueNonEmpty(values) {
 
 function joinPrompts(values) {
   return uniqueNonEmpty(values).join("\n\n");
+}
+
+function normalizeMetadataValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value !== "string") return "";
+
+  const text = value.trim();
+  if (!text || text.length > 160) return "";
+  return text;
+}
+
+function addMetadataEntry(entries, label, value) {
+  const text = normalizeMetadataValue(value);
+  if (!text) return;
+  entries.push({ label, value: text });
+}
+
+function metadataLabelForField(name) {
+  const normalized = String(name || "").replace(/[_-]+/g, " ").trim().toLowerCase();
+  if (!normalized) return "";
+
+  if (isSeedFieldName(normalized)) return "Seed";
+  if (/^(cfg|cfg scale|cfgscale|guidance|guidance scale)$/.test(normalized)) return "CFG scale";
+  if (/^steps?$/.test(normalized)) return "Steps";
+  if (/^(sampler|sampler name)$/.test(normalized)) return "Sampler";
+  if (/^scheduler$/.test(normalized)) return "Scheduler";
+  if (/^(denoise|denoising strength)$/.test(normalized)) return "Denoise";
+  if (/^width$/.test(normalized)) return "Width";
+  if (/^height$/.test(normalized)) return "Height";
+  if (/^batch size$/.test(normalized)) return "Batch size";
+  if (/^model$/.test(normalized)) return "Model";
+  if (/^model hash$/.test(normalized)) return "Model hash";
+  if (/^clip skip$/.test(normalized)) return "Clip skip";
+  if (/^vae$/.test(normalized)) return "VAE";
+
+  return "";
+}
+
+function addMetadataField(entries, name, value) {
+  const label = metadataLabelForField(name);
+  if (!label) return false;
+  addMetadataEntry(entries, label, value);
+  return true;
+}
+
+function addSizeMetadata(entries, value) {
+  const text = normalizeMetadataValue(value);
+  const match = text.match(/^(\d+)\s*x\s*(\d+)$/i);
+  if (!match) return false;
+
+  addMetadataEntry(entries, "Width", match[1]);
+  addMetadataEntry(entries, "Height", match[2]);
+  return true;
+}
+
+function formatMetadataEntries(entries) {
+  const priority = new Map([
+    ["CFG scale", 10],
+    ["Steps", 20],
+    ["Sampler", 30],
+    ["Scheduler", 40],
+    ["Seed", 50],
+    ["Width", 60],
+    ["Height", 70],
+    ["Denoise", 80],
+    ["Batch size", 90],
+    ["Model", 100],
+    ["Model hash", 110],
+    ["Clip skip", 120],
+    ["VAE", 130],
+  ]);
+  const seen = new Set();
+  const results = [];
+
+  for (const entry of entries) {
+    const label = String(entry?.label || "").trim();
+    const value = normalizeMetadataValue(entry?.value);
+    if (!label || !value) continue;
+
+    const key = `${label.toLowerCase()}:${value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({ label, value, order: priority.get(label) ?? 1000 });
+  }
+
+  results.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+  return results.map(({ label, value }) => ({ label, value }));
 }
 
 function isSeedFieldName(name) {
@@ -754,22 +849,50 @@ function extractSeedEntriesFromText(text, label) {
   return entries;
 }
 
+function extractMetadataEntriesFromText(text) {
+  if (typeof text !== "string" || !text.trim() || text.length > 200000) return [];
+
+  const entries = [];
+  const pattern = /(?:^|[,;\n\r])\s*([A-Za-z][A-Za-z0-9 _-]{1,32})\s*:\s*([^,\n\r]+)/g;
+  for (const match of text.matchAll(pattern)) {
+    const key = match[1].trim();
+    const value = match[2].trim();
+    if (/^size$/i.test(key)) {
+      addSizeMetadata(entries, value);
+      continue;
+    }
+
+    addMetadataField(entries, key, value);
+  }
+
+  return entries;
+}
+
 function extractFromLooseMetadata(chunks) {
   const entries = [];
+  const details = [];
   for (const [key, value] of Object.entries(chunks || {})) {
     if (isSeedFieldName(key)) {
       for (const seed of collectSeedValues(value)) entries.push({ label: key, value: seed });
     }
 
+    if (String(key).toLowerCase() === "size") {
+      addSizeMetadata(details, value);
+    } else {
+      addMetadataField(details, key, value);
+    }
+
     const lowerKey = String(key || "").toLowerCase();
     if (/parameters|settings|comment|description/.test(lowerKey)) {
       entries.push(...extractSeedEntriesFromText(value, key));
+      details.push(...extractMetadataEntriesFromText(value));
     }
   }
 
   return {
     seed: formatSeedEntries(entries),
-    source: entries.length ? "metadata" : "",
+    details,
+    source: entries.length || details.length ? "metadata" : "",
   };
 }
 
@@ -889,6 +1012,26 @@ function collectPromptSeedEntries(prompt) {
   return entries;
 }
 
+function collectPromptMetadataEntries(prompt) {
+  const entries = [];
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return entries;
+
+  for (const node of Object.values(prompt)) {
+    const inputs = node?.inputs || {};
+    const nodeClass = promptNodeClass(node);
+    const samplerNode = /sampler/i.test(nodeClass);
+    const latentNode = /latent|empty.*image/i.test(nodeClass);
+
+    for (const [name, value] of Object.entries(inputs)) {
+      if (isPromptLink(value)) continue;
+      if (!samplerNode && !latentNode) continue;
+      addMetadataField(entries, name, value);
+    }
+  }
+
+  return entries;
+}
+
 function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceText = false, polarity = "") {
   if (!prompt || !isPromptLink(reference)) return [];
 
@@ -934,6 +1077,7 @@ function extractFromPromptGraph(prompt) {
   const positives = [];
   const negatives = [];
   const seedEntries = collectPromptSeedEntries(prompt);
+  const details = collectPromptMetadataEntries(prompt);
 
   for (const node of Object.values(prompt)) {
     const inputs = node?.inputs || {};
@@ -948,7 +1092,8 @@ function extractFromPromptGraph(prompt) {
     seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
-    source: seedEntries.length || positives.length || negatives.length ? "prompt" : "",
+    details,
+    source: seedEntries.length || positives.length || negatives.length || details.length ? "prompt" : "",
   };
 }
 
@@ -1107,6 +1252,40 @@ function collectWorkflowSeedEntries(workflow, maps = buildWorkflowMaps(workflow)
   return entries;
 }
 
+function collectWorkflowMetadataEntries(workflow, maps = buildWorkflowMaps(workflow)) {
+  const entries = [];
+  if (!workflow || typeof workflow !== "object") return entries;
+
+  const samplerWidgetNames = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"];
+  const latentWidgetNames = ["width", "height", "batch_size"];
+
+  for (const node of maps.nodes) {
+    const nodeType = workflowNodeType(node);
+    const samplerNode = /sampler/i.test(nodeType);
+    const latentNode = /latent|empty.*image/i.test(nodeType);
+
+    for (const input of node.inputs || []) {
+      const name = String(input?.name || "");
+      if (input?.link !== undefined && input?.link !== null) continue;
+      if (!samplerNode && !latentNode) continue;
+      addMetadataField(entries, name, input?.value ?? input?.default ?? input?.widget?.value);
+    }
+
+    if (Array.isArray(node.widgets)) {
+      node.widgets.forEach((widget, index) => {
+        const name = String(widget?.name || widget?.label || "");
+        if (!samplerNode && !latentNode) return;
+        addMetadataField(entries, name, widget?.value ?? node.widgets_values?.[index]);
+      });
+    } else if (Array.isArray(node.widgets_values)) {
+      const names = samplerNode ? samplerWidgetNames : latentNode ? latentWidgetNames : [];
+      names.forEach((name, index) => addMetadataField(entries, name, node.widgets_values[index]));
+    }
+  }
+
+  return entries;
+}
+
 function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "") {
   if (!nodeId || visited.has(nodeId)) return [];
   visited.add(nodeId);
@@ -1151,6 +1330,7 @@ function extractFromWorkflowGraph(workflow) {
   const positives = [];
   const negatives = [];
   const seedEntries = collectWorkflowSeedEntries(workflow, maps);
+  const details = collectWorkflowMetadataEntries(workflow, maps);
 
   for (const node of maps.nodes) {
     const positiveLink = workflowInputLink(node, "positive");
@@ -1167,6 +1347,7 @@ function extractFromWorkflowGraph(workflow) {
     seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
-    source: seedEntries.length || positives.length || negatives.length ? "workflow" : "",
+    details,
+    source: seedEntries.length || positives.length || negatives.length || details.length ? "workflow" : "",
   };
 }

@@ -1075,6 +1075,34 @@ function ensureStyles() {
       font-size: 12px;
     }
 
+    .cmf-metadata-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 9px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 6px;
+      background: var(--cmf-panel);
+    }
+
+    .cmf-metadata-chip {
+      min-width: 0;
+      max-width: 100%;
+      padding: 3px 7px;
+      border: 1px solid color-mix(in srgb, var(--cmf-accent) 20%, var(--cmf-border));
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--cmf-accent) 8%, transparent);
+      color: var(--cmf-text);
+      font-size: 11px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .cmf-metadata-chip-label {
+      color: var(--cmf-muted);
+      text-transform: uppercase;
+    }
+
     .cmf-prompt-section {
       display: grid;
       gap: 5px;
@@ -1286,6 +1314,12 @@ function ensureViewer() {
           </div>
           <pre class="cmf-prompt-text cmf-seed-text"></pre>
         </section>
+        <section class="cmf-prompt-section cmf-metadata-section" hidden>
+          <div class="cmf-prompt-section-header">
+            <h2 class="cmf-prompt-heading">Other Metadata</h2>
+          </div>
+          <div class="cmf-metadata-grid"></div>
+        </section>
       </aside>
     </div>
   `;
@@ -1319,6 +1353,8 @@ function ensureViewer() {
     media: root.querySelector(".cmf-viewer-media"),
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
+    metadataSection: root.querySelector(".cmf-metadata-section"),
+    metadataGrid: root.querySelector(".cmf-metadata-grid"),
     promptSeed: root.querySelector(".cmf-seed-text"),
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
@@ -1559,6 +1595,8 @@ async function renderViewerItem(item, thumbnail) {
 function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
   viewer.promptStatus.textContent = status;
+  viewer.metadataGrid.replaceChildren();
+  viewer.metadataSection.hidden = true;
   viewer.promptSeed.textContent = "";
   viewer.promptPositive.textContent = "";
   viewer.promptNegative.textContent = "";
@@ -1567,6 +1605,26 @@ function resetViewerPromptPanel(status = "") {
 function renderPromptMetadata(result) {
   if (!viewer) return;
   viewer.promptStatus.textContent = result.status || "";
+  viewer.metadataGrid.replaceChildren();
+
+  const details = Array.isArray(result.details) ? result.details : [];
+  for (const detail of details) {
+    const label = String(detail?.label || "").trim();
+    const value = String(detail?.value || "").trim();
+    if (label.toLowerCase() === "seed") continue;
+    if (!label || !value) continue;
+
+    const chip = document.createElement("span");
+    chip.className = "cmf-metadata-chip";
+
+    const labelElement = document.createElement("span");
+    labelElement.className = "cmf-metadata-chip-label";
+    labelElement.textContent = label;
+    chip.append(labelElement, `: ${value}`);
+    viewer.metadataGrid.appendChild(chip);
+  }
+
+  viewer.metadataSection.hidden = !viewer.metadataGrid.childElementCount;
   viewer.promptSeed.textContent = result.seed || "(not found)";
   viewer.promptPositive.textContent = result.positive || "(not found)";
   viewer.promptNegative.textContent = result.negative || "(not found)";
@@ -1600,6 +1658,7 @@ function updateViewerPromptPanel() {
         seed: "",
         positive: "",
         negative: "",
+        details: [],
         status: "Could not read embedded prompt metadata.",
       });
     });
