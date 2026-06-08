@@ -467,6 +467,7 @@ function ensureStyles() {
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-collapse,
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-open-output,
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-clear {
       order: 2;
     }
@@ -556,6 +557,7 @@ function ensureStyles() {
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-filter,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-count,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-size-control,
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-open-output,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-clear {
       display: none;
     }
