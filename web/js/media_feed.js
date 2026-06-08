@@ -4,6 +4,7 @@ import { ICONS } from "./icons.js";
 import { clearPromptMetadataCache, loadPromptMetadata } from "./metadata.js";
 
 const EXTENSION_NAME = "comfyui.media_feed";
+const OPEN_OUTPUT_ENDPOINT = "/comfyui-media-feed/open-output";
 const MAX_ITEMS = 256;
 const DECODED_IMAGE_CACHE_SIZE = 32;
 const DEFAULT_ITEM_WIDTH = 148;
@@ -648,6 +649,11 @@ function ensureStyles() {
       background: var(--cmf-button-hover);
     }
 
+    .cmf-button:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
     .cmf-icon-button {
       display: grid;
       place-items: center;
@@ -1268,6 +1274,76 @@ async function copyPromptText(event, source) {
   }, 900);
 }
 
+function flashButtonTitle(button, nextTitle, timeout = 1200) {
+  const previousTitle = button.title;
+  const previousLabel = button.getAttribute("aria-label");
+  button.title = nextTitle;
+  button.setAttribute("aria-label", nextTitle);
+  window.setTimeout(() => {
+    button.title = previousTitle;
+    button.setAttribute("aria-label", previousLabel || previousTitle);
+  }, timeout);
+}
+
+function showFeedMessage(message, severity = "info") {
+  const toast = app?.extensionManager?.toast;
+  if (toast?.add) {
+    try {
+      toast.add({
+        severity,
+        summary: "Media Feed",
+        detail: message,
+        life: 3600,
+      });
+      return;
+    } catch {
+      // Fall through to older ComfyUI dialog/alert behavior.
+    }
+  }
+
+  if (severity === "error") {
+    if (app?.ui?.dialog?.show) {
+      app.ui.dialog.show(message);
+    } else {
+      window.alert(message);
+    }
+  }
+}
+
+async function openOutputFolder(event) {
+  const button = event.currentTarget;
+  button.blur();
+  button.disabled = true;
+
+  try {
+    const response = await fetch(apiUrl(OPEN_OUTPUT_ENDPOINT), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const result = contentType.includes("application/json")
+      ? await response.json()
+      : { error: await response.text() };
+
+    if (!response.ok || result?.ok === false) {
+      throw new Error(result?.error || `Request failed with status ${response.status}`);
+    }
+
+    flashButtonTitle(button, "Opened output folder");
+  } catch (error) {
+    const message = error?.message || "Could not open the output folder.";
+    flashButtonTitle(button, "Open failed");
+    showFeedMessage(`Could not open the output folder. ${message} This works best on local ComfyUI installs.`, "error");
+    console.warn("[ComfyUI Media Feed] failed to open output folder", error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function ensureViewer() {
   if (viewer) return viewer;
 
@@ -1859,6 +1935,7 @@ function createView(root, kind = "embedded") {
         <span>Size</span>
         <input class="cmf-size-slider" type="range" min="${MIN_ITEM_HEIGHT}" max="${MAX_ITEM_HEIGHT}" value="${state.itemHeight}">
       </label>
+      <button class="cmf-button cmf-icon-button cmf-open-output" type="button" title="Open output folder" aria-label="Open output folder">${ICONS.folder}</button>
       <button class="cmf-button cmf-icon-button cmf-clear" type="button" title="Clear" aria-label="Clear">${ICONS.trash}</button>
       <button class="cmf-button cmf-icon-button cmf-collapse" type="button" title="Hide" aria-label="Hide" hidden>${ICONS.eyeOff}</button>
     </div>
@@ -1920,6 +1997,8 @@ function createView(root, kind = "embedded") {
     clearPromptMetadataCache();
     updateViews(false);
   });
+
+  root.querySelector(".cmf-open-output").addEventListener("click", openOutputFolder);
 
   view.sizeSlider.addEventListener("input", (event) => {
     setThumbnailHeight(event.target.value);
