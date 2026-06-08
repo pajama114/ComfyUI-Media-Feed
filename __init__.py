@@ -83,6 +83,33 @@ def _open_folder(path):
     _run_detached(command)
 
 
+def _is_relative_to(path, base):
+    return path == base or base in path.parents
+
+
+def _media_base_directory(media_type):
+    normalized_type = str(media_type or "output").lower()
+    if normalized_type == "output":
+        return Path(folder_paths.get_output_directory()).expanduser().resolve()
+    if normalized_type == "input":
+        return Path(folder_paths.get_input_directory()).expanduser().resolve()
+    if normalized_type == "temp":
+        return Path(folder_paths.get_temp_directory()).expanduser().resolve()
+    raise web.HTTPBadRequest(text="Unsupported media folder type.")
+
+
+def _resolve_media_folder(media_type, subfolder="", filename=""):
+    base_dir = _media_base_directory(media_type)
+    filename_parent = Path(str(filename or "")).parent
+    if str(filename_parent) == ".":
+        filename_parent = Path("")
+
+    target_dir = (base_dir / str(subfolder or "") / filename_parent).resolve()
+    if not _is_relative_to(target_dir, base_dir):
+        raise web.HTTPBadRequest(text="Media folder path escapes its ComfyUI base directory.")
+    return target_dir
+
+
 @PromptServer.instance.routes.post("/comfyui-media-feed/open-output")
 async def open_output_folder(request):
     if not _is_same_origin_request(request):
@@ -107,6 +134,41 @@ async def open_output_folder(request):
         )
 
     return web.json_response({"ok": True, "path": str(output_dir)})
+
+
+@PromptServer.instance.routes.post("/comfyui-media-feed/open-media-folder")
+async def open_media_folder(request):
+    if not _is_same_origin_request(request):
+        raise web.HTTPForbidden(text="Origin does not match this ComfyUI server.")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    media_dir = _resolve_media_folder(
+        payload.get("type", "output"),
+        payload.get("subfolder", ""),
+        payload.get("filename", ""),
+    )
+    if not media_dir.exists():
+        raise web.HTTPNotFound(text="The media folder does not exist.")
+    if not media_dir.is_dir():
+        raise web.HTTPBadRequest(text="The media path is not a directory.")
+
+    try:
+        _open_folder(str(media_dir))
+    except Exception as error:
+        return web.json_response(
+            {
+                "ok": False,
+                "error": str(error),
+                "path": str(media_dir),
+            },
+            status=500,
+        )
+
+    return web.json_response({"ok": True, "path": str(media_dir)})
 
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

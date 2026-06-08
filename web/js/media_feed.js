@@ -5,6 +5,7 @@ import { clearPromptMetadataCache, loadPromptMetadata } from "./metadata.js";
 
 const EXTENSION_NAME = "comfyui.media_feed";
 const OPEN_OUTPUT_ENDPOINT = "/comfyui-media-feed/open-output";
+const OPEN_MEDIA_FOLDER_ENDPOINT = "/comfyui-media-feed/open-media-folder";
 const MAX_ITEMS = 256;
 const DECODED_IMAGE_CACHE_SIZE = 32;
 const DEFAULT_ITEM_WIDTH = 148;
@@ -1316,29 +1317,59 @@ async function openOutputFolder(event) {
   button.disabled = true;
 
   try {
-    const response = await fetch(apiUrl(OPEN_OUTPUT_ENDPOINT), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: "{}",
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const result = contentType.includes("application/json")
-      ? await response.json()
-      : { error: await response.text() };
-
-    if (!response.ok || result?.ok === false) {
-      throw new Error(result?.error || `Request failed with status ${response.status}`);
-    }
-
+    await requestOpenFolder(OPEN_OUTPUT_ENDPOINT);
     flashButtonTitle(button, "Opened output folder");
   } catch (error) {
     const message = error?.message || "Could not open the output folder.";
     flashButtonTitle(button, "Open failed");
     showFeedMessage(`Could not open the output folder. ${message} This works best on local ComfyUI installs.`, "error");
     console.warn("[ComfyUI Media Feed] failed to open output folder", error);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function requestOpenFolder(endpoint, payload = {}) {
+  const response = await fetch(apiUrl(endpoint), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  const result = contentType.includes("application/json")
+    ? await response.json()
+    : { error: await response.text() };
+
+  if (!response.ok || result?.ok === false) {
+    throw new Error(result?.error || `Request failed with status ${response.status}`);
+  }
+
+  return result;
+}
+
+async function openViewerFolder(event) {
+  const button = event.currentTarget;
+  const item = viewer?.item;
+  if (!item) return;
+
+  button.blur();
+  button.disabled = true;
+
+  try {
+    await requestOpenFolder(OPEN_MEDIA_FOLDER_ENDPOINT, {
+      filename: item.filename || "",
+      subfolder: item.subfolder || "",
+      type: item.type || "output",
+    });
+    flashButtonTitle(button, "Opened media folder");
+  } catch (error) {
+    const message = error?.message || "Could not open the media folder.";
+    flashButtonTitle(button, "Open failed");
+    showFeedMessage(`Could not open this media folder. ${message} This works best on local ComfyUI installs.`, "error");
+    console.warn("[ComfyUI Media Feed] failed to open media folder", error);
   } finally {
     button.disabled = false;
   }
@@ -1357,6 +1388,7 @@ function ensureViewer() {
     <div class="cmf-viewer-bar">
       <div class="cmf-viewer-title"></div>
       <div class="cmf-spacer"></div>
+      <button class="cmf-button cmf-icon-button cmf-open-media-folder" type="button" title="Open containing folder" aria-label="Open containing folder" disabled>${ICONS.folder}</button>
       <a class="cmf-button cmf-icon-button cmf-open-link" target="_blank" rel="noopener noreferrer" title="Open original" aria-label="Open original">${ICONS.externalLink}</a>
       <button class="cmf-button cmf-icon-button cmf-close" type="button" title="Close" aria-label="Close">${ICONS.close}</button>
     </div>
@@ -1402,6 +1434,7 @@ function ensureViewer() {
 
   root.addEventListener("click", handleViewerBackdropClick);
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
+  root.querySelector(".cmf-open-media-folder").addEventListener("click", openViewerFolder);
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
@@ -1434,6 +1467,7 @@ function ensureViewer() {
     promptSeed: root.querySelector(".cmf-seed-text"),
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
+    folderButton: root.querySelector(".cmf-open-media-folder"),
     openLink: root.querySelector(".cmf-open-link"),
     prevButton: root.querySelector(".cmf-nav-prev"),
     nextButton: root.querySelector(".cmf-nav-next"),
@@ -1460,6 +1494,7 @@ function closeViewer() {
   viewer.item = null;
   viewer.items = [];
   viewer.index = -1;
+  viewer.folderButton.disabled = true;
 }
 
 function openViewer(item, thumbnail) {
@@ -1618,6 +1653,7 @@ async function renderViewerItem(item, thumbnail) {
   const currentViewer = ensureViewer();
   currentViewer.item = item;
   currentViewer.title.textContent = item.filename;
+  currentViewer.folderButton.disabled = false;
   currentViewer.openLink.href = item.url;
   currentViewer.media.replaceChildren();
   syncViewerNav();

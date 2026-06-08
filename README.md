@@ -23,6 +23,8 @@ fallback panel on older frontends or when a floating placement is selected.
 - Plays video thumbnails on hover, muted and looped.
 - Provides compact audio thumbnail controls with a full-width seek bar.
 - Opens ComfyUI's output folder from the toolbar on local installs.
+- Opens the current media item's containing folder from the viewer on local
+  installs.
 - Lets you resize thumbnails with a toolbar slider.
 - Adds a ComfyUI setting for placing the floating feed at the top, right,
   bottom, or left of the canvas.
