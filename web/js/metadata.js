@@ -1028,6 +1028,149 @@ function promptNodeLabel(node, nodeId) {
   return String(node?.title || node?.properties?.["Node name for S&R"] || promptNodeClass(node) || `Node ${nodeId}`).trim();
 }
 
+function isSystemPromptLabel(label) {
+  return /(^|[^a-z])system\s*prompt([^a-z]|$)/i.test(String(label || ""));
+}
+
+function isPromptSystemNode(node, nodeId = "") {
+  return isSystemPromptLabel(promptNodeLabel(node, nodeId));
+}
+
+function isConditioningZeroNodeClass(nodeClass) {
+  return /conditioning.*zero|zero.*conditioning|zeroout/i.test(String(nodeClass || ""));
+}
+
+function isPromptConditioningZeroNode(node) {
+  return isConditioningZeroNodeClass(promptNodeClass(node));
+}
+
+function isPromptTextGenerationNode(node) {
+  const nodeClass = promptNodeClass(node);
+  return /textgenerate|text.*generation|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeClass)
+    && !isTextEncodeNode(node);
+}
+
+function promptNodeHasLinkedTextInput(node) {
+  const inputs = node?.inputs || {};
+  for (const [name, value] of Object.entries(inputs)) {
+    if (!/text|string|prompt|caption/i.test(name)) continue;
+    if (isPromptLink(value)) return true;
+  }
+  return false;
+}
+
+function promptNodeBooleanValue(prompt, reference, visited = new Set()) {
+  if (!prompt || !isPromptLink(reference)) return undefined;
+
+  const nodeId = String(reference[0]);
+  if (visited.has(nodeId)) return undefined;
+  visited.add(nodeId);
+
+  const node = prompt[nodeId];
+  if (!node) return undefined;
+
+  for (const value of Object.values(node.inputs || {})) {
+    if (typeof value === "boolean") return value;
+    if (isPromptLink(value)) {
+      const linkedValue = promptNodeBooleanValue(prompt, value, visited);
+      if (typeof linkedValue === "boolean") return linkedValue;
+    }
+  }
+
+  for (const value of node.widgets_values || []) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string" && /^(true|false)$/i.test(value.trim())) {
+      return value.trim().toLowerCase() === "true";
+    }
+  }
+
+  return undefined;
+}
+
+function promptSwitchSelectedInputName(prompt, node) {
+  const inputs = node?.inputs || {};
+  if (!("on_true" in inputs) || !("on_false" in inputs)) return "";
+
+  const switchValue = typeof inputs.switch === "boolean"
+    ? inputs.switch
+    : promptNodeBooleanValue(prompt, inputs.switch);
+  if (typeof switchValue !== "boolean") return "";
+  return switchValue ? "on_true" : "on_false";
+}
+
+function promptNodeInputValue(node, name) {
+  const inputs = node?.inputs || {};
+  return Object.prototype.hasOwnProperty.call(inputs, name) ? inputs[name] : undefined;
+}
+
+function promptNodeTextInputs(node) {
+  return Object.entries(node?.inputs || {})
+    .filter(([name]) => /text|string|prompt|caption|input|message/i.test(name));
+}
+
+function preferredUserInputNames(entries) {
+  const userNamed = entries
+    .filter(([name]) => /(^|[_\s-])user([_\s-]|$)|user.*prompt|prompt.*user/i.test(name))
+    .map(([name]) => name);
+  if (userNamed.length) return userNamed;
+
+  const secondInputs = entries
+    .filter(([name]) => /(^|[_\s-])(string|text|prompt)?_?b$|^b$/i.test(name))
+    .map(([name]) => name);
+  if (secondInputs.length) return secondInputs;
+
+  return [];
+}
+
+function collectPromptUserInputTexts(prompt, reference, visited = new Set()) {
+  if (!prompt || !isPromptLink(reference)) return [];
+
+  const nodeId = String(reference[0]);
+  if (visited.has(nodeId)) return [];
+  visited.add(nodeId);
+
+  const node = prompt[nodeId];
+  if (!node || isPromptSystemNode(node, nodeId)) return [];
+
+  const selectedSwitchInputName = promptSwitchSelectedInputName(prompt, node);
+  if (selectedSwitchInputName) {
+    const selectedValue = promptNodeInputValue(node, selectedSwitchInputName);
+    return isPromptLink(selectedValue)
+      ? collectPromptUserInputTexts(prompt, selectedValue, visited)
+      : collectStringValues(selectedValue);
+  }
+
+  const textInputs = promptNodeTextInputs(node);
+  const preferredNames = preferredUserInputNames(textInputs);
+  if (preferredNames.length) {
+    const texts = [];
+    for (const name of preferredNames) {
+      const value = promptNodeInputValue(node, name);
+      if (isPromptLink(value)) {
+        texts.push(...collectPromptUserInputTexts(prompt, value, visited));
+      } else {
+        texts.push(...collectStringValues(value));
+      }
+    }
+    return uniqueNonEmpty(texts);
+  }
+
+  const directTexts = promptNodeHasLinkedTextInput(node) ? [] : collectPromptNodeStrings(node);
+  if (directTexts.length) return directTexts;
+
+  const texts = [];
+  for (const [, value] of textInputs) {
+    if (isPromptLink(value)) texts.push(...collectPromptUserInputTexts(prompt, value, visited));
+  }
+  return uniqueNonEmpty(texts);
+}
+
+function collectPromptTextGenerationInputTexts(prompt, node, visited) {
+  const inputs = node?.inputs || {};
+  const promptReference = inputs.prompt || inputs.text || inputs.input || inputs.message || inputs.messages;
+  return collectPromptUserInputTexts(prompt, promptReference, new Set(visited));
+}
+
 function collectLinkedPromptSeedValues(prompt, reference, visited = new Set()) {
   if (!prompt || !isPromptLink(reference)) return [];
 
@@ -1217,12 +1360,19 @@ function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceTex
   const node = prompt[nodeId];
   const inputs = node?.inputs || {};
   if (!node) return [];
+  if (isPromptSystemNode(node, nodeId) || isPromptConditioningZeroNode(node)) return [];
+  if (isPromptTextGenerationNode(node)) return collectPromptTextGenerationInputTexts(prompt, node, visited);
 
   const texts = [];
   const textCarrier = isTextCarrierNode(node);
-  if (forceText || textCarrier) texts.push(...collectPromptNodeStrings(node));
+  const selectedSwitchInputName = promptSwitchSelectedInputName(prompt, node);
+  if ((forceText || textCarrier) && !promptNodeHasLinkedTextInput(node)) {
+    texts.push(...collectPromptNodeStrings(node));
+  }
 
   for (const [name, value] of Object.entries(inputs)) {
+    if (selectedSwitchInputName && name !== selectedSwitchInputName) continue;
+
     if (
       polarity
       && promptNodeHasPolarityInputs(node)
@@ -1235,10 +1385,10 @@ function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceTex
     if (textCarrier && !isTextInput) continue;
 
     if (isPromptLink(value)) {
-      texts.push(...collectPromptNodeTexts(prompt, value, visited, isTextInput, polarity));
+      texts.push(...collectPromptNodeTexts(prompt, value, visited, isTextInput || Boolean(selectedSwitchInputName), polarity));
     } else if (Array.isArray(value)) {
       for (const child of value) {
-        if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, forceText, polarity));
+        if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, forceText || Boolean(selectedSwitchInputName), polarity));
       }
     }
   }
@@ -1345,6 +1495,141 @@ function workflowNodeHasPolarityInputs(node) {
 
 function workflowNodeLabel(node) {
   return String(node?.title || node?.properties?.["Node name for S&R"] || workflowNodeType(node) || `Node ${workflowNodeId(node)}`).trim();
+}
+
+function isWorkflowSystemNode(node) {
+  return isSystemPromptLabel(workflowNodeLabel(node));
+}
+
+function isWorkflowConditioningZeroNode(node) {
+  return isConditioningZeroNodeClass(workflowNodeType(node));
+}
+
+function isWorkflowTextGenerationNode(node) {
+  const nodeType = workflowNodeType(node);
+  return /textgenerate|text.*generation|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeType)
+    && !isTextEncodeNode({ class_type: nodeType });
+}
+
+function workflowNodeHasLinkedTextInput(node) {
+  for (const input of node?.inputs || []) {
+    if (!/text|string|prompt|caption/i.test(String(input?.name || ""))) continue;
+    if (input?.link !== undefined && input?.link !== null) return true;
+  }
+  return false;
+}
+
+function isWorkflowTextPassthroughNode(node) {
+  const nodeType = workflowNodeType(node);
+  return /previewany|reroute|switch/i.test(nodeType);
+}
+
+function workflowInputByName(node, name) {
+  return (node?.inputs || []).find((input) => input?.name === name) || null;
+}
+
+function workflowNodeBooleanValue(maps, nodeId, visited = new Set()) {
+  if (!nodeId || visited.has(String(nodeId))) return undefined;
+  visited.add(String(nodeId));
+
+  const node = maps.nodeMap.get(String(nodeId));
+  if (!node) return undefined;
+
+  for (const input of node.inputs || []) {
+    const directValue = workflowInputValue(node, input);
+    if (typeof directValue === "boolean") return directValue;
+    if (typeof directValue === "string" && /^(true|false)$/i.test(directValue.trim())) {
+      return directValue.trim().toLowerCase() === "true";
+    }
+
+    if (input?.link === undefined || input?.link === null) continue;
+    const origin = workflowLinkOrigin(maps, input.link);
+    const linkedValue = workflowNodeBooleanValue(maps, origin?.originId, visited);
+    if (typeof linkedValue === "boolean") return linkedValue;
+  }
+
+  for (const value of node.widgets_values || []) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string" && /^(true|false)$/i.test(value.trim())) {
+      return value.trim().toLowerCase() === "true";
+    }
+  }
+
+  return undefined;
+}
+
+function workflowSwitchSelectedInputName(maps, node) {
+  if (!workflowInputByName(node, "on_true") || !workflowInputByName(node, "on_false")) return "";
+
+  const switchInput = workflowInputByName(node, "switch");
+  let switchValue = workflowInputValue(node, switchInput);
+  if (typeof switchValue !== "boolean" && typeof switchValue === "string" && /^(true|false)$/i.test(switchValue.trim())) {
+    switchValue = switchValue.trim().toLowerCase() === "true";
+  }
+
+  if (typeof switchValue !== "boolean" && switchInput?.link !== undefined && switchInput?.link !== null) {
+    const origin = workflowLinkOrigin(maps, switchInput.link);
+    switchValue = workflowNodeBooleanValue(maps, origin?.originId);
+  }
+
+  if (typeof switchValue !== "boolean") return "";
+  return switchValue ? "on_true" : "on_false";
+}
+
+function workflowTextInputs(node) {
+  return (node?.inputs || [])
+    .filter((input) => /text|string|prompt|caption|input|message/i.test(String(input?.name || "")));
+}
+
+function workflowInputLinkedTexts(input, maps, visited) {
+  if (!input) return [];
+  if (input.link !== undefined && input.link !== null) {
+    const origin = workflowLinkOrigin(maps, input.link);
+    return collectWorkflowUserInputTexts(origin?.originId, maps, visited);
+  }
+  return collectStringValues(input.value ?? input.default ?? input.widget?.value);
+}
+
+function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set()) {
+  if (!nodeId || visited.has(String(nodeId))) return [];
+  visited.add(String(nodeId));
+
+  const node = maps.nodeMap.get(String(nodeId));
+  if (!node || isWorkflowSystemNode(node)) return [];
+
+  const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
+  if (selectedSwitchInputName) {
+    return workflowInputLinkedTexts(workflowInputByName(node, selectedSwitchInputName), maps, visited);
+  }
+
+  const textInputs = workflowTextInputs(node);
+  const preferredNames = preferredUserInputNames(textInputs.map((input) => [String(input?.name || ""), input]));
+  if (preferredNames.length) {
+    const texts = [];
+    for (const name of preferredNames) {
+      texts.push(...workflowInputLinkedTexts(workflowInputByName(node, name), maps, visited));
+    }
+    return uniqueNonEmpty(texts);
+  }
+
+  if (isWorkflowTextCarrierNode(node) && !workflowNodeHasLinkedTextInput(node)) {
+    return collectStringValues(node.widgets_values || []);
+  }
+
+  const texts = [];
+  for (const input of textInputs) {
+    if (input?.link !== undefined && input?.link !== null) texts.push(...workflowInputLinkedTexts(input, maps, visited));
+  }
+  return uniqueNonEmpty(texts);
+}
+
+function collectWorkflowTextGenerationInputTexts(node, maps, visited) {
+  const promptInput = workflowInputByName(node, "prompt")
+    || workflowInputByName(node, "text")
+    || workflowInputByName(node, "input")
+    || workflowInputByName(node, "message")
+    || workflowInputByName(node, "messages");
+  return workflowInputLinkedTexts(promptInput, maps, new Set(visited));
 }
 
 function collectWorkflowPropertySeedEntries(object, label) {
@@ -1497,17 +1782,23 @@ function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText =
 
   const node = maps.nodeMap.get(String(nodeId));
   if (!node) return [];
+  if (isWorkflowSystemNode(node) || isWorkflowConditioningZeroNode(node)) return [];
+  if (isWorkflowTextGenerationNode(node)) return collectWorkflowTextGenerationInputTexts(node, maps, visited);
 
   const texts = [];
   const textCarrier = isWorkflowTextCarrierNode(node);
-  if (forceText || textCarrier) {
+  const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
+  const linkedTextInput = workflowNodeHasLinkedTextInput(node);
+  if ((forceText || textCarrier) && !linkedTextInput) {
     texts.push(...collectStringValues(node.widgets_values || []));
   }
 
   for (const input of node.inputs || []) {
+    if (selectedSwitchInputName && input.name !== selectedSwitchInputName) continue;
+
     if (input?.link === undefined || input?.link === null) continue;
     const isTextInput = /text|string|prompt|caption/i.test(String(input.name || ""));
-    if (textCarrier && !isTextInput) continue;
+    if (textCarrier && !isTextInput && !isWorkflowTextPassthroughNode(node)) continue;
 
     if (
       polarity
@@ -1522,7 +1813,8 @@ function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText =
     const nextPolarity = origin.outputName === "positive" || origin.outputName === "negative"
       ? origin.outputName
       : polarity;
-    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, isTextInput, nextPolarity));
+    const nextForceText = isTextInput || Boolean(selectedSwitchInputName) || (textCarrier && isWorkflowTextPassthroughNode(node));
+    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, nextForceText, nextPolarity));
   }
 
   return uniqueNonEmpty(texts);

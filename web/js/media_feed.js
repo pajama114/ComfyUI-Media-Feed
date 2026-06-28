@@ -1475,6 +1475,7 @@ function handleViewerGlobalKeydown(event) {
 
 function handleViewerWheel(event) {
   if (!viewer || viewer.root.dataset.open !== "true") return;
+  if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
   if (Math.abs(event.deltaY) < 8 && Math.abs(event.deltaX) < 8) return;
 
   event.preventDefault();
