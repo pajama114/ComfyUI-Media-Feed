@@ -50,11 +50,6 @@ export const ICONS = {
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
     </svg>
   `,
-  folder: `
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z"></path>
-    </svg>
-  `,
   image: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="3" y="5" width="18" height="14" rx="2"></rect>

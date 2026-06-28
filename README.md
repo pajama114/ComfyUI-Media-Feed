@@ -22,9 +22,6 @@ fallback panel on older frontends or when a floating placement is selected.
   scrolling in the viewer.
 - Plays video thumbnails on hover, muted and looped.
 - Provides compact audio thumbnail controls with a full-width seek bar.
-- Opens ComfyUI's output folder from the toolbar on local installs.
-- Opens the current media item's containing folder from the viewer on local
-  installs.
 - Lets you resize thumbnails with a toolbar slider.
 - Adds a ComfyUI setting for placing the floating feed at the top, right,
   bottom, or left of the canvas.
@@ -119,9 +116,6 @@ aac, flac, m4a, mp3, ogg, opus, wav
   `subfolder`, and `type` in their execution payload.
 - The extension uses ComfyUI's local `/view` route. Remote or hosted setups may
   need additional adapter work.
-- Opening the output folder is intended for local ComfyUI installs. In remote,
-  containerized, WSL, or hosted environments, it opens on the server side when
-  supported and may do nothing.
 - Prompt display reads embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, and
   Opus metadata and may not infer prompts or seeds from every custom workflow.
 
