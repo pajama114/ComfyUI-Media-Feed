@@ -1057,7 +1057,9 @@ function ensureStyles() {
       width: 100%;
       min-width: 0;
       min-height: 0;
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
       padding: 12px;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
@@ -1076,8 +1078,10 @@ function ensureStyles() {
     }
 
     .cmf-prompt-status {
+      min-height: 16px;
       color: var(--cmf-muted);
       font-size: 12px;
+      line-height: 1.35;
     }
 
     .cmf-metadata-grid {
@@ -1146,6 +1150,7 @@ function ensureStyles() {
       min-height: 76px;
       max-height: 34vh;
       overflow: auto;
+      scrollbar-gutter: stable;
       margin: 0;
       padding: 9px;
       border: 1px solid var(--cmf-border);
@@ -1208,6 +1213,7 @@ function ensureStyles() {
 
 function rememberDecodedImage(url, image) {
   if (!url || !image?.complete) return;
+  if (!image.naturalWidth && !image.naturalHeight) return;
   decodedImageCache.delete(url);
   decodedImageCache.set(url, image);
 
@@ -1217,24 +1223,30 @@ function rememberDecodedImage(url, image) {
   }
 }
 
-function warmImage(url) {
-  if (decodedImageCache.has(url)) return Promise.resolve(decodedImageCache.get(url));
+function waitForImageReady(image) {
+  if (image.complete) return Promise.resolve();
 
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = async () => {
-      try {
-        await image.decode?.();
-      } catch {
-        // The image is still usable if decode() is not supported or rejects.
-      }
-      rememberDecodedImage(url, image);
-      resolve(image);
-    };
-    image.onerror = reject;
-    image.src = url;
+  return new Promise((resolve) => {
+    const settle = () => resolve();
+    image.addEventListener("load", settle, { once: true });
+    image.addEventListener("error", settle, { once: true });
   });
+}
+
+async function decodeImageElement(image) {
+  await waitForImageReady(image);
+  try {
+    await image.decode?.();
+  } catch {
+    // The image element should still be shown so the browser can expose errors.
+  }
+}
+
+function isCurrentViewerRender(currentViewer, requestId, item) {
+  return viewer === currentViewer
+    && currentViewer.root.dataset.open === "true"
+    && currentViewer.renderRequestId === requestId
+    && currentViewer.item?.key === item.key;
 }
 
 async function copyPromptText(event, source) {
@@ -1367,6 +1379,8 @@ function ensureViewer() {
     prevButton: root.querySelector(".cmf-nav-prev"),
     nextButton: root.querySelector(".cmf-nav-next"),
     promptRequestId: 0,
+    renderRequestId: 0,
+    lastPromptMetadataItemKey: "",
     item: null,
     items: [],
     index: -1,
@@ -1383,6 +1397,7 @@ function closeViewer() {
   if (!viewer) return;
   viewer.root.dataset.open = "false";
   viewer.promptRequestId++;
+  viewer.renderRequestId++;
   viewer.body.dataset.prompts = "false";
   viewer.promptPanel.hidden = true;
   viewer.media.replaceChildren();
@@ -1546,10 +1561,10 @@ function handleViewerBackdropClick(event) {
 
 async function renderViewerItem(item, thumbnail) {
   const currentViewer = ensureViewer();
+  const requestId = ++currentViewer.renderRequestId;
   currentViewer.item = item;
   currentViewer.title.textContent = item.filename;
   currentViewer.openLink.href = item.url;
-  currentViewer.media.replaceChildren();
   syncViewerNav();
 
   if (item.kind === "image") {
@@ -1560,27 +1575,31 @@ async function renderViewerItem(item, thumbnail) {
     const cached = decodedImageCache.get(item.url);
     if (cached?.complete) {
       image.src = cached.currentSrc || cached.src;
-      currentViewer.media.appendChild(image);
-      image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
+      await decodeImageElement(image);
+      if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+      currentViewer.media.replaceChildren(image);
+      rememberDecodedImage(item.url, image);
+      refreshViewerPromptPanelDetails();
       return;
     }
 
     if (thumbnail?.complete) {
       rememberDecodedImage(item.url, thumbnail);
       image.src = thumbnail.currentSrc || thumbnail.src;
-      currentViewer.media.appendChild(image);
-      image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
+      await decodeImageElement(image);
+      if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+      currentViewer.media.replaceChildren(image);
+      rememberDecodedImage(item.url, image);
+      refreshViewerPromptPanelDetails();
       return;
     }
 
     image.src = item.url;
-    currentViewer.media.appendChild(image);
-    image.addEventListener("load", refreshViewerPromptPanelDetails, { once: true });
-    try {
-      await warmImage(item.url);
-    } catch {
-      // Keep the normal image element in place so the browser can show its error UI.
-    }
+    await decodeImageElement(image);
+    if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+    currentViewer.media.replaceChildren(image);
+    rememberDecodedImage(item.url, image);
+    refreshViewerPromptPanelDetails();
     return;
   }
 
@@ -1590,7 +1609,7 @@ async function renderViewerItem(item, thumbnail) {
     video.autoplay = true;
     video.playsInline = true;
     video.src = item.url;
-    currentViewer.media.appendChild(video);
+    currentViewer.media.replaceChildren(video);
     video.addEventListener("loadedmetadata", refreshViewerPromptPanelDetails, { once: true });
     return;
   }
@@ -1599,12 +1618,13 @@ async function renderViewerItem(item, thumbnail) {
   audio.controls = true;
   audio.autoplay = true;
   audio.src = item.url;
-  currentViewer.media.appendChild(audio);
+  currentViewer.media.replaceChildren(audio);
 }
 
 function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
   viewer.lastPromptMetadata = null;
+  viewer.lastPromptMetadataItemKey = "";
   viewer.promptStatus.textContent = status;
   viewer.metadataGrid.replaceChildren();
   viewer.metadataSection.hidden = true;
@@ -1651,12 +1671,14 @@ function appendMetadataDetails(details, fallbackDetails) {
 
 function refreshViewerPromptPanelDetails() {
   if (!viewer?.lastPromptMetadata || viewer.root.dataset.open !== "true") return;
+  if (viewer.lastPromptMetadataItemKey !== viewer.item?.key) return;
   renderPromptMetadata(viewer.lastPromptMetadata);
 }
 
-function renderPromptMetadata(result) {
+function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   if (!viewer) return;
   viewer.lastPromptMetadata = result;
+  viewer.lastPromptMetadataItemKey = itemKey;
   viewer.promptStatus.textContent = result.status || "";
   viewer.metadataGrid.replaceChildren();
 
@@ -1701,12 +1723,16 @@ function updateViewerPromptPanel() {
   }
 
   const requestId = viewer.promptRequestId;
-  resetViewerPromptPanel("Loading embedded prompt metadata...");
+  if (viewer.lastPromptMetadata) {
+    viewer.promptStatus.textContent = "Loading embedded prompt metadata...";
+  } else {
+    resetViewerPromptPanel("Loading embedded prompt metadata...");
+  }
 
   loadPromptMetadata(item)
     .then((result) => {
       if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
-      renderPromptMetadata(result);
+      renderPromptMetadata(result, item.key);
     })
     .catch(() => {
       if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
@@ -1716,7 +1742,7 @@ function updateViewerPromptPanel() {
         negative: "",
         details: [],
         status: "Could not read embedded prompt metadata.",
-      });
+      }, item.key);
     });
 }
 
