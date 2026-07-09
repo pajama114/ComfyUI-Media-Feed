@@ -999,7 +999,7 @@ function collectStringValues(value, results = []) {
 
 function collectPromptInputTexts(node) {
   const inputs = node?.inputs || {};
-  const textInputNames = new Set(["text", "value", "string", "prompt", "text_a", "text_b", "positive", "negative"]);
+  const textInputNames = new Set(["text", "value", "string", "prompt", "positive", "negative"]);
   const texts = [];
 
   for (const [name, value] of Object.entries(inputs)) {
