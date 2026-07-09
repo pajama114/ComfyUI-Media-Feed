@@ -997,6 +997,36 @@ function collectStringValues(value, results = []) {
   return results;
 }
 
+function widgetValueHasActivationState(value) {
+  if (Array.isArray(value)) return value.some((child) => widgetValueHasActivationState(child));
+  return Boolean(value && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, "active"));
+}
+
+function collectWidgetStringValues(value, results = []) {
+  if (typeof value === "string" && value.trim()) {
+    results.push(value);
+  } else if (Array.isArray(value)) {
+    const hasActivationState = widgetValueHasActivationState(value);
+    for (const child of value) {
+      if (hasActivationState && typeof child === "string") continue;
+      collectWidgetStringValues(child, results);
+    }
+  } else if (value && typeof value === "object") {
+    if (value.active === false) return results;
+
+    if (typeof value.text === "string" && value.text.trim()) {
+      results.push(value.text);
+      return results;
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      if (/^(items?|children|values?)$/i.test(key)) collectWidgetStringValues(child, results);
+    }
+  }
+
+  return results;
+}
+
 function collectPromptInputTexts(node) {
   const inputs = node?.inputs || {};
   const textInputNames = new Set(["text", "value", "string", "prompt", "positive", "negative"]);
@@ -1014,8 +1044,8 @@ function collectPromptInputTexts(node) {
 function collectPromptNodeStrings(node) {
   const texts = [];
   texts.push(...collectPromptInputTexts(node));
-  texts.push(...collectStringValues(node?.widgets_values || []));
-  texts.push(...collectStringValues(node?.widgets || []));
+  texts.push(...collectWidgetStringValues(node?.widgets_values || []));
+  texts.push(...collectWidgetStringValues(node?.widgets || []));
   return uniqueNonEmpty(texts);
 }
 
@@ -1635,7 +1665,7 @@ function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), contex
   }
 
   if (isWorkflowTextCarrierNode(node) && !workflowNodeHasLinkedTextInput(node)) {
-    return collectStringValues(node.widgets_values || []);
+    return uniqueNonEmpty(collectWidgetStringValues(node.widgets_values || []));
   }
 
   const texts = [];
@@ -1812,7 +1842,7 @@ function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText =
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
   const linkedTextInput = workflowNodeHasLinkedTextInput(node);
   if ((forceText || textCarrier) && !linkedTextInput) {
-    texts.push(...collectStringValues(node.widgets_values || []));
+    texts.push(...collectWidgetStringValues(node.widgets_values || []));
   }
 
   for (const input of node.inputs || []) {
