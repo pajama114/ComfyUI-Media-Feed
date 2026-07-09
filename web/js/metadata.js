@@ -1449,6 +1449,11 @@ function workflowOutputName(node, slot) {
   return String(output?.name || "").toLowerCase();
 }
 
+function workflowSubgraphInputName(workflow, slot) {
+  const input = workflow?.inputs?.[Number(slot)];
+  return String(input?.name || "");
+}
+
 function buildWorkflowMaps(workflow) {
   const nodes = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
   const nodeMap = new Map(nodes.map((node) => [workflowNodeId(node), node]));
@@ -1462,7 +1467,7 @@ function buildWorkflowMaps(workflow) {
       linkMap.set(String(link[0]), {
         originId,
         originSlot,
-        outputName: workflowOutputName(originNode, originSlot),
+        outputName: originId === "-10" ? workflowSubgraphInputName(workflow, originSlot) : workflowOutputName(originNode, originSlot),
       });
     } else if (link && typeof link === "object") {
       const id = link.id ?? link.link_id;
@@ -1474,13 +1479,13 @@ function buildWorkflowMaps(workflow) {
         linkMap.set(String(id), {
           originId: originKey,
           originSlot,
-          outputName: workflowOutputName(originNode, originSlot),
+          outputName: originKey === "-10" ? workflowSubgraphInputName(workflow, originSlot) : workflowOutputName(originNode, originSlot),
         });
       }
     }
   }
 
-  return { nodes, nodeMap, linkMap };
+  return { workflow, nodes, nodeMap, linkMap };
 }
 
 function workflowLinkOrigin(maps, linkId) {
@@ -1581,16 +1586,33 @@ function workflowTextInputs(node) {
     .filter((input) => /text|string|prompt|caption|input|message/i.test(String(input?.name || "")));
 }
 
-function workflowInputLinkedTexts(input, maps, visited) {
+function isWorkflowSubgraphInputOrigin(origin) {
+  return String(origin?.originId || "") === "-10";
+}
+
+function collectWorkflowExternalInputTexts(origin, maps, visited, context) {
+  const externalNode = context?.externalNode;
+  const externalMaps = context?.externalMaps;
+  const inputName = String(origin?.outputName || workflowSubgraphInputName(maps.workflow, origin?.originSlot));
+  if (!externalNode || !externalMaps || !inputName) return [];
+
+  const input = workflowInputByName(externalNode, inputName);
+  return workflowInputLinkedTexts(input, externalMaps, new Set(), context?.parentContext || null);
+}
+
+function workflowInputLinkedTexts(input, maps, visited, context = null) {
   if (!input) return [];
   if (input.link !== undefined && input.link !== null) {
     const origin = workflowLinkOrigin(maps, input.link);
-    return collectWorkflowUserInputTexts(origin?.originId, maps, visited);
+    if (isWorkflowSubgraphInputOrigin(origin)) {
+      return collectWorkflowExternalInputTexts(origin, maps, visited, context);
+    }
+    return collectWorkflowUserInputTexts(origin?.originId, maps, visited, context);
   }
   return collectStringValues(input.value ?? input.default ?? input.widget?.value);
 }
 
-function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set()) {
+function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), context = null) {
   if (!nodeId || visited.has(String(nodeId))) return [];
   visited.add(String(nodeId));
 
@@ -1599,7 +1621,7 @@ function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set()) {
 
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
   if (selectedSwitchInputName) {
-    return workflowInputLinkedTexts(workflowInputByName(node, selectedSwitchInputName), maps, visited);
+    return workflowInputLinkedTexts(workflowInputByName(node, selectedSwitchInputName), maps, visited, context);
   }
 
   const textInputs = workflowTextInputs(node);
@@ -1607,7 +1629,7 @@ function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set()) {
   if (preferredNames.length) {
     const texts = [];
     for (const name of preferredNames) {
-      texts.push(...workflowInputLinkedTexts(workflowInputByName(node, name), maps, visited));
+      texts.push(...workflowInputLinkedTexts(workflowInputByName(node, name), maps, visited, context));
     }
     return uniqueNonEmpty(texts);
   }
@@ -1618,18 +1640,18 @@ function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set()) {
 
   const texts = [];
   for (const input of textInputs) {
-    if (input?.link !== undefined && input?.link !== null) texts.push(...workflowInputLinkedTexts(input, maps, visited));
+    if (input?.link !== undefined && input?.link !== null) texts.push(...workflowInputLinkedTexts(input, maps, visited, context));
   }
   return uniqueNonEmpty(texts);
 }
 
-function collectWorkflowTextGenerationInputTexts(node, maps, visited) {
+function collectWorkflowTextGenerationInputTexts(node, maps, visited, context) {
   const promptInput = workflowInputByName(node, "prompt")
     || workflowInputByName(node, "text")
     || workflowInputByName(node, "input")
     || workflowInputByName(node, "message")
     || workflowInputByName(node, "messages");
-  return workflowInputLinkedTexts(promptInput, maps, new Set(visited));
+  return workflowInputLinkedTexts(promptInput, maps, new Set(visited), context);
 }
 
 function collectWorkflowPropertySeedEntries(object, label) {
@@ -1682,7 +1704,7 @@ function collectWorkflowSeedEntries(workflow, maps = buildWorkflowMaps(workflow)
       const inputName = String(input?.name || "");
       if (!isSeedFieldName(inputName)) continue;
 
-      const directSeeds = collectSeedValues(input?.value ?? input?.default ?? input?.widget?.value);
+      const directSeeds = collectSeedValues(workflowInputValue(node, input));
       for (const seed of directSeeds) entries.push({ label: `${nodeLabel}.${inputName}`, value: seed });
 
       if (input?.link === undefined || input?.link === null) continue;
@@ -1776,14 +1798,14 @@ function collectWorkflowMetadataEntries(workflow, maps = buildWorkflowMaps(workf
   return entries;
 }
 
-function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "") {
+function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "", context = null) {
   if (!nodeId || visited.has(nodeId)) return [];
   visited.add(nodeId);
 
   const node = maps.nodeMap.get(String(nodeId));
   if (!node) return [];
   if (isWorkflowSystemNode(node) || isWorkflowConditioningZeroNode(node)) return [];
-  if (isWorkflowTextGenerationNode(node)) return collectWorkflowTextGenerationInputTexts(node, maps, visited);
+  if (isWorkflowTextGenerationNode(node)) return collectWorkflowTextGenerationInputTexts(node, maps, visited, context);
 
   const texts = [];
   const textCarrier = isWorkflowTextCarrierNode(node);
@@ -1810,17 +1832,22 @@ function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText =
 
     const origin = workflowLinkOrigin(maps, input.link);
     if (!origin) continue;
+    if (isWorkflowSubgraphInputOrigin(origin)) {
+      texts.push(...collectWorkflowExternalInputTexts(origin, maps, new Set(visited), context));
+      continue;
+    }
+
     const nextPolarity = origin.outputName === "positive" || origin.outputName === "negative"
       ? origin.outputName
       : polarity;
     const nextForceText = isTextInput || Boolean(selectedSwitchInputName) || (textCarrier && isWorkflowTextPassthroughNode(node));
-    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, nextForceText, nextPolarity));
+    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, nextForceText, nextPolarity, context));
   }
 
   return uniqueNonEmpty(texts);
 }
 
-function extractFromWorkflowGraph(workflow) {
+function extractFromWorkflowGraph(workflow, context = null) {
   if (!workflow || typeof workflow !== "object") return {};
 
   const maps = buildWorkflowMaps(workflow);
@@ -1836,8 +1863,8 @@ function extractFromWorkflowGraph(workflow) {
 
     const positiveOrigin = workflowLinkOrigin(maps, positiveLink);
     const negativeOrigin = workflowLinkOrigin(maps, negativeLink);
-    positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive"));
-    negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative"));
+    positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive", context));
+    negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative", context));
   }
 
   return {
@@ -1849,28 +1876,76 @@ function extractFromWorkflowGraph(workflow) {
   };
 }
 
-function extractFromWorkflowDefinitions(workflow) {
-  const subgraphs = Array.isArray(workflow?.definitions?.subgraphs) ? workflow.definitions.subgraphs : [];
+function workflowSubgraphDefinitions(workflow) {
+  return Array.isArray(workflow?.definitions?.subgraphs) ? workflow.definitions.subgraphs : [];
+}
+
+function mergeWorkflowSubgraphDefinitions(primary, fallback) {
+  const seen = new Set();
+  const results = [];
+
+  for (const subgraph of [...(primary || []), ...(fallback || [])]) {
+    const id = String(subgraph?.id || "");
+    const key = id || results.length;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(subgraph);
+  }
+
+  return results;
+}
+
+function appendWorkflowExtraction(target, result) {
+  if (result.seed) target.seeds.push(result.seed);
+  if (result.positive) target.positives.push(result.positive);
+  if (result.negative) target.negatives.push(result.negative);
+  target.details.push(...(result.details || []));
+}
+
+function extractFromWorkflowDefinitions(workflow, context = null, availableSubgraphs = null, visited = new Set()) {
+  const subgraphs = mergeWorkflowSubgraphDefinitions(
+    workflowSubgraphDefinitions(workflow),
+    availableSubgraphs,
+  );
   if (!subgraphs.length) return {};
 
-  const seeds = [];
-  const positives = [];
-  const negatives = [];
-  const details = [];
+  const parentMaps = buildWorkflowMaps(workflow);
+  const collected = {
+    seeds: [],
+    positives: [],
+    negatives: [],
+    details: [],
+  };
 
   for (const subgraph of subgraphs) {
-    const result = extractFromWorkflowGraph(subgraph);
-    if (result.seed) seeds.push(result.seed);
-    if (result.positive) positives.push(result.positive);
-    if (result.negative) negatives.push(result.negative);
-    details.push(...(result.details || []));
+    const subgraphId = String(subgraph?.id || "");
+    if (!subgraphId || visited.has(subgraphId)) continue;
+
+    const parentNodes = parentMaps.nodes.filter((node) => workflowNodeType(node) === subgraphId);
+    if (!parentNodes.length) continue;
+
+    for (const parentNode of parentNodes) {
+      const childContext = {
+        externalNode: parentNode,
+        externalMaps: parentMaps,
+        parentContext: context,
+      };
+      const nextVisited = new Set(visited);
+      nextVisited.add(subgraphId);
+
+      appendWorkflowExtraction(collected, extractFromWorkflowGraph(subgraph, childContext));
+      appendWorkflowExtraction(
+        collected,
+        extractFromWorkflowDefinitions(subgraph, childContext, subgraphs, nextVisited),
+      );
+    }
   }
 
   return {
-    seed: uniqueNonEmpty(seeds).join("\n"),
-    positive: joinPrompts(positives),
-    negative: joinPrompts(negatives),
-    details,
-    source: seeds.length || positives.length || negatives.length || details.length ? "workflow" : "",
+    seed: uniqueNonEmpty(collected.seeds).join("\n"),
+    positive: joinPrompts(collected.positives),
+    negative: joinPrompts(collected.negatives),
+    details: collected.details,
+    source: collected.seeds.length || collected.positives.length || collected.negatives.length || collected.details.length ? "workflow" : "",
   };
 }
