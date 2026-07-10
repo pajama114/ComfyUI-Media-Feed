@@ -1540,34 +1540,49 @@ function buildWorkflowMaps(workflow) {
   const nodes = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
   const nodeMap = new Map(nodes.map((node) => [workflowNodeId(node), node]));
   const linkMap = new Map();
+  const consumerMap = new Map();
 
   for (const link of workflow?.links || []) {
     if (Array.isArray(link) && link.length >= 3) {
+      const id = String(link[0]);
       const originId = String(link[1]);
       const originSlot = link[2];
+      const targetId = link[3];
+      const targetSlot = link[4];
       const originNode = nodeMap.get(originId);
-      linkMap.set(String(link[0]), {
+      linkMap.set(id, {
         originId,
         originSlot,
         outputName: originId === "-10" ? workflowSubgraphInputName(workflow, originSlot) : workflowOutputName(originNode, originSlot),
       });
+      if (targetId !== undefined) {
+        if (!consumerMap.has(id)) consumerMap.set(id, []);
+        consumerMap.get(id).push({ targetId: String(targetId), targetSlot });
+      }
     } else if (link && typeof link === "object") {
       const id = link.id ?? link.link_id;
       const originId = link.origin_id ?? link.originId ?? link.from_node_id;
       const originSlot = link.origin_slot ?? link.originSlot ?? link.from_slot ?? link.from_socket;
+      const targetId = link.target_id ?? link.targetId ?? link.to_node_id;
+      const targetSlot = link.target_slot ?? link.targetSlot ?? link.to_slot ?? link.to_socket;
       if (id !== undefined && originId !== undefined) {
+        const linkId = String(id);
         const originKey = String(originId);
         const originNode = nodeMap.get(originKey);
-        linkMap.set(String(id), {
+        linkMap.set(linkId, {
           originId: originKey,
           originSlot,
           outputName: originKey === "-10" ? workflowSubgraphInputName(workflow, originSlot) : workflowOutputName(originNode, originSlot),
         });
+        if (targetId !== undefined) {
+          if (!consumerMap.has(linkId)) consumerMap.set(linkId, []);
+          consumerMap.get(linkId).push({ targetId: String(targetId), targetSlot });
+        }
       }
     }
   }
 
-  return { workflow, nodes, nodeMap, linkMap };
+  return { workflow, nodes, nodeMap, linkMap, consumerMap };
 }
 
 function workflowLinkOrigin(maps, linkId) {
@@ -1859,6 +1874,129 @@ function workflowInputValue(node, input) {
   return undefined;
 }
 
+function workflowInputWidgetValue(node, input) {
+  if (!node || !input) return undefined;
+
+  const directValue = input.value ?? input.default ?? input.widget?.value;
+  if (directValue !== undefined) return directValue;
+
+  const widgetName = input.widget?.name || input.name;
+  const widgetsValues = node.widgets_values;
+  if (widgetsValues && typeof widgetsValues === "object" && !Array.isArray(widgetsValues)) {
+    if (Object.prototype.hasOwnProperty.call(widgetsValues, widgetName)) return widgetsValues[widgetName];
+    if (Object.prototype.hasOwnProperty.call(widgetsValues, input.name)) return widgetsValues[input.name];
+  }
+
+  if (!Array.isArray(widgetsValues) || !input.widget) return undefined;
+
+  let widgetIndex = -1;
+  for (const current of node.inputs || []) {
+    if (current?.widget) widgetIndex++;
+    if (current === input) return widgetsValues[widgetIndex];
+  }
+
+  return undefined;
+}
+
+function workflowInputEffectiveValue(node, input, maps, context = null, visited = new Set()) {
+  if (!node || !input) return undefined;
+
+  const linked = input.link !== undefined && input.link !== null;
+  if (linked) {
+    const origin = workflowLinkOrigin(maps, input.link);
+    if (isWorkflowSubgraphInputOrigin(origin)) {
+      const externalNode = context?.externalNode;
+      const externalMaps = context?.externalMaps;
+      const inputName = String(origin?.outputName || workflowSubgraphInputName(maps.workflow, origin?.originSlot));
+      const externalInput = workflowInputByName(externalNode, inputName);
+      const externalValue = workflowInputEffectiveValue(externalNode, externalInput, externalMaps, context?.parentContext || null, visited);
+      if (externalValue !== undefined && externalValue !== "") return externalValue;
+    } else {
+      const originId = String(origin?.originId || "");
+      const key = `${originId}:${origin?.originSlot ?? ""}`;
+      if (originId && !visited.has(key)) {
+        visited.add(key);
+
+        const originNode = maps.nodeMap.get(originId);
+        const originValue = workflowOutputValue(originNode, origin?.originSlot, maps, context, visited);
+        if (originValue !== undefined && originValue !== "") return originValue;
+      }
+    }
+
+  }
+
+  const localValue = workflowInputWidgetValue(node, input);
+  if (localValue !== undefined) return localValue;
+  return linked ? undefined : workflowInputValue(node, input);
+}
+
+function workflowOutputValue(node, slot, maps, context, visited) {
+  if (!node) return undefined;
+
+  const outputName = workflowOutputName(node, slot);
+  if (/^(true|false)$/i.test(outputName)) return outputName.toLowerCase() === "true";
+
+  const nodeType = workflowNodeType(node);
+  if (/primitive|boolean|integer|number|string|text|combo/i.test(nodeType) && Array.isArray(node.widgets_values) && node.widgets_values.length) {
+    return node.widgets_values[0];
+  }
+
+  if (/switch/i.test(nodeType)) {
+    const selectedInputName = workflowSwitchSelectedInputName(maps, node);
+    const selectedInput = workflowInputByName(node, selectedInputName);
+    return workflowInputEffectiveValue(node, selectedInput, maps, context, visited);
+  }
+
+  return undefined;
+}
+
+function workflowInputBooleanValue(node, input, maps, context = null) {
+  const value = workflowInputEffectiveValue(node, input, maps, context);
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string" && /^(true|false)$/i.test(value.trim())) {
+    return value.trim().toLowerCase() === "true";
+  }
+  return undefined;
+}
+
+function workflowInputNameAtSlot(node, slot) {
+  const input = node?.inputs?.[Number(slot)];
+  return String(input?.name || "");
+}
+
+function workflowNodeOutputLinks(node) {
+  const links = [];
+  for (const output of node?.outputs || []) {
+    if (Array.isArray(output?.links)) links.push(...output.links);
+    else if (output?.links !== undefined && output.links !== null) links.push(output.links);
+  }
+  return links.map((link) => String(link));
+}
+
+function workflowLoraNodeIsActive(node, maps, context) {
+  const outputLinks = workflowNodeOutputLinks(node);
+  let sawSwitchConsumer = false;
+
+  for (const linkId of outputLinks) {
+    for (const consumer of maps.consumerMap.get(linkId) || []) {
+      const target = maps.nodeMap.get(String(consumer.targetId));
+      if (!target || !/switch/i.test(workflowNodeType(target))) continue;
+
+      const inputName = workflowInputNameAtSlot(target, consumer.targetSlot);
+      if (inputName !== "on_true" && inputName !== "on_false") continue;
+      const switchValue = workflowInputBooleanValue(target, workflowInputByName(target, "switch"), maps, context);
+      if (typeof switchValue !== "boolean") continue;
+
+      sawSwitchConsumer = true;
+      if ((inputName === "on_true" && switchValue) || (inputName === "on_false" && !switchValue)) {
+        return true;
+      }
+    }
+  }
+
+  return !sawSwitchConsumer;
+}
+
 function formatLoraNumber(value) {
   if (typeof value === "number" && Number.isFinite(value)) return Number.isInteger(value) ? `${value}.00` : value.toFixed(2);
   const text = normalizeResourceValue(value);
@@ -1908,31 +2046,62 @@ function collectLoraResourcesFromValue(value, entries = []) {
   return entries;
 }
 
-function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMaps(workflow)) {
+function modelResourceFromProperties(node, directoryPattern) {
+  const models = Array.isArray(node?.properties?.models) ? node.properties.models : [];
+  const model = models.find((current) => directoryPattern.test(String(current?.directory || "")))
+    || models.find((current) => normalizeResourceValue(current?.name));
+  return resourceBasename(model?.name);
+}
+
+function resourceFilenameLike(value) {
+  return /\.(safetensors|ckpt|pt|pth|bin)$/i.test(normalizeResourceValue(value));
+}
+
+function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMaps(workflow), context = null) {
   const entries = [];
   if (!workflow || typeof workflow !== "object") return entries;
 
   for (const node of maps.nodes) {
     const nodeType = workflowNodeType(node);
-    const checkpointNode = /checkpoint/i.test(nodeType);
+    const checkpointNode = /checkpoint|unetloader|diffusion/i.test(nodeType)
+      || Array.isArray(node?.properties?.models)
+        && node.properties.models.some((model) => /diffusion|checkpoint|unet/i.test(String(model?.directory || "")));
     const loraNode = /lora/i.test(nodeType);
 
     for (const input of node.inputs || []) {
       const inputName = String(input?.name || "");
-      if (checkpointNode && /^(ckpt|ckpt_name|checkpoint|checkpoint_name|model_name)$/i.test(inputName)) {
-        addResourceEntry(entries, "Checkpoint", resourceBasename(workflowInputValue(node, input)));
+      if (checkpointNode && /^(ckpt|ckpt_name|checkpoint|checkpoint_name|model_name|unet_name|diffusion_model_name)$/i.test(inputName)) {
+        addResourceEntry(entries, "Checkpoint", resourceBasename(workflowInputEffectiveValue(node, input, maps, context)));
       }
 
       if (loraNode || /lora/i.test(inputName)) {
-        collectLoraResourcesFromValue(workflowInputValue(node, input), entries);
+        collectLoraResourcesFromValue(workflowInputEffectiveValue(node, input, maps, context), entries);
       }
     }
 
     if (checkpointNode && Array.isArray(node.widgets_values)) {
-      for (const value of node.widgets_values) addResourceEntry(entries, "Checkpoint", resourceBasename(value));
+      const propertyModel = modelResourceFromProperties(node, /diffusion|checkpoint|unet/i);
+      if (propertyModel) {
+        addResourceEntry(entries, "Checkpoint", propertyModel);
+      } else {
+        for (const value of node.widgets_values) {
+          if (resourceFilenameLike(value)) addResourceEntry(entries, "Checkpoint", resourceBasename(value));
+        }
+      }
     }
 
     if (loraNode || /lora/i.test(JSON.stringify(node.properties || {}))) {
+      if (loraNode && !workflowLoraNodeIsActive(node, maps, context)) continue;
+
+      const loraNameInput = workflowInputByName(node, "lora_name");
+      const strengthInput = workflowInputByName(node, "strength_model")
+        || workflowInputByName(node, "strength")
+        || workflowInputByName(node, "model_strength");
+      const loraName = workflowInputEffectiveValue(node, loraNameInput, maps, context);
+      const loraStrength = workflowInputEffectiveValue(node, strengthInput, maps, context);
+      const formatted = formatLoraResource(resourceBasename(loraName), loraStrength);
+      addResourceEntry(entries, "LoRA", formatted);
+
       collectLoraResourcesFromValue(node.widgets_values || [], entries);
       collectLoraResourcesFromValue(node.widgets || [], entries);
     }
@@ -2018,7 +2187,7 @@ function extractFromWorkflowGraph(workflow, context = null) {
   const positives = [];
   const negatives = [];
   const seedEntries = collectWorkflowSeedEntries(workflow, maps);
-  const resources = collectWorkflowResourceEntries(workflow, maps);
+  const resources = collectWorkflowResourceEntries(workflow, maps, context);
   const details = collectWorkflowMetadataEntries(workflow, maps);
 
   for (const node of maps.nodes) {
