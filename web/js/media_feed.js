@@ -1084,6 +1084,7 @@ function ensureStyles() {
       line-height: 1.35;
     }
 
+    .cmf-resource-grid,
     .cmf-metadata-grid {
       display: flex;
       flex-wrap: wrap;
@@ -1094,6 +1095,7 @@ function ensureStyles() {
       background: var(--cmf-panel);
     }
 
+    .cmf-resource-chip,
     .cmf-metadata-chip {
       min-width: 0;
       max-width: 100%;
@@ -1107,6 +1109,7 @@ function ensureStyles() {
       overflow-wrap: anywhere;
     }
 
+    .cmf-resource-chip-label,
     .cmf-metadata-chip-label {
       color: var(--cmf-muted);
       text-transform: uppercase;
@@ -1310,6 +1313,12 @@ function ensureViewer() {
       <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
         <h2 class="cmf-prompt-panel-title">Metadata</h2>
         <div class="cmf-prompt-status"></div>
+        <section class="cmf-prompt-section cmf-resources-section" hidden>
+          <div class="cmf-prompt-section-header">
+            <h2 class="cmf-prompt-heading">Resources</h2>
+          </div>
+          <div class="cmf-resource-grid"></div>
+        </section>
         <section class="cmf-prompt-section">
           <div class="cmf-prompt-section-header">
             <h2 class="cmf-prompt-heading">Prompt</h2>
@@ -1370,6 +1379,8 @@ function ensureViewer() {
     media: root.querySelector(".cmf-viewer-media"),
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
+    resourcesSection: root.querySelector(".cmf-resources-section"),
+    resourcesGrid: root.querySelector(".cmf-resource-grid"),
     metadataSection: root.querySelector(".cmf-metadata-section"),
     metadataGrid: root.querySelector(".cmf-metadata-grid"),
     promptSeed: root.querySelector(".cmf-seed-text"),
@@ -1626,6 +1637,8 @@ function resetViewerPromptPanel(status = "") {
   viewer.lastPromptMetadata = null;
   viewer.lastPromptMetadataItemKey = "";
   viewer.promptStatus.textContent = status;
+  viewer.resourcesGrid.replaceChildren();
+  viewer.resourcesSection.hidden = true;
   viewer.metadataGrid.replaceChildren();
   viewer.metadataSection.hidden = true;
   viewer.promptSeed.textContent = "";
@@ -1675,32 +1688,51 @@ function refreshViewerPromptPanelDetails() {
   renderPromptMetadata(viewer.lastPromptMetadata);
 }
 
+function appendMetadataChips(grid, entries, chipClassName, labelClassName, options = {}) {
+  for (const entry of entries) {
+    const label = String(entry?.label || "").trim();
+    const value = String(entry?.value || "").trim();
+    if (options.skipSeed && label.toLowerCase() === "seed") continue;
+    if (!label || !value) continue;
+
+    const chip = document.createElement("span");
+    chip.className = chipClassName;
+
+    const labelElement = document.createElement("span");
+    labelElement.className = labelClassName;
+    labelElement.textContent = label;
+    chip.append(labelElement, `: ${value}`);
+    grid.appendChild(chip);
+  }
+}
+
 function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   if (!viewer) return;
   viewer.lastPromptMetadata = result;
   viewer.lastPromptMetadataItemKey = itemKey;
   viewer.promptStatus.textContent = result.status || "";
+  viewer.resourcesGrid.replaceChildren();
   viewer.metadataGrid.replaceChildren();
+
+  appendMetadataChips(
+    viewer.resourcesGrid,
+    Array.isArray(result.resources) ? result.resources : [],
+    "cmf-resource-chip",
+    "cmf-resource-chip-label",
+  );
+  viewer.resourcesSection.hidden = !viewer.resourcesGrid.childElementCount;
 
   const details = appendMetadataDetails(
     Array.isArray(result.details) ? result.details : [],
     currentViewerMediaDetails(),
   );
-  for (const detail of details) {
-    const label = String(detail?.label || "").trim();
-    const value = String(detail?.value || "").trim();
-    if (label.toLowerCase() === "seed") continue;
-    if (!label || !value) continue;
-
-    const chip = document.createElement("span");
-    chip.className = "cmf-metadata-chip";
-
-    const labelElement = document.createElement("span");
-    labelElement.className = "cmf-metadata-chip-label";
-    labelElement.textContent = label;
-    chip.append(labelElement, `: ${value}`);
-    viewer.metadataGrid.appendChild(chip);
-  }
+  appendMetadataChips(
+    viewer.metadataGrid,
+    details,
+    "cmf-metadata-chip",
+    "cmf-metadata-chip-label",
+    { skipSeed: true },
+  );
 
   viewer.metadataSection.hidden = !viewer.metadataGrid.childElementCount;
   viewer.promptSeed.textContent = result.seed || "(not found)";
@@ -1740,6 +1772,7 @@ function updateViewerPromptPanel() {
         seed: "",
         positive: "",
         negative: "",
+        resources: [],
         details: [],
         status: "Could not read embedded prompt metadata.",
       }, item.key);

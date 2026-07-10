@@ -29,7 +29,7 @@ function rememberPromptMetadata(key, result) {
 
 export async function loadPromptMetadata(item) {
   if (!item?.key) {
-    return { seed: "", positive: "", negative: "", status: "No media item selected." };
+    return { seed: "", positive: "", negative: "", resources: [], status: "No media item selected." };
   }
 
   if (promptMetadataCache.has(item.key)) return promptMetadataCache.get(item.key);
@@ -45,6 +45,7 @@ export async function loadPromptMetadata(item) {
         seed: "",
         positive: "",
         negative: "",
+        resources: [],
         status: "Media is too large to scan prompt metadata.",
       });
     }
@@ -65,6 +66,7 @@ export async function loadPromptMetadata(item) {
         seed: "",
         positive: "",
         negative: "",
+        resources: [],
         status: "Media is too large to scan prompt metadata.",
       });
     }
@@ -87,6 +89,7 @@ export async function loadPromptMetadata(item) {
         seed: "",
         positive: "",
         negative: "",
+        resources: [],
         status: "Media is too large to scan prompt metadata.",
       });
     }
@@ -102,6 +105,7 @@ export async function loadPromptMetadata(item) {
       seed: "",
       positive: "",
       negative: "",
+      resources: [],
       status: "Embedded prompt reading currently supports PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, and Opus metadata.",
     });
   }
@@ -703,6 +707,10 @@ function extractPromptMetadata(chunks) {
   const seed = fromPrompt.seed || fromWorkflow.seed || fromDefinitions.seed || fromChunks.seed || "";
   const positive = fromPrompt.positive || fromWorkflow.positive || fromDefinitions.positive || "";
   const negative = fromPrompt.negative || fromWorkflow.negative || fromDefinitions.negative || "";
+  const resources = formatResourceEntries([
+    ...(fromWorkflow.resources || []),
+    ...(fromDefinitions.resources || []),
+  ]);
   const source = fromPrompt.source || fromWorkflow.source || fromDefinitions.source || fromChunks.source || "";
   const graphDetails = mergeMetadataDetailsByLabel(
     mergeMetadataDetailsByLabel(fromPrompt.details || [], fromWorkflow.details || []),
@@ -712,12 +720,13 @@ function extractPromptMetadata(chunks) {
     ...graphDetails,
     ...(fromChunks.details || []),
   ]);
-  const found = seed || positive || negative || details.length;
+  const found = seed || positive || negative || resources.length || details.length;
 
   return {
     seed,
     positive,
     negative,
+    resources,
     details,
     status: found
       ? `Loaded embedded ${source || "prompt"} metadata.`
@@ -829,6 +838,49 @@ function formatMetadataEntries(entries) {
   }
 
   results.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+  return results.map(({ label, value }) => ({ label, value }));
+}
+
+function normalizeResourceValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value !== "string") return "";
+  const text = value.trim();
+  return text && text.length <= 300 ? text : "";
+}
+
+function addResourceEntry(entries, label, value) {
+  const normalizedLabel = String(label || "").trim();
+  const normalizedValue = normalizeResourceValue(value);
+  if (!normalizedLabel || !normalizedValue) return;
+  entries.push({ label: normalizedLabel, value: normalizedValue });
+}
+
+function resourceBasename(value) {
+  const text = normalizeResourceValue(value);
+  const parts = text.split(/[\\/]+/);
+  return parts[parts.length - 1] || text;
+}
+
+function formatResourceEntries(entries) {
+  const priority = new Map([
+    ["Checkpoint", 10],
+    ["LoRA", 20],
+  ]);
+  const seen = new Set();
+  const results = [];
+
+  for (const entry of entries || []) {
+    const label = String(entry?.label || "").trim();
+    const value = normalizeResourceValue(entry?.value);
+    if (!label || !value) continue;
+
+    const key = `${label.toLowerCase()}:${value.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push({ label, value, order: priority.get(label) ?? 1000 });
+  }
+
+  results.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
   return results.map(({ label, value }) => ({ label, value }));
 }
 
@@ -1807,6 +1859,88 @@ function workflowInputValue(node, input) {
   return undefined;
 }
 
+function formatLoraNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return Number.isInteger(value) ? `${value}.00` : value.toFixed(2);
+  const text = normalizeResourceValue(value);
+  if (!text) return "";
+  const number = Number(text);
+  return Number.isFinite(number) ? formatLoraNumber(number) : text;
+}
+
+function formatLoraResource(name, strength, clipStrength) {
+  const cleanName = normalizeResourceValue(name);
+  if (!cleanName) return "";
+
+  const parts = [cleanName];
+  const cleanStrength = formatLoraNumber(strength);
+  const cleanClipStrength = formatLoraNumber(clipStrength);
+  if (cleanStrength) parts.push(cleanStrength);
+  if (cleanClipStrength && cleanClipStrength !== cleanStrength) parts.push(`clip ${cleanClipStrength}`);
+  return parts.join(" · ");
+}
+
+function collectLoraResourcesFromValue(value, entries = []) {
+  if (typeof value === "string") {
+    const pattern = /<lora:([^:>]+):([^:>]+)(?::([^>]+))?>/gi;
+    for (const match of value.matchAll(pattern)) {
+      const formatted = formatLoraResource(match[1], match[2], match[3]);
+      addResourceEntry(entries, "LoRA", formatted);
+    }
+  } else if (Array.isArray(value)) {
+    const hasActivationState = widgetValueHasActivationState(value);
+    for (const child of value) {
+      if (hasActivationState && typeof child === "string") continue;
+      collectLoraResourcesFromValue(child, entries);
+    }
+  } else if (value && typeof value === "object") {
+    if (value.active === false) return entries;
+
+    if (Object.prototype.hasOwnProperty.call(value, "name")) {
+      const formatted = formatLoraResource(value.name, value.strength ?? value.modelStrength, value.clipStrength);
+      addResourceEntry(entries, "LoRA", formatted);
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      if (/lora/i.test(key) || /^(items?|children|values?)$/i.test(key)) collectLoraResourcesFromValue(child, entries);
+    }
+  }
+
+  return entries;
+}
+
+function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMaps(workflow)) {
+  const entries = [];
+  if (!workflow || typeof workflow !== "object") return entries;
+
+  for (const node of maps.nodes) {
+    const nodeType = workflowNodeType(node);
+    const checkpointNode = /checkpoint/i.test(nodeType);
+    const loraNode = /lora/i.test(nodeType);
+
+    for (const input of node.inputs || []) {
+      const inputName = String(input?.name || "");
+      if (checkpointNode && /^(ckpt|ckpt_name|checkpoint|checkpoint_name|model_name)$/i.test(inputName)) {
+        addResourceEntry(entries, "Checkpoint", resourceBasename(workflowInputValue(node, input)));
+      }
+
+      if (loraNode || /lora/i.test(inputName)) {
+        collectLoraResourcesFromValue(workflowInputValue(node, input), entries);
+      }
+    }
+
+    if (checkpointNode && Array.isArray(node.widgets_values)) {
+      for (const value of node.widgets_values) addResourceEntry(entries, "Checkpoint", resourceBasename(value));
+    }
+
+    if (loraNode || /lora/i.test(JSON.stringify(node.properties || {}))) {
+      collectLoraResourcesFromValue(node.widgets_values || [], entries);
+      collectLoraResourcesFromValue(node.widgets || [], entries);
+    }
+  }
+
+  return formatResourceEntries(entries);
+}
+
 function collectWorkflowMetadataEntries(workflow, maps = buildWorkflowMaps(workflow)) {
   const entries = [];
   if (!workflow || typeof workflow !== "object") return entries;
@@ -1884,6 +2018,7 @@ function extractFromWorkflowGraph(workflow, context = null) {
   const positives = [];
   const negatives = [];
   const seedEntries = collectWorkflowSeedEntries(workflow, maps);
+  const resources = collectWorkflowResourceEntries(workflow, maps);
   const details = collectWorkflowMetadataEntries(workflow, maps);
 
   for (const node of maps.nodes) {
@@ -1901,8 +2036,9 @@ function extractFromWorkflowGraph(workflow, context = null) {
     seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
+    resources,
     details,
-    source: seedEntries.length || positives.length || negatives.length || details.length ? "workflow" : "",
+    source: seedEntries.length || positives.length || negatives.length || resources.length || details.length ? "workflow" : "",
   };
 }
 
@@ -1929,6 +2065,7 @@ function appendWorkflowExtraction(target, result) {
   if (result.seed) target.seeds.push(result.seed);
   if (result.positive) target.positives.push(result.positive);
   if (result.negative) target.negatives.push(result.negative);
+  target.resources.push(...(result.resources || []));
   target.details.push(...(result.details || []));
 }
 
@@ -1944,6 +2081,7 @@ function extractFromWorkflowDefinitions(workflow, context = null, availableSubgr
     seeds: [],
     positives: [],
     negatives: [],
+    resources: [],
     details: [],
   };
 
@@ -1975,7 +2113,8 @@ function extractFromWorkflowDefinitions(workflow, context = null, availableSubgr
     seed: uniqueNonEmpty(collected.seeds).join("\n"),
     positive: joinPrompts(collected.positives),
     negative: joinPrompts(collected.negatives),
+    resources: formatResourceEntries(collected.resources),
     details: collected.details,
-    source: collected.seeds.length || collected.positives.length || collected.negatives.length || collected.details.length ? "workflow" : "",
+    source: collected.seeds.length || collected.positives.length || collected.negatives.length || collected.resources.length || collected.details.length ? "workflow" : "",
   };
 }
