@@ -21,14 +21,17 @@ const DEFAULT_PLACEMENT = "bottom";
 const DEFAULT_SHOW_PROMPTS = true;
 const DEFAULT_SCALE_VIEWER_MEDIA = false;
 const DEFAULT_FOLLOW_LATEST = true;
+const DEFAULT_METADATA_POSITION = "right";
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
+const METADATA_POSITIONS = new Set(["left", "right"]);
 const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
   showPrompts: "comfyui-media-feed:show-prompts",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
   followLatest: "comfyui-media-feed:follow-latest",
+  metadataPosition: "comfyui-media-feed:metadata-position",
 };
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
@@ -46,6 +49,7 @@ const state = {
   showPrompts: DEFAULT_SHOW_PROMPTS,
   scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
   followLatest: DEFAULT_FOLLOW_LATEST,
+  metadataPosition: DEFAULT_METADATA_POSITION,
 };
 
 const decodedImageCache = new Map();
@@ -56,6 +60,7 @@ let placementSettingSeen = false;
 let promptSettingSeen = false;
 let scaleViewerMediaSettingSeen = false;
 let followLatestSettingSeen = false;
+let metadataPositionSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -215,6 +220,11 @@ function normalizePlacement(nextPlacement) {
   return PLACEMENTS.has(placement) ? placement : DEFAULT_PLACEMENT;
 }
 
+function normalizeMetadataPosition(nextPosition) {
+  const position = String(nextPosition || "").toLowerCase();
+  return METADATA_POSITIONS.has(position) ? position : DEFAULT_METADATA_POSITION;
+}
+
 function normalizeBooleanSetting(nextValue) {
   return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
 }
@@ -247,6 +257,10 @@ function applyScaleViewerMedia(nextValue) {
 
 function applyFollowLatest(nextValue) {
   state.followLatest = normalizeBooleanSetting(nextValue);
+}
+
+function applyMetadataPosition(nextPosition) {
+  state.metadataPosition = normalizeMetadataPosition(nextPosition);
 }
 
 function loadSavedPlacement() {
@@ -284,6 +298,14 @@ function loadSavedFollowLatest() {
   }
 }
 
+function loadSavedMetadataPosition() {
+  try {
+    return normalizeMetadataPosition(window.localStorage?.getItem(STORAGE_KEYS.metadataPosition));
+  } catch {
+    return DEFAULT_METADATA_POSITION;
+  }
+}
+
 function loadSettings() {
   try {
     const savedHeight = window.localStorage?.getItem(STORAGE_KEYS.itemHeight);
@@ -296,6 +318,7 @@ function loadSettings() {
   if (!promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
   if (!scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
   if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
+  if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
 }
 
 function saveThumbnailHeight() {
@@ -338,6 +361,14 @@ function saveFollowLatest() {
   }
 }
 
+function saveMetadataPosition() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.metadataPosition, state.metadataPosition);
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
   saveThumbnailHeight();
@@ -359,6 +390,12 @@ function setScaleViewerMedia(nextValue) {
 function setFollowLatest(nextValue) {
   applyFollowLatest(nextValue);
   saveFollowLatest();
+}
+
+function setMetadataPosition(nextPosition) {
+  applyMetadataPosition(nextPosition);
+  saveMetadataPosition();
+  syncViewerMetadataPosition();
 }
 
 function setPlacement(nextPlacement) {
@@ -1009,6 +1046,28 @@ function ensureStyles() {
       place-items: stretch;
     }
 
+    .cmf-viewer-body[data-prompts="true"] .cmf-viewer-main {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .cmf-viewer-body[data-prompts="true"] .cmf-prompt-panel {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] {
+      grid-template-columns: clamp(260px, 26vw, 360px) minmax(0, 1fr);
+    }
+
+    .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-viewer-main {
+      grid-column: 2;
+    }
+
+    .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-prompt-panel {
+      grid-column: 1;
+    }
+
     .cmf-viewer-main {
       position: relative;
       display: grid;
@@ -1174,6 +1233,16 @@ function ensureStyles() {
       .cmf-viewer-body[data-prompts="true"] {
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: minmax(0, 1fr) minmax(180px, 34vh);
+      }
+
+      .cmf-viewer-body[data-prompts="true"] .cmf-viewer-main {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .cmf-viewer-body[data-prompts="true"] .cmf-prompt-panel {
+        grid-column: 1;
+        grid-row: 2;
       }
 
       .cmf-prompt-panel {
@@ -1396,12 +1465,18 @@ function ensureViewer() {
     items: [],
     index: -1,
   };
+  syncViewerMetadataPosition();
   return viewer;
 }
 
 function syncViewerScaleMedia() {
   if (!viewer) return;
   viewer.root.dataset.scaleMedia = String(state.scaleViewerMedia);
+}
+
+function syncViewerMetadataPosition() {
+  if (!viewer) return;
+  viewer.body.dataset.metadataPosition = state.metadataPosition;
 }
 
 function closeViewer() {
@@ -2260,6 +2335,22 @@ app.registerExtension({
       onChange: (newValue) => {
         promptSettingSeen = true;
         setShowPrompts(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.metadata-position",
+      name: "Metadata position",
+      type: "combo",
+      defaultValue: loadSavedMetadataPosition(),
+      options: [
+        { text: "Left", value: "left" },
+        { text: "Right", value: "right" },
+      ],
+      category: ["Media Feed", "Viewer", "Metadata position"],
+      tooltip: "Choose which side of the viewer shows prompt and metadata details.",
+      onChange: (newValue) => {
+        metadataPositionSettingSeen = true;
+        setMetadataPosition(newValue);
       },
     },
     {
