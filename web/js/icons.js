@@ -64,6 +64,21 @@ export const ICONS = {
       <circle cx="18" cy="16" r="3"></circle>
     </svg>
   `,
+  zoomIn: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5"></circle>
+      <path d="M10.5 7.5v6"></path>
+      <path d="M7.5 10.5h6"></path>
+      <path d="m15.5 15.5 5 5"></path>
+    </svg>
+  `,
+  zoomOut: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5"></circle>
+      <path d="M7.5 10.5h6"></path>
+      <path d="m15.5 15.5 5 5"></path>
+    </svg>
+  `,
   pause: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M10 4H6v16h4V4Z"></path>

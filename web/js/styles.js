@@ -650,6 +650,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-viewer-bar {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -660,9 +661,77 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-viewer-title {
+      flex: 0 1 32%;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .cmf-viewer-zoom-controls {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .cmf-viewer-zoom-controls[hidden] {
+      display: none;
+    }
+
+    .cmf-viewer-zoom-controls .cmf-icon-button {
+      width: 30px;
+      min-width: 30px;
+      height: 30px;
+    }
+
+    .cmf-viewer-zoom-controls .cmf-icon-button svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .cmf-viewer-size-toggle {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .cmf-viewer-zoom-text {
+      min-width: 38px;
+      height: 30px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: #fff;
+      color: #5f6368;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+
+    .cmf-viewer-zoom-text[aria-pressed="true"] {
+      border-color: #2878d4;
+      background: #2878d4;
+      box-shadow: inset 0 -2px 0 #1d5ca5;
+      color: #fff;
+      font-weight: 700;
+      opacity: 1;
+    }
+
+    .cmf-viewer-zoom-text[aria-pressed="false"] {
+      opacity: 0.68;
+    }
+
+    .cmf-viewer-zoom-level {
+      min-width: 43px;
+      color: var(--cmf-muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
     }
 
     .cmf-viewer-body {
@@ -737,10 +806,27 @@ export function ensureMediaFeedStyles({
       object-fit: contain;
     }
 
-    .cmf-viewer[data-scale-media="true"] .cmf-viewer-media img,
     .cmf-viewer[data-scale-media="true"] .cmf-viewer-media video {
       width: 100%;
       height: 100%;
+    }
+
+    .cmf-viewer-media img.cmf-zoomable-image {
+      max-width: none;
+      max-height: none;
+      transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
+      transform-origin: center;
+      user-select: none;
+      will-change: transform;
+    }
+
+    .cmf-viewer-media[data-pannable="true"] img.cmf-zoomable-image {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .cmf-viewer-media[data-dragging="true"] img.cmf-zoomable-image {
+      cursor: grabbing;
     }
 
     .cmf-viewer-media audio {

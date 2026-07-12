@@ -35,6 +35,9 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Lets you place the metadata panel on either side of the viewer.
 - Can fit small images and videos to the largest size that remains fully visible
   in the viewer.
+- Provides Fit, actual-size, and zoom controls for images; zoomed images can be
+  panned by dragging, and double-clicking zooms in or returns to the selected
+  Fit/actual-size view.
 - Uses ComfyUI theme colors when available.
 - Saves feed and viewer settings in browser `localStorage`.
 - Keeps the feed responsive by limiting retained items and virtualizing visible

@@ -24,6 +24,12 @@ const DEFAULT_SCALE_VIEWER_MEDIA = false;
 const DEFAULT_FOLLOW_LATEST = true;
 const DEFAULT_METADATA_POSITION = "left";
 const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
+const VIEWER_IMAGE_ZOOM_STEP = 0.25;
+const VIEWER_IMAGE_WHEEL_ZOOM_FACTOR = 1.1;
+const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
+const VIEWER_IMAGE_MIN_ZOOM = 0.25;
+const VIEWER_IMAGE_MAX_ZOOM = 8;
+const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const METADATA_POSITIONS = new Set(["left", "right"]);
@@ -601,6 +607,15 @@ function ensureViewer() {
     <div class="cmf-viewer-bar">
       <div class="cmf-viewer-title"></div>
       <div class="cmf-spacer"></div>
+      <div class="cmf-viewer-zoom-controls" hidden aria-label="Image zoom controls">
+        <div class="cmf-viewer-size-toggle" role="group" aria-label="Image display size">
+          <button class="cmf-button cmf-viewer-zoom-text cmf-viewer-fit" type="button" title="Fit to viewer" aria-label="Fit to viewer" aria-pressed="false">Fit</button>
+          <button class="cmf-button cmf-viewer-zoom-text cmf-viewer-native" type="button" title="Actual size" aria-label="Actual size" aria-pressed="false">1:1</button>
+        </div>
+        <button class="cmf-button cmf-icon-button cmf-viewer-zoom-out" type="button" title="Zoom out" aria-label="Zoom out">${ICONS.zoomOut}</button>
+        <output class="cmf-viewer-zoom-level" aria-live="polite">Fit</output>
+        <button class="cmf-button cmf-icon-button cmf-viewer-zoom-in" type="button" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
+      </div>
       <a class="cmf-button cmf-icon-button cmf-open-link" target="_blank" rel="noopener noreferrer" title="Open original" aria-label="Open original">${ICONS.externalLink}</a>
       <button class="cmf-button cmf-icon-button cmf-close" type="button" title="Close" aria-label="Close">${ICONS.close}</button>
     </div>
@@ -657,6 +672,14 @@ function ensureViewer() {
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
   root.querySelector(".cmf-scan-full-metadata").addEventListener("click", scanFullViewerMetadata);
+  root.querySelector(".cmf-viewer-fit").addEventListener("click", () => setViewerImageBaseMode("fit"));
+  root.querySelector(".cmf-viewer-native").addEventListener("click", () => setViewerImageBaseMode("native"));
+  root.querySelector(".cmf-viewer-zoom-out").addEventListener("click", () => {
+    setViewerImageZoom(viewer?.imageZoom - VIEWER_IMAGE_ZOOM_STEP);
+  });
+  root.querySelector(".cmf-viewer-zoom-in").addEventListener("click", () => {
+    setViewerImageZoom(viewer?.imageZoom + VIEWER_IMAGE_ZOOM_STEP);
+  });
   root.addEventListener("keydown", handleViewerControlKeydown, true);
   for (const button of root.querySelectorAll(".cmf-nav-button")) {
     button.addEventListener("mousedown", (event) => event.preventDefault());
@@ -690,6 +713,12 @@ function ensureViewer() {
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
     openLink: root.querySelector(".cmf-open-link"),
+    zoomControls: root.querySelector(".cmf-viewer-zoom-controls"),
+    fitButton: root.querySelector(".cmf-viewer-fit"),
+    nativeButton: root.querySelector(".cmf-viewer-native"),
+    zoomOutButton: root.querySelector(".cmf-viewer-zoom-out"),
+    zoomInButton: root.querySelector(".cmf-viewer-zoom-in"),
+    zoomLevel: root.querySelector(".cmf-viewer-zoom-level"),
     prevButton: root.querySelector(".cmf-nav-prev"),
     nextButton: root.querySelector(".cmf-nav-next"),
     promptRequestId: 0,
@@ -699,14 +728,22 @@ function ensureViewer() {
     item: null,
     items: [],
     index: -1,
+    imageBaseMode: state.scaleViewerMedia ? "fit" : "native",
+    imageZoom: 1,
+    imagePanX: 0,
+    imagePanY: 0,
+    imageDrag: null,
+    suppressImageClick: false,
   };
+  viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
+  viewer.resizeObserver.observe(viewer.media);
   syncViewerMetadataPosition();
   return viewer;
 }
 
 function syncViewerScaleMedia() {
   if (!viewer) return;
-  viewer.root.dataset.scaleMedia = String(state.scaleViewerMedia);
+  resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
 }
 
 function syncViewerMetadataPosition() {
@@ -728,6 +765,7 @@ function closeViewer() {
   viewer.item = null;
   viewer.items = [];
   viewer.index = -1;
+  resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
 }
 
 function openViewer(item, thumbnail) {
@@ -736,6 +774,7 @@ function openViewer(item, thumbnail) {
   const index = Math.max(0, items.findIndex((current) => current.key === item.key));
   currentViewer.items = items;
   currentViewer.index = index;
+  resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
   currentViewer.title.textContent = item.filename;
   currentViewer.root.dataset.open = "true";
   currentViewer.root.focus({ preventScroll: true });
@@ -815,6 +854,19 @@ function handleViewerGlobalKeydown(event) {
 function handleViewerWheel(event) {
   if (!viewer || viewer.root.dataset.open !== "true") return;
   if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
+
+  const image = getViewerImage();
+  if ((event.ctrlKey || event.metaKey) && image) {
+    event.preventDefault();
+    event.stopPropagation();
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (delta) {
+      const factor = delta < 0 ? VIEWER_IMAGE_WHEEL_ZOOM_FACTOR : 1 / VIEWER_IMAGE_WHEEL_ZOOM_FACTOR;
+      setViewerImageZoom(viewer.imageZoom * factor, { x: event.clientX, y: event.clientY });
+    }
+    return;
+  }
+
   if (Math.abs(event.deltaY) < 8 && Math.abs(event.deltaX) < 8) return;
 
   event.preventDefault();
@@ -828,6 +880,188 @@ function handleViewerWheel(event) {
 
   const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
   showViewerRelative(dominantDelta > 0 ? 1 : -1);
+}
+
+function getViewerImage() {
+  const image = viewer?.media?.querySelector("img.cmf-zoomable-image");
+  return image instanceof HTMLImageElement && image.dataset.mediaItemKey === viewer?.item?.key ? image : null;
+}
+
+function clampViewerImageZoom(value) {
+  return Math.min(VIEWER_IMAGE_MAX_ZOOM, Math.max(VIEWER_IMAGE_MIN_ZOOM, value));
+}
+
+function viewerImagePanBounds(image) {
+  const frame = viewer?.media?.getBoundingClientRect();
+  if (!frame?.width || !frame.height || !image?.offsetWidth || !image.offsetHeight) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: Math.max(0, (image.offsetWidth * viewer.imageZoom - frame.width) / 2),
+    y: Math.max(0, (image.offsetHeight * viewer.imageZoom - frame.height) / 2),
+  };
+}
+
+function constrainViewerImagePan(image) {
+  const bounds = viewerImagePanBounds(image);
+  viewer.imagePanX = Math.min(bounds.x, Math.max(-bounds.x, viewer.imagePanX));
+  viewer.imagePanY = Math.min(bounds.y, Math.max(-bounds.y, viewer.imagePanY));
+  return bounds;
+}
+
+function canPanViewerImage(bounds) {
+  if (!viewer) return false;
+  const isFitAtBaseZoom = viewer.imageBaseMode === "fit" && viewer.imageZoom <= 1.001;
+  return !isFitAtBaseZoom && (bounds.x > 0 || bounds.y > 0);
+}
+
+function updateViewerImageControls(image = getViewerImage()) {
+  if (!viewer) return;
+  const isImageItem = viewer.item?.kind === "image";
+  const hasImage = Boolean(image);
+  viewer.zoomControls.hidden = !isImageItem;
+  if (!isImageItem) return;
+
+  const isBaseZoom = Math.abs(viewer.imageZoom - 1) < 0.001;
+  viewer.fitButton.setAttribute("aria-pressed", String(viewer.imageBaseMode === "fit" && isBaseZoom));
+  viewer.nativeButton.setAttribute("aria-pressed", String(viewer.imageBaseMode === "native" && isBaseZoom));
+  viewer.zoomOutButton.disabled = hasImage && viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
+  viewer.zoomInButton.disabled = hasImage && viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
+  viewer.zoomLevel.textContent = viewer.imageBaseMode === "fit" && isBaseZoom
+    ? "Fit"
+    : `${Math.round(viewer.imageZoom * 100)}%`;
+}
+
+function updateViewerImageLayout() {
+  const image = getViewerImage();
+  if (!image || !viewer?.media) {
+    updateViewerImageControls(null);
+    return;
+  }
+
+  const frame = viewer.media.getBoundingClientRect();
+  const natural = viewerMediaNaturalSize(image);
+  if (!frame.width || !frame.height || !natural.width || !natural.height) return;
+
+  const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
+  const baseScale = viewer.imageBaseMode === "fit" ? fitScale : 1;
+  image.style.width = `${natural.width * baseScale}px`;
+  image.style.height = `${natural.height * baseScale}px`;
+  const bounds = constrainViewerImagePan(image);
+  image.style.setProperty("--cmf-image-zoom", String(viewer.imageZoom));
+  image.style.setProperty("--cmf-image-pan-x", `${viewer.imagePanX}px`);
+  image.style.setProperty("--cmf-image-pan-y", `${viewer.imagePanY}px`);
+  viewer.media.dataset.pannable = String(canPanViewerImage(bounds));
+  viewer.media.dataset.dragging = String(Boolean(viewer.imageDrag));
+  updateViewerImageControls(image);
+}
+
+function resetViewerImageView(baseMode = viewer?.imageBaseMode || "native") {
+  if (!viewer) return;
+  viewer.imageBaseMode = baseMode === "fit" ? "fit" : "native";
+  viewer.imageZoom = 1;
+  viewer.imagePanX = 0;
+  viewer.imagePanY = 0;
+  viewer.imageDrag = null;
+  viewer.root.dataset.scaleMedia = String(viewer.imageBaseMode === "fit");
+  updateViewerImageLayout();
+}
+
+function setViewerImageBaseMode(baseMode) {
+  if (!getViewerImage()) return;
+  resetViewerImageView(baseMode);
+}
+
+function setViewerImageZoom(nextZoom, origin) {
+  const image = getViewerImage();
+  if (!image || !viewer) return;
+
+  const previousZoom = viewer.imageZoom;
+  const zoom = clampViewerImageZoom(nextZoom);
+  if (Math.abs(zoom - previousZoom) < 0.001) return;
+
+  if (origin) {
+    const frame = viewer.media.getBoundingClientRect();
+    const pointX = origin.x - (frame.left + frame.width / 2) - viewer.imagePanX;
+    const pointY = origin.y - (frame.top + frame.height / 2) - viewer.imagePanY;
+    const ratio = zoom / previousZoom;
+    viewer.imagePanX -= pointX * (ratio - 1);
+    viewer.imagePanY -= pointY * (ratio - 1);
+  }
+
+  viewer.imageZoom = zoom;
+  updateViewerImageLayout();
+}
+
+function handleViewerImageDoubleClick(event) {
+  if (!viewer || event.button !== 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (Math.abs(viewer.imageZoom - 1) < 0.001) {
+    setViewerImageZoom(VIEWER_IMAGE_DOUBLE_CLICK_ZOOM, { x: event.clientX, y: event.clientY });
+  } else {
+    resetViewerImageView();
+  }
+}
+
+function handleViewerImagePointerDown(event) {
+  const image = event.currentTarget;
+  const bounds = viewerImagePanBounds(image);
+  if (event.button !== 0 || !canPanViewerImage(bounds)) return;
+
+  event.preventDefault();
+  image.setPointerCapture(event.pointerId);
+  viewer.imageDrag = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    panX: viewer.imagePanX,
+    panY: viewer.imagePanY,
+    moved: false,
+  };
+  updateViewerImageLayout();
+}
+
+function handleViewerImagePointerMove(event) {
+  const drag = viewer?.imageDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+
+  const deltaX = event.clientX - drag.startX;
+  const deltaY = event.clientY - drag.startY;
+  if (Math.abs(deltaX) >= VIEWER_IMAGE_DRAG_THRESHOLD || Math.abs(deltaY) >= VIEWER_IMAGE_DRAG_THRESHOLD) {
+    drag.moved = true;
+  }
+  viewer.imagePanX = drag.panX + deltaX;
+  viewer.imagePanY = drag.panY + deltaY;
+  updateViewerImageLayout();
+}
+
+function finishViewerImageDrag(event) {
+  const drag = viewer?.imageDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+
+  const image = event.currentTarget;
+  if (image.hasPointerCapture?.(event.pointerId)) image.releasePointerCapture(event.pointerId);
+  viewer.imageDrag = null;
+  if (drag.moved) {
+    viewer.suppressImageClick = true;
+    window.setTimeout(() => {
+      if (viewer) viewer.suppressImageClick = false;
+    }, 0);
+  }
+  updateViewerImageLayout();
+}
+
+function prepareViewerImage(image) {
+  image.classList.add("cmf-zoomable-image");
+  image.addEventListener("dblclick", handleViewerImageDoubleClick);
+  image.addEventListener("pointerdown", handleViewerImagePointerDown);
+  image.addEventListener("pointermove", handleViewerImagePointerMove);
+  image.addEventListener("pointerup", finishViewerImageDrag);
+  image.addEventListener("pointercancel", finishViewerImageDrag);
+  image.addEventListener("dragstart", (event) => event.preventDefault());
 }
 
 function viewerMediaNaturalSize(element) {
@@ -863,6 +1097,11 @@ function isInsideContainedMedia(event, element) {
 }
 
 function handleViewerBackdropClick(event) {
+  if (viewer?.suppressImageClick && event.target instanceof HTMLImageElement) {
+    viewer.suppressImageClick = false;
+    return;
+  }
+
   if (event.target === viewer?.root || event.target === viewer?.body || event.target === viewer?.main || event.target === viewer?.media) {
     closeViewer();
     return;
@@ -874,6 +1113,8 @@ function handleViewerBackdropClick(event) {
     ? event.target.closest(".cmf-viewer-media img, .cmf-viewer-media video")
     : null;
   if (!element || !viewer.media.contains(element)) return;
+
+  if (element instanceof HTMLImageElement && element.classList.contains("cmf-zoomable-image")) return;
 
   if (element instanceof HTMLVideoElement && element.controls) {
     const rect = element.getBoundingClientRect();
@@ -889,6 +1130,7 @@ async function renderViewerItem(item, thumbnail) {
   discardStagedMedia(currentViewer.pendingMedia);
   currentViewer.pendingMedia = null;
   currentViewer.item = item;
+  resetViewerImageView();
   currentViewer.title.textContent = item.filename;
   currentViewer.openLink.href = item.url;
   syncViewerNav();
@@ -898,6 +1140,7 @@ async function renderViewerItem(item, thumbnail) {
     image.alt = item.filename;
     image.decoding = "async";
     image.dataset.mediaItemKey = item.key;
+    prepareViewerImage(image);
 
     const cached = decodedImageCache.get(item.url);
     if (cached?.complete) {
@@ -905,6 +1148,7 @@ async function renderViewerItem(item, thumbnail) {
       await decodeImageElement(image);
       if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
       currentViewer.media.replaceChildren(image);
+      updateViewerImageLayout();
       rememberDecodedImage(item.url, image);
       refreshViewerPromptPanelDetails();
       return;
@@ -916,6 +1160,7 @@ async function renderViewerItem(item, thumbnail) {
       await decodeImageElement(image);
       if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
       currentViewer.media.replaceChildren(image);
+      updateViewerImageLayout();
       rememberDecodedImage(item.url, image);
       refreshViewerPromptPanelDetails();
       return;
@@ -925,6 +1170,7 @@ async function renderViewerItem(item, thumbnail) {
     await decodeImageElement(image);
     if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
     currentViewer.media.replaceChildren(image);
+    updateViewerImageLayout();
     rememberDecodedImage(item.url, image);
     refreshViewerPromptPanelDetails();
     return;
