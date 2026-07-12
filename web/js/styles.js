@@ -525,6 +525,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-preview {
+      position: relative;
       display: grid;
       flex: 1 1 auto;
       place-items: center;
@@ -540,6 +541,43 @@ export function ensureMediaFeedStyles({
       width: 100%;
       height: 100%;
       object-fit: contain;
+    }
+
+    .cmf-video-badge,
+    .cmf-video-duration {
+      position: absolute;
+      z-index: 1;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.72);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+      pointer-events: none;
+    }
+
+    .cmf-video-badge {
+      top: 6px;
+      left: 6px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+
+    .cmf-video-badge svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .cmf-video-duration {
+      right: 6px;
+      bottom: 6px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
     }
 
     .cmf-audio-preview {

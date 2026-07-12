@@ -90,6 +90,20 @@ function getMediaKind(filename, parentKey = "") {
   return null;
 }
 
+function formatMediaDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "";
+
+  const totalSeconds = Math.floor(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor(totalSeconds % 3600 / 60);
+  const remainingSeconds = totalSeconds % 60;
+  const paddedSeconds = String(remainingSeconds).padStart(2, "0");
+
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`
+    : `${minutes}:${paddedSeconds}`;
+}
+
 function apiUrl(path) {
   if (api?.apiURL) return api.apiURL(path);
   return path;
@@ -1159,6 +1173,7 @@ function createCard(item) {
   card.role = "button";
   card.tabIndex = 0;
   card.title = item.filename;
+  card.setAttribute("aria-label", item.kind === "video" ? `${item.filename} (video)` : item.filename);
   card.dataset.itemId = item.id;
 
   const preview = document.createElement("div");
@@ -1174,13 +1189,27 @@ function createCard(item) {
     preview.appendChild(image);
   } else if (item.kind === "video") {
     const video = document.createElement("video");
+    const videoBadge = document.createElement("span");
+    const duration = document.createElement("span");
     video.muted = true;
     video.playsInline = true;
     video.preload = "metadata";
     video.loop = true;
     video.src = item.url;
-    video.addEventListener("loadedmetadata", () => rememberMediaDimensions(item, video), { once: true });
-    preview.appendChild(video);
+    videoBadge.className = "cmf-video-badge";
+    videoBadge.title = "Video";
+    videoBadge.setAttribute("aria-hidden", "true");
+    videoBadge.innerHTML = ICONS.play;
+    duration.className = "cmf-video-duration";
+    duration.hidden = true;
+    video.addEventListener("loadedmetadata", () => {
+      rememberMediaDimensions(item, video);
+      const text = formatMediaDuration(video.duration);
+      if (!text) return;
+      duration.textContent = text;
+      duration.hidden = false;
+    }, { once: true });
+    preview.append(video, videoBadge, duration);
   } else {
     const audioPreview = document.createElement("div");
     audioPreview.className = "cmf-audio-preview";
