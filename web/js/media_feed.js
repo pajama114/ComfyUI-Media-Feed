@@ -23,6 +23,7 @@ const DEFAULT_SHOW_PROMPTS = true;
 const DEFAULT_SCALE_VIEWER_MEDIA = false;
 const DEFAULT_FOLLOW_LATEST = true;
 const DEFAULT_METADATA_POSITION = "left";
+const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const METADATA_POSITIONS = new Set(["left", "right"]);
@@ -33,6 +34,7 @@ const STORAGE_KEYS = {
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
+  excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
 };
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
@@ -51,6 +53,7 @@ const state = {
   scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
   followLatest: DEFAULT_FOLLOW_LATEST,
   metadataPosition: DEFAULT_METADATA_POSITION,
+  excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
 };
 
 const decodedImageCache = new Map();
@@ -63,6 +66,7 @@ let promptSettingSeen = false;
 let scaleViewerMediaSettingSeen = false;
 let followLatestSettingSeen = false;
 let metadataPositionSettingSeen = false;
+let excludePreviewMediaSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -265,6 +269,10 @@ function applyMetadataPosition(nextPosition) {
   state.metadataPosition = normalizeMetadataPosition(nextPosition);
 }
 
+function applyExcludePreviewMedia(nextValue) {
+  state.excludePreviewMedia = normalizeBooleanSetting(nextValue);
+}
+
 function loadSavedPlacement() {
   try {
     return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -308,6 +316,15 @@ function loadSavedMetadataPosition() {
   }
 }
 
+function loadSavedExcludePreviewMedia() {
+  try {
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.excludePreviewMedia);
+    return savedValue === null ? DEFAULT_EXCLUDE_PREVIEW_MEDIA : normalizeBooleanSetting(savedValue);
+  } catch {
+    return DEFAULT_EXCLUDE_PREVIEW_MEDIA;
+  }
+}
+
 function loadSettings() {
   try {
     const savedHeight = window.localStorage?.getItem(STORAGE_KEYS.itemHeight);
@@ -321,6 +338,7 @@ function loadSettings() {
   if (!scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
   if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
   if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
+  if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
 }
 
 function saveThumbnailHeight() {
@@ -371,6 +389,14 @@ function saveMetadataPosition() {
   }
 }
 
+function saveExcludePreviewMedia() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.excludePreviewMedia, String(state.excludePreviewMedia));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function setThumbnailHeight(nextHeight) {
   applyThumbnailHeight(nextHeight);
   saveThumbnailHeight();
@@ -398,6 +424,11 @@ function setMetadataPosition(nextPosition) {
   applyMetadataPosition(nextPosition);
   saveMetadataPosition();
   syncViewerMetadataPosition();
+}
+
+function setExcludePreviewMedia(nextValue) {
+  applyExcludePreviewMedia(nextValue);
+  saveExcludePreviewMedia();
 }
 
 function setPlacement(nextPlacement) {
@@ -1556,8 +1587,15 @@ function renderVisibleItems(view) {
   }
 }
 
+function isPreviewNode(nodeId) {
+  const graph = app.graph;
+  const node = graph?.getNodeById?.(nodeId) || graph?._nodes_by_id?.[nodeId];
+  return /^preview/i.test(String(node?.type || ""));
+}
+
 function handleExecuted(event) {
   const detail = event?.detail || {};
+  if (state.excludePreviewMedia && isPreviewNode(detail.node)) return;
   const mediaItems = collectMedia(detail.output, detail.prompt_id, detail.node);
   addItems(mediaItems);
 }
@@ -1593,6 +1631,18 @@ app.registerExtension({
       onChange: (newValue) => {
         followLatestSettingSeen = true;
         setFollowLatest(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.exclude-preview-media",
+      name: "Exclude Preview node media",
+      type: "boolean",
+      defaultValue: loadSavedExcludePreviewMedia(),
+      category: ["Media Feed", "Feed", "Exclude Preview node media"],
+      tooltip: "Do not add media emitted by Preview nodes, such as Preview Image, to the feed.",
+      onChange: (newValue) => {
+        excludePreviewMediaSettingSeen = true;
+        setExcludePreviewMedia(newValue);
       },
     },
     {
