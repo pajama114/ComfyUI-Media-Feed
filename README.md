@@ -45,6 +45,7 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Placement: `Bottom`
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
+- Exclude Preview node media: `Off`
 - Show prompts in viewer: `On`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
@@ -98,6 +99,10 @@ outputs for objects shaped like this:
 ```
 
 Media type is detected from the filename extension.
+
+When **Exclude Preview node media** is enabled, media emitted by nodes whose
+type starts with `Preview` (for example, `Preview Image`) is not added to the
+feed.
 
 Images:
 
