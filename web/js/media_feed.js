@@ -447,6 +447,40 @@ function rememberMediaDimensions(item, element) {
   }
 }
 
+function discardStagedMedia(element) {
+  if (!(element instanceof HTMLMediaElement)) return;
+  element.pause();
+  element.removeAttribute("src");
+  element.load();
+}
+
+function waitForMediaReady(element) {
+  if (element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve();
+    };
+    const timeoutId = window.setTimeout(settle, 2500);
+
+    element.addEventListener("loadeddata", settle, { once: true });
+    element.addEventListener("canplay", settle, { once: true });
+    element.addEventListener("error", settle, { once: true });
+  });
+}
+
+function replaceViewerMedia(currentViewer, nextMedia) {
+  const previousMedia = currentViewer.media.querySelector("video, audio");
+  currentViewer.media.replaceChildren(nextMedia);
+  previousMedia?.pause();
+  nextMedia.muted = false;
+  nextMedia.play().catch(() => {});
+}
+
 function waitForImageReady(image) {
   if (image.complete) return Promise.resolve();
 
@@ -616,6 +650,7 @@ function ensureViewer() {
     promptRequestId: 0,
     renderRequestId: 0,
     lastPromptMetadataItemKey: "",
+    pendingMedia: null,
     item: null,
     items: [],
     index: -1,
@@ -641,6 +676,9 @@ function closeViewer() {
   viewer.renderRequestId++;
   viewer.body.dataset.prompts = "false";
   viewer.promptPanel.hidden = true;
+  discardStagedMedia(viewer.pendingMedia);
+  viewer.pendingMedia = null;
+  viewer.media.querySelector("video, audio")?.pause();
   viewer.media.replaceChildren();
   viewer.item = null;
   viewer.items = [];
@@ -803,6 +841,8 @@ function handleViewerBackdropClick(event) {
 async function renderViewerItem(item, thumbnail) {
   const currentViewer = ensureViewer();
   const requestId = ++currentViewer.renderRequestId;
+  discardStagedMedia(currentViewer.pendingMedia);
+  currentViewer.pendingMedia = null;
   currentViewer.item = item;
   currentViewer.title.textContent = item.filename;
   currentViewer.openLink.href = item.url;
@@ -812,6 +852,7 @@ async function renderViewerItem(item, thumbnail) {
     const image = document.createElement("img");
     image.alt = item.filename;
     image.decoding = "async";
+    image.dataset.mediaItemKey = item.key;
 
     const cached = decodedImageCache.get(item.url);
     if (cached?.complete) {
@@ -847,22 +888,44 @@ async function renderViewerItem(item, thumbnail) {
   if (item.kind === "video") {
     const video = document.createElement("video");
     video.controls = true;
-    video.autoplay = true;
     video.playsInline = true;
-    video.src = item.url;
-    currentViewer.media.replaceChildren(video);
+    video.preload = "auto";
+    video.muted = true;
+    video.dataset.mediaItemKey = item.key;
     video.addEventListener("loadedmetadata", () => {
       rememberMediaDimensions(item, video);
       if (isCurrentViewerRender(currentViewer, requestId, item)) refreshViewerPromptPanelDetails();
     }, { once: true });
+    video.src = item.url;
+    currentViewer.pendingMedia = video;
+    video.play().catch(() => {});
+    await waitForMediaReady(video);
+    if (!isCurrentViewerRender(currentViewer, requestId, item)) {
+      if (currentViewer.pendingMedia === video) currentViewer.pendingMedia = null;
+      discardStagedMedia(video);
+      return;
+    }
+    currentViewer.pendingMedia = null;
+    replaceViewerMedia(currentViewer, video);
+    refreshViewerPromptPanelDetails();
     return;
   }
 
   const audio = document.createElement("audio");
   audio.controls = true;
-  audio.autoplay = true;
+  audio.preload = "auto";
+  audio.muted = true;
   audio.src = item.url;
-  currentViewer.media.replaceChildren(audio);
+  currentViewer.pendingMedia = audio;
+  audio.play().catch(() => {});
+  await waitForMediaReady(audio);
+  if (!isCurrentViewerRender(currentViewer, requestId, item)) {
+    if (currentViewer.pendingMedia === audio) currentViewer.pendingMedia = null;
+    discardStagedMedia(audio);
+    return;
+  }
+  currentViewer.pendingMedia = null;
+  replaceViewerMedia(currentViewer, audio);
 }
 
 function resetViewerPromptPanel(status = "") {
@@ -885,6 +948,14 @@ function currentViewerMediaDetails() {
   if (!viewer?.media) return [];
 
   const element = viewer.media.querySelector("img, video");
+  if (element?.dataset.mediaItemKey !== viewer.item?.key) {
+    const cachedSize = mediaDimensionCache.get(viewer.item?.key);
+    if (!cachedSize?.width || !cachedSize?.height) return [];
+    return [
+      { label: "Width", value: String(cachedSize.width) },
+      { label: "Height", value: String(cachedSize.height) },
+    ];
+  }
   const naturalSize = viewerMediaNaturalSize(element);
   if (naturalSize.width && naturalSize.height) rememberMediaDimensions(viewer.item, element);
   const size = naturalSize.width && naturalSize.height
