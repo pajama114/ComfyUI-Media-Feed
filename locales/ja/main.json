@@ -4,7 +4,7 @@
     "Panel": "パネル",
     "Viewer": "ビューア",
     "Placement": "配置",
-    "Show prompts in viewer": "ビューアにメタデータを表示",
+    "Show metadata in viewer": "ビューアにメタデータを表示",
     "Fit media to viewer": "メディアをビューアに合わせる"
   }
 }

@@ -10,7 +10,7 @@
     }
   },
   "comfyui-media-feed_show-prompts": {
-    "name": "Show prompts in viewer",
+    "name": "Show metadata in viewer",
     "tooltip": "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media."
   },
   "comfyui-media-feed_scale-viewer-media": {

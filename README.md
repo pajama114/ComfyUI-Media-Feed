@@ -45,7 +45,7 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Placement: `Bottom`
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
-- Exclude Preview node media: `Off`
+- Show metadata in vieweredia: `Off`
 - Show prompts in viewer: `On`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
@@ -119,7 +119,7 @@ avi, m4v, mkv, mov, mp4, webm
 Audio:
 
 ```text
-aac, flac, m4a, mp3, ogg, opus, wav
+aac, flShow metadata in viewers, wav
 ```
 
 ## Embedded Metadata

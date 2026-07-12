@@ -1647,10 +1647,10 @@ app.registerExtension({
     },
     {
       id: "comfyui-media-feed.show-prompts",
-      name: "Show prompts in viewer",
+      name: "Show metadata in viewer",
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
-      category: ["Media Feed", "Viewer", "Show prompts in viewer"],
+      category: ["Media Feed", "Viewer", "Show metadata in viewer"],
       tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
