@@ -13,7 +13,10 @@ Python dependencies.
 - `__init__.py` exposes `WEB_DIRECTORY = "./web/js"` for ComfyUI.
 - `web/js/media_feed.js` is the extension entrypoint and contains the feed UI.
 - `web/js/icons.js` contains shared inline SVG icons.
-- `web/js/metadata.js` contains embedded prompt metadata loading and parsing.
+- `web/js/metadata.js` owns embedded metadata loading, Range scans, and
+  metadata extraction.
+- `web/js/metadata_parsers.js` contains the format-specific binary parsers.
+- `web/js/styles.js` contains the extension styles.
 - `pyproject.toml` contains Comfy Registry metadata.
 - `README.md` is the public user-facing documentation.
 - `icon.png` is referenced by `[tool.comfy] Icon`.
@@ -33,6 +36,11 @@ Python dependencies.
   virtualizes visible cards. Do not replace virtualization with a full DOM list.
 - Avoid cache-busting media URLs. Image preview and full-screen view should reuse
   the same `/view` URL where possible.
+- Keep embedded metadata scans bounded. Start with Range requests and do not
+  automatically download a large file in full; use the viewer's explicit full
+  metadata scan only when the initial scan cannot determine the result.
+- Preserve the full metadata scan path. Large generated videos may still need a
+  complete scan to recover embedded prompt and workflow data.
 - Be careful with keyboard handlers. When the viewer is open, arrow keys must not
   leak to the ComfyUI canvas.
 - Be careful with focus. Viewer controls should not accidentally trigger ComfyUI
@@ -47,6 +55,8 @@ Run these before committing:
 node --check web/js/media_feed.js
 node --check web/js/icons.js
 node --check web/js/metadata.js
+node --check web/js/metadata_parsers.js
+node --check web/js/styles.js
 python -m py_compile __init__.py
 python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"
 git diff --check
@@ -73,6 +83,10 @@ After browser reload in ComfyUI:
 - New media generated while the viewer is open becomes reachable without closing
   the viewer.
 - Video thumbnails play muted on hover and stop when hover leaves.
+- Large video metadata is read with `/view` Range requests when the server
+  supports them.
+- When an initial metadata scan is inconclusive, `Read full file metadata`
+  appears and completes a full scan when selected.
 - Audio thumbnails show a two-row layout with a full-width seek bar.
 - Thumbnail size changes with the slider and persists after reload.
 
