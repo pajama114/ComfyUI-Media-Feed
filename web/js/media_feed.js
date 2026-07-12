@@ -1413,6 +1413,16 @@ function updateViewerPromptPanel() {
     });
 }
 
+function fitThumbnailImage(image, preview) {
+  const width = preview.clientWidth;
+  const height = preview.clientHeight;
+  if (!width || !height || !image.naturalWidth || !image.naturalHeight) return;
+
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  image.style.width = `${image.naturalWidth * scale}px`;
+  image.style.height = `${image.naturalHeight * scale}px`;
+}
+
 function createCard(item) {
   const card = document.createElement("div");
   card.className = "cmf-card";
@@ -1431,8 +1441,15 @@ function createCard(item) {
     image.decoding = "async";
     image.loading = "lazy";
     image.src = item.url;
-    image.addEventListener("load", () => rememberDecodedImage(item.url, image), { once: true });
+    const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailImage(image, preview));
+    thumbnailResizeObserver.observe(preview);
+    card.thumbnailResizeObserver = thumbnailResizeObserver;
+    image.addEventListener("load", () => {
+      rememberDecodedImage(item.url, image);
+      fitThumbnailImage(image, preview);
+    }, { once: true });
     preview.appendChild(image);
+    if (image.complete) window.requestAnimationFrame(() => fitThumbnailImage(image, preview));
   } else if (item.kind === "video") {
     const video = document.createElement("video");
     const videoBadge = document.createElement("span");
@@ -1688,6 +1705,7 @@ function createFloatingPanel() {
 
 function destroyView(view, removeRoot) {
   view?.resizeObserver?.disconnect();
+  for (const card of view?.cards?.values?.() || []) card.thumbnailResizeObserver?.disconnect();
   state.views.delete(view);
   if (removeRoot) view?.root?.remove();
 }
@@ -1857,6 +1875,7 @@ function renderVisibleItems(view) {
 
   for (const [id, card] of view.cards) {
     if (visibleIds.has(id)) continue;
+    card.thumbnailResizeObserver?.disconnect();
     card.remove();
     view.cards.delete(id);
   }

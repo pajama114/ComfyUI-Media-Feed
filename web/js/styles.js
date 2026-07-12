@@ -530,6 +530,7 @@ export function ensureMediaFeedStyles({
       flex: 1 1 auto;
       place-items: center;
       width: 100%;
+      height: 100%;
       min-height: 0;
       overflow: hidden;
       background: var(--cmf-view-bg);
@@ -540,7 +541,10 @@ export function ensureMediaFeedStyles({
       display: block;
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      max-width: none;
+      max-height: none;
+      object-fit: contain !important;
+      object-position: center;
     }
 
     .cmf-video-badge,
