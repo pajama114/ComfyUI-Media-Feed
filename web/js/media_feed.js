@@ -54,6 +54,7 @@ const state = {
 };
 
 const decodedImageCache = new Map();
+const mediaDimensionCache = new Map();
 let bottomPanelView = null;
 let floatingView = null;
 let setupComplete = false;
@@ -428,6 +429,21 @@ function rememberDecodedImage(url, image) {
   while (decodedImageCache.size > DECODED_IMAGE_CACHE_SIZE) {
     const oldestKey = decodedImageCache.keys().next().value;
     decodedImageCache.delete(oldestKey);
+  }
+}
+
+function rememberMediaDimensions(item, element) {
+  if (!item?.key) return;
+
+  const size = viewerMediaNaturalSize(element);
+  if (!size.width || !size.height) return;
+
+  mediaDimensionCache.delete(item.key);
+  mediaDimensionCache.set(item.key, size);
+
+  while (mediaDimensionCache.size > MAX_ITEMS) {
+    const oldestKey = mediaDimensionCache.keys().next().value;
+    mediaDimensionCache.delete(oldestKey);
   }
 }
 
@@ -835,7 +851,10 @@ async function renderViewerItem(item, thumbnail) {
     video.playsInline = true;
     video.src = item.url;
     currentViewer.media.replaceChildren(video);
-    video.addEventListener("loadedmetadata", refreshViewerPromptPanelDetails, { once: true });
+    video.addEventListener("loadedmetadata", () => {
+      rememberMediaDimensions(item, video);
+      if (isCurrentViewerRender(currentViewer, requestId, item)) refreshViewerPromptPanelDetails();
+    }, { once: true });
     return;
   }
 
@@ -866,7 +885,11 @@ function currentViewerMediaDetails() {
   if (!viewer?.media) return [];
 
   const element = viewer.media.querySelector("img, video");
-  const size = viewerMediaNaturalSize(element);
+  const naturalSize = viewerMediaNaturalSize(element);
+  if (naturalSize.width && naturalSize.height) rememberMediaDimensions(viewer.item, element);
+  const size = naturalSize.width && naturalSize.height
+    ? naturalSize
+    : mediaDimensionCache.get(viewer.item?.key) || { width: 0, height: 0 };
   if (!size.width || !size.height) return [];
 
   return [
@@ -875,14 +898,15 @@ function currentViewerMediaDetails() {
   ];
 }
 
-function appendMetadataDetails(details, fallbackDetails) {
+function appendMetadataDetails(details, fallbackDetails, preferredLabels = []) {
+  const preferred = new Set(preferredLabels.map((label) => String(label).toLowerCase()));
   const usedLabels = new Set();
   const results = [];
 
   for (const entry of details) {
     const label = String(entry?.label || "").trim();
     const value = String(entry?.value || "").trim();
-    if (!label || !value) continue;
+    if (!label || !value || preferred.has(label.toLowerCase())) continue;
     usedLabels.add(label.toLowerCase());
     results.push({ label, value });
   }
@@ -943,6 +967,8 @@ function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   const details = appendMetadataDetails(
     Array.isArray(result.details) ? result.details : [],
     currentViewerMediaDetails(),
+    // Workflow metadata can describe a pre-upscale latent; the rendered media is authoritative.
+    viewer.item?.kind === "image" || viewer.item?.kind === "video" ? ["Width", "Height"] : [],
   );
   appendMetadataChips(
     viewer.metadataGrid,
@@ -1051,6 +1077,7 @@ function createCard(item) {
     video.preload = "metadata";
     video.loop = true;
     video.src = item.url;
+    video.addEventListener("loadedmetadata", () => rememberMediaDimensions(item, video), { once: true });
     preview.appendChild(video);
   } else {
     const audioPreview = document.createElement("div");
@@ -1228,6 +1255,7 @@ function createView(root, kind = "embedded") {
     state.items = [];
     state.itemKeys.clear();
     decodedImageCache.clear();
+    mediaDimensionCache.clear();
     clearPromptMetadataCache();
     updateViews(false);
   });
