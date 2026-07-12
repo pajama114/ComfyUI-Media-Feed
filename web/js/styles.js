@@ -693,13 +693,14 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-viewer-size-toggle {
+      --cmf-viewer-toggle-bg: color-mix(in srgb, var(--cmf-viewer-bar-bg) 88%, white);
       display: flex;
       align-items: center;
       gap: 2px;
       padding: 2px;
       border: 1px solid var(--cmf-border);
       border-radius: 6px;
-      background: #fff;
+      background: var(--cmf-viewer-toggle-bg);
     }
 
     .cmf-viewer-zoom-text {
@@ -707,8 +708,8 @@ export function ensureMediaFeedStyles({
       height: 30px;
       border: 1px solid transparent;
       border-radius: 4px;
-      background: #fff;
-      color: #5f6368;
+      background: transparent;
+      color: var(--cmf-text);
       padding: 0 8px;
       font-size: 12px;
     }
