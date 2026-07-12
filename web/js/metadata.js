@@ -1593,11 +1593,16 @@ function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMaps(workf
       || Array.isArray(node?.properties?.models)
         && node.properties.models.some((model) => /diffusion|checkpoint|unet/i.test(String(model?.directory || "")));
     const loraNode = /lora/i.test(nodeType);
+    let hasSelectedCheckpoint = false;
 
     for (const input of node.inputs || []) {
       const inputName = String(input?.name || "");
       if (checkpointNode && /^(ckpt|ckpt_name|checkpoint|checkpoint_name|model_name|unet_name|diffusion_model_name)$/i.test(inputName)) {
-        addResourceEntry(entries, "Checkpoint", resourceBasename(workflowInputEffectiveValue(node, input, maps, context)));
+        const checkpoint = resourceBasename(workflowInputEffectiveValue(node, input, maps, context));
+        if (checkpoint) {
+          addResourceEntry(entries, "Checkpoint", checkpoint);
+          hasSelectedCheckpoint = true;
+        }
       }
 
       if (loraNode || /lora/i.test(inputName)) {
@@ -1605,7 +1610,10 @@ function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMaps(workf
       }
     }
 
-    if (checkpointNode && Array.isArray(node.widgets_values)) {
+    // `properties.models` is often a workflow template's download hint, not the
+    // model selected for this execution. Prefer the resolved loader input and
+    // only use that metadata when no selection can be recovered.
+    if (checkpointNode && !hasSelectedCheckpoint && Array.isArray(node.widgets_values)) {
       const propertyModel = modelResourceFromProperties(node, /diffusion|checkpoint|unet/i);
       if (propertyModel) {
         addResourceEntry(entries, "Checkpoint", propertyModel);
