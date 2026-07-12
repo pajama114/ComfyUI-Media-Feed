@@ -279,6 +279,24 @@ export function parseMp4TextMetadata(bytes) {
 
   parseBoxes(0, bytes.length);
 
+  // Range reads can begin inside media data. Find complete metadata containers
+  // that are wholly present in the fetched segment and parse them as roots.
+  for (let offset = 0; offset + 8 <= bytes.length; offset++) {
+    const typeOffset = offset + 4;
+    const isMetadataContainer = (
+      bytes[typeOffset] === 0x6d && bytes[typeOffset + 1] === 0x6f && bytes[typeOffset + 2] === 0x6f && bytes[typeOffset + 3] === 0x76 // moov
+      || bytes[typeOffset] === 0x75 && bytes[typeOffset + 1] === 0x64 && bytes[typeOffset + 2] === 0x74 && bytes[typeOffset + 3] === 0x61 // udta
+      || bytes[typeOffset] === 0x6d && bytes[typeOffset + 1] === 0x65 && bytes[typeOffset + 2] === 0x74 && bytes[typeOffset + 3] === 0x61 // meta
+      || bytes[typeOffset] === 0x69 && bytes[typeOffset + 1] === 0x6c && bytes[typeOffset + 2] === 0x73 && bytes[typeOffset + 3] === 0x74 // ilst
+    );
+    if (!isMetadataContainer) continue;
+
+    const box = readMp4Size(bytes, offset);
+    if (!box) continue;
+    parseBoxes(offset, offset + box.size);
+    offset += box.size - 1;
+  }
+
   const parsed = findJsonMetadataObject(decodeUtf8(bytes));
   if (parsed) {
     if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;

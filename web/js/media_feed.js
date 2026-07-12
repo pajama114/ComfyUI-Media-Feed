@@ -518,6 +518,7 @@ function ensureViewer() {
       <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
         <h2 class="cmf-prompt-panel-title">Metadata</h2>
         <div class="cmf-prompt-status"></div>
+        <button class="cmf-button cmf-scan-full-metadata" type="button" hidden>Read full file metadata</button>
         <section class="cmf-prompt-section cmf-resources-section" hidden>
           <div class="cmf-prompt-section-header">
             <h2 class="cmf-prompt-heading">Resources</h2>
@@ -560,6 +561,7 @@ function ensureViewer() {
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
+  root.querySelector(".cmf-scan-full-metadata").addEventListener("click", scanFullViewerMetadata);
   root.addEventListener("keydown", handleViewerControlKeydown, true);
   for (const button of root.querySelectorAll(".cmf-nav-button")) {
     button.addEventListener("mousedown", (event) => event.preventDefault());
@@ -584,6 +586,7 @@ function ensureViewer() {
     media: root.querySelector(".cmf-viewer-media"),
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
+    scanFullMetadataButton: root.querySelector(".cmf-scan-full-metadata"),
     resourcesSection: root.querySelector(".cmf-resources-section"),
     resourcesGrid: root.querySelector(".cmf-resource-grid"),
     metadataSection: root.querySelector(".cmf-metadata-section"),
@@ -848,6 +851,8 @@ function resetViewerPromptPanel(status = "") {
   viewer.lastPromptMetadata = null;
   viewer.lastPromptMetadataItemKey = "";
   viewer.promptStatus.textContent = status;
+  viewer.scanFullMetadataButton.hidden = true;
+  viewer.scanFullMetadataButton.disabled = false;
   viewer.resourcesGrid.replaceChildren();
   viewer.resourcesSection.hidden = true;
   viewer.metadataGrid.replaceChildren();
@@ -922,6 +927,8 @@ function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   viewer.lastPromptMetadata = result;
   viewer.lastPromptMetadataItemKey = itemKey;
   viewer.promptStatus.textContent = result.status || "";
+  viewer.scanFullMetadataButton.hidden = !result.requiresFullScan;
+  viewer.scanFullMetadataButton.disabled = false;
   viewer.resourcesGrid.replaceChildren();
   viewer.metadataGrid.replaceChildren();
 
@@ -949,6 +956,34 @@ function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   viewer.promptSeed.textContent = result.seed || "(not found)";
   viewer.promptPositive.textContent = result.positive || "(not found)";
   viewer.promptNegative.textContent = result.negative || "(not found)";
+}
+
+async function scanFullViewerMetadata(event) {
+  event.currentTarget.blur();
+  if (!viewer || viewer.root.dataset.open !== "true" || !viewer.item) return;
+
+  const currentViewer = viewer;
+  const item = currentViewer.item;
+  const requestId = ++currentViewer.promptRequestId;
+  currentViewer.scanFullMetadataButton.disabled = true;
+  currentViewer.promptStatus.textContent = "Reading the full file for embedded metadata...";
+
+  try {
+    const result = await loadPromptMetadata(item, { fullScan: true });
+    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.key !== item.key) return;
+    renderPromptMetadata(result, item.key);
+  } catch {
+    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.key !== item.key) return;
+    renderPromptMetadata({
+      seed: "",
+      positive: "",
+      negative: "",
+      resources: [],
+      details: [],
+      status: "Could not read embedded prompt metadata.",
+      requiresFullScan: false,
+    }, item.key);
+  }
 }
 
 function updateViewerPromptPanel() {
