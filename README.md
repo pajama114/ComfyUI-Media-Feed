@@ -19,6 +19,8 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Shows newly generated images, videos, and audio in one feed, with filters for
   each media type.
 - Opens media in an overlay viewer, with a link to open the original file.
+- Copies output media to `output/favorites` from the star button in the viewer
+  or on a hovered feed card.
 - Supports previous/next navigation with side buttons, arrow keys, and wheel
   scrolling in the viewer.
 - Plays video thumbnails on hover, muted and looped.
@@ -143,8 +145,16 @@ For larger media, Media Feed first scans small byte ranges instead of loading
 the entire file. Video scans include both the beginning and end of the file,
 where container metadata is commonly stored. If that initial scan cannot find
 the embedded metadata, the viewer offers a **Read full file metadata** action
-to complete a full scan on demand. The extension does not alter media files; it
-only reads metadata that is already present.
+to complete a full scan on demand.
+
+## Favorites
+
+Selecting the star copies output media (images, video, or audio) to the fixed
+`favorites` folder inside ComfyUI's configured output directory. The folder is
+created on first use. Source media is never moved, deleted, or overwritten; a
+number is appended when a favorite already has the same filename. Media from
+`input` or `temp` is not eligible, so this feature never accepts an arbitrary
+filesystem path.
 
 ## Current Limitations
 
