@@ -41,6 +41,7 @@ const STORAGE_KEYS = {
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
+  favorites: "comfyui-media-feed:favorites",
 };
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
@@ -60,6 +61,8 @@ const state = {
   followLatest: DEFAULT_FOLLOW_LATEST,
   metadataPosition: DEFAULT_METADATA_POSITION,
   excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
+  favoriteKeys: new Set(),
+  favoritingKeys: new Set(),
 };
 
 const decodedImageCache = new Map();
@@ -345,6 +348,16 @@ function loadSavedExcludePreviewMedia() {
   }
 }
 
+function loadSavedFavoriteKeys() {
+  try {
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.favorites);
+    const savedKeys = JSON.parse(savedValue || "[]");
+    return new Set(Array.isArray(savedKeys) ? savedKeys.filter((key) => typeof key === "string").slice(0, 2048) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 function loadSettings() {
   try {
     const savedHeight = window.localStorage?.getItem(STORAGE_KEYS.itemHeight);
@@ -359,6 +372,7 @@ function loadSettings() {
   if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
   if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
   if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
+  state.favoriteKeys = loadSavedFavoriteKeys();
 }
 
 function saveThumbnailHeight() {
@@ -414,6 +428,14 @@ function saveExcludePreviewMedia() {
     window.localStorage?.setItem(STORAGE_KEYS.excludePreviewMedia, String(state.excludePreviewMedia));
   } catch {
     // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
+function saveFavoriteKeys() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.favorites, JSON.stringify([...state.favoriteKeys]));
+  } catch {
+    // Ignore storage failures; favoriting should still work for this session.
   }
 }
 
@@ -616,6 +638,7 @@ function ensureViewer() {
         <output class="cmf-viewer-zoom-level" aria-live="polite">Fit</output>
         <button class="cmf-button cmf-icon-button cmf-viewer-zoom-in" type="button" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
       </div>
+      <button class="cmf-button cmf-icon-button cmf-viewer-favorite" type="button" title="Add to favorites" aria-label="Add to favorites" aria-pressed="false">${ICONS.star}</button>
       <a class="cmf-button cmf-icon-button cmf-open-link" target="_blank" rel="noopener noreferrer" title="Open original" aria-label="Open original">${ICONS.externalLink}</a>
       <button class="cmf-button cmf-icon-button cmf-close" type="button" title="Close" aria-label="Close">${ICONS.close}</button>
     </div>
@@ -668,6 +691,7 @@ function ensureViewer() {
 
   root.addEventListener("click", handleViewerBackdropClick);
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
+  root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => addToFavorites(viewer?.item));
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
@@ -713,6 +737,7 @@ function ensureViewer() {
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
     openLink: root.querySelector(".cmf-open-link"),
+    favoriteButton: root.querySelector(".cmf-viewer-favorite"),
     zoomControls: root.querySelector(".cmf-viewer-zoom-controls"),
     fitButton: root.querySelector(".cmf-viewer-fit"),
     nativeButton: root.querySelector(".cmf-viewer-native"),
@@ -1133,6 +1158,7 @@ async function renderViewerItem(item, thumbnail) {
   resetViewerImageView();
   currentViewer.title.textContent = item.filename;
   currentViewer.openLink.href = item.url;
+  syncFavoriteButton(currentViewer.favoriteButton, item);
   syncViewerNav();
 
   if (item.kind === "image") {
@@ -1423,6 +1449,71 @@ function fitThumbnailImage(image, preview) {
   image.style.height = `${image.naturalHeight * scale}px`;
 }
 
+function canFavorite(item) {
+  return item?.type === "output";
+}
+
+function isFavorite(item) {
+  return Boolean(item && state.favoriteKeys.has(item.key));
+}
+
+function syncFavoriteButton(button, item) {
+  if (!button) return;
+
+  const supported = canFavorite(item);
+  const favorited = isFavorite(item);
+  const pending = Boolean(item && state.favoritingKeys.has(item.key));
+  const label = !supported
+    ? "Only output media can be favorited"
+    : favorited
+      ? "Added to favorites"
+      : pending
+        ? "Adding to favorites"
+        : "Add to favorites";
+
+  button.disabled = !supported || favorited || pending;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-pressed", String(favorited));
+}
+
+function syncFavoriteControls() {
+  for (const view of state.views) {
+    for (const [id, card] of view.cards) {
+      const item = state.items.find((current) => current.id === id);
+      syncFavoriteButton(card.favoriteButton, item);
+    }
+  }
+  syncFavoriteButton(viewer?.favoriteButton, viewer?.item);
+}
+
+async function addToFavorites(item) {
+  if (!canFavorite(item) || isFavorite(item) || state.favoritingKeys.has(item.key)) return;
+
+  state.favoritingKeys.add(item.key);
+  syncFavoriteControls();
+  try {
+    const response = await fetch(apiUrl("/media-feed/favorite"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: item.filename,
+        subfolder: item.subfolder,
+        type: item.type,
+      }),
+    });
+    if (!response.ok) throw new Error("Could not copy media to favorites");
+
+    state.favoriteKeys.add(item.key);
+    saveFavoriteKeys();
+  } catch {
+    // Keep the action available so the user can retry after resolving a file error.
+  } finally {
+    state.favoritingKeys.delete(item.key);
+    syncFavoriteControls();
+  }
+}
+
 function createCard(item) {
   const card = document.createElement("div");
   card.className = "cmf-card";
@@ -1496,7 +1587,18 @@ function createCard(item) {
     preview.appendChild(audioPreview);
   }
 
-  card.append(preview);
+  const favoriteButton = document.createElement("button");
+  favoriteButton.className = "cmf-button cmf-icon-button cmf-card-favorite";
+  favoriteButton.type = "button";
+  favoriteButton.innerHTML = ICONS.star;
+  favoriteButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addToFavorites(item);
+  });
+  card.favoriteButton = favoriteButton;
+  syncFavoriteButton(favoriteButton, item);
+  card.append(preview, favoriteButton);
   const previewVideo = card.querySelector("video");
   if (previewVideo && item.kind === "video") {
     const playPreview = () => {
@@ -1516,11 +1618,11 @@ function createCard(item) {
     card.addEventListener("blur", pausePreview);
   }
   card.addEventListener("click", (event) => {
-    if (event.target.closest(".cmf-audio-controls")) return;
+    if (event.target.closest(".cmf-audio-controls, .cmf-card-favorite")) return;
     openViewer(item, card.querySelector("img"));
   });
   card.addEventListener("keydown", (event) => {
-    if (event.target.closest(".cmf-audio-controls")) return;
+    if (event.target.closest(".cmf-audio-controls, .cmf-card-favorite")) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();

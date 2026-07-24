@@ -547,6 +547,48 @@ export function ensureMediaFeedStyles({
       object-position: center;
     }
 
+    .cmf-card-favorite {
+      position: absolute;
+      z-index: 2;
+      top: 6px;
+      right: 6px;
+      border-color: rgba(255, 255, 255, 0.28);
+      background: rgba(0, 0, 0, 0.42);
+      color: rgba(255, 255, 255, 0.92);
+      opacity: 0;
+      transform: translateY(-2px);
+      transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
+    }
+
+    .cmf-card:hover .cmf-card-favorite,
+    .cmf-card:focus-within .cmf-card-favorite,
+    .cmf-card-favorite:focus-visible {
+      opacity: 0.72;
+      transform: translateY(0);
+    }
+
+    .cmf-card-favorite:hover,
+    .cmf-card-favorite:focus-visible {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.72);
+    }
+
+    .cmf-card-favorite[aria-pressed="true"] {
+      color: #ffd24d;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .cmf-viewer-favorite[aria-pressed="true"] {
+      color: #ffd24d;
+      opacity: 1;
+    }
+
+    .cmf-card-favorite[aria-pressed="true"] svg,
+    .cmf-viewer-favorite[aria-pressed="true"] svg {
+      fill: currentColor;
+    }
+
     .cmf-video-badge,
     .cmf-video-duration {
       position: absolute;

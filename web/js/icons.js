@@ -85,6 +85,11 @@ export const ICONS = {
       <path d="M18 4h-4v16h4V4Z"></path>
     </svg>
   `,
+  star: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3Z"></path>
+    </svg>
+  `,
   play: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="m8 5 11 7-11 7V5Z"></path>
