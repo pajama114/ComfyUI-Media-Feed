@@ -152,9 +152,10 @@ to complete a full scan on demand.
 Selecting the star copies output media (images, video, or audio) to the fixed
 `favorites` folder inside ComfyUI's configured output directory. The folder is
 created on first use. Source media is never moved, deleted, or overwritten; a
-number is appended when a favorite already has the same filename. Media from
-`input` or `temp` is not eligible, so this feature never accepts an arbitrary
-filesystem path.
+number is appended when a favorite already has the same filename. Selecting a
+registered star again removes that specific copied file from `favorites`; it
+never removes the source media. Media from `input` or `temp` is not eligible,
+so this feature never accepts an arbitrary filesystem path.
 
 ## Current Limitations
 
