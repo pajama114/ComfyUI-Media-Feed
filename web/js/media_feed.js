@@ -61,7 +61,7 @@ const state = {
   followLatest: DEFAULT_FOLLOW_LATEST,
   metadataPosition: DEFAULT_METADATA_POSITION,
   excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
-  favoriteKeys: new Set(),
+  favoriteFiles: new Map(),
   favoritingKeys: new Set(),
 };
 
@@ -348,13 +348,17 @@ function loadSavedExcludePreviewMedia() {
   }
 }
 
-function loadSavedFavoriteKeys() {
+function loadSavedFavoriteFiles() {
   try {
     const savedValue = window.localStorage?.getItem(STORAGE_KEYS.favorites);
-    const savedKeys = JSON.parse(savedValue || "[]");
-    return new Set(Array.isArray(savedKeys) ? savedKeys.filter((key) => typeof key === "string").slice(0, 2048) : []);
+    const savedFiles = JSON.parse(savedValue || "{}");
+    if (!savedFiles || Array.isArray(savedFiles) || typeof savedFiles !== "object") return new Map();
+
+    return new Map(Object.entries(savedFiles)
+      .filter(([key, filename]) => typeof key === "string" && typeof filename === "string" && !/[\\\\/]/.test(filename))
+      .slice(0, 2048));
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 
@@ -372,7 +376,7 @@ function loadSettings() {
   if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
   if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
   if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
-  state.favoriteKeys = loadSavedFavoriteKeys();
+  state.favoriteFiles = loadSavedFavoriteFiles();
 }
 
 function saveThumbnailHeight() {
@@ -431,9 +435,9 @@ function saveExcludePreviewMedia() {
   }
 }
 
-function saveFavoriteKeys() {
+function saveFavoriteFiles() {
   try {
-    window.localStorage?.setItem(STORAGE_KEYS.favorites, JSON.stringify([...state.favoriteKeys]));
+    window.localStorage?.setItem(STORAGE_KEYS.favorites, JSON.stringify(Object.fromEntries(state.favoriteFiles)));
   } catch {
     // Ignore storage failures; favoriting should still work for this session.
   }
@@ -691,7 +695,7 @@ function ensureViewer() {
 
   root.addEventListener("click", handleViewerBackdropClick);
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
-  root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => addToFavorites(viewer?.item));
+  root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => toggleFavorite(viewer?.item));
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
@@ -1454,7 +1458,7 @@ function canFavorite(item) {
 }
 
 function isFavorite(item) {
-  return Boolean(item && state.favoriteKeys.has(item.key));
+  return Boolean(item && state.favoriteFiles.has(item.key));
 }
 
 function syncFavoriteButton(button, item) {
@@ -1466,12 +1470,12 @@ function syncFavoriteButton(button, item) {
   const label = !supported
     ? "Only output media can be favorited"
     : favorited
-      ? "Added to favorites"
+      ? "Remove from favorites"
       : pending
-        ? "Adding to favorites"
+        ? "Updating favorites"
         : "Add to favorites";
 
-  button.disabled = !supported || favorited || pending;
+  button.disabled = !supported || pending;
   button.title = label;
   button.setAttribute("aria-label", label);
   button.setAttribute("aria-pressed", String(favorited));
@@ -1487,25 +1491,37 @@ function syncFavoriteControls() {
   syncFavoriteButton(viewer?.favoriteButton, viewer?.item);
 }
 
-async function addToFavorites(item) {
-  if (!canFavorite(item) || isFavorite(item) || state.favoritingKeys.has(item.key)) return;
+async function toggleFavorite(item) {
+  if (!canFavorite(item) || state.favoritingKeys.has(item.key)) return;
 
   state.favoritingKeys.add(item.key);
   syncFavoriteControls();
   try {
+    const favoriteFilename = state.favoriteFiles.get(item.key);
+    const adding = !favoriteFilename;
     const response = await fetch(apiUrl("/media-feed/favorite"), {
-      method: "POST",
+      method: adding ? "POST" : "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: item.filename,
-        subfolder: item.subfolder,
-        type: item.type,
-      }),
+      body: JSON.stringify(adding
+        ? {
+          filename: item.filename,
+          subfolder: item.subfolder,
+          type: item.type,
+        }
+        : { filename: favoriteFilename }),
     });
-    if (!response.ok) throw new Error("Could not copy media to favorites");
+    if (!response.ok) throw new Error("Could not update favorites");
 
-    state.favoriteKeys.add(item.key);
-    saveFavoriteKeys();
+    if (adding) {
+      const result = await response.json();
+      if (typeof result?.filename !== "string" || /[\\\\/]/.test(result.filename)) {
+        throw new Error("Invalid favorite response");
+      }
+      state.favoriteFiles.set(item.key, result.filename);
+    } else {
+      state.favoriteFiles.delete(item.key);
+    }
+    saveFavoriteFiles();
   } catch {
     // Keep the action available so the user can retry after resolving a file error.
   } finally {
@@ -1594,7 +1610,7 @@ function createCard(item) {
   favoriteButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    addToFavorites(item);
+    toggleFavorite(item);
   });
   card.favoriteButton = favoriteButton;
   syncFavoriteButton(favoriteButton, item);
