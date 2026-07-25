@@ -2060,6 +2060,7 @@ app.registerExtension({
         { text: "Right", value: "right" },
       ],
       category: ["Media Feed", "Panel", "Placement"],
+      sortOrder: 1,
       tooltip: "Choose where the floating Media Feed panel appears.",
       onChange: (newValue) => {
         placementSettingSeen = true;
@@ -2072,6 +2073,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedFollowLatest(),
       category: ["Media Feed", "Panel", "Follow latest media"],
+      sortOrder: 1,
       tooltip: "Automatically scroll the feed to newly generated media.",
       onChange: (newValue) => {
         followLatestSettingSeen = true;
@@ -2084,6 +2086,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedExcludePreviewMedia(),
       category: ["Media Feed", "Feed", "Exclude Preview node media"],
+      sortOrder: 1,
       tooltip: "Do not add media emitted by Preview nodes, such as Preview Image, to the feed.",
       onChange: (newValue) => {
         excludePreviewMediaSettingSeen = true;
@@ -2096,6 +2099,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedShowPrompts(),
       category: ["Media Feed", "Viewer", "Show metadata in viewer"],
+      sortOrder: 1,
       tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
       onChange: (newValue) => {
         promptSettingSeen = true;
@@ -2112,6 +2116,7 @@ app.registerExtension({
         { text: "Right", value: "right" },
       ],
       category: ["Media Feed", "Viewer", "Metadata position"],
+      sortOrder: 1,
       tooltip: "Choose which side of the viewer shows prompt and metadata details.",
       onChange: (newValue) => {
         metadataPositionSettingSeen = true;
@@ -2124,6 +2129,7 @@ app.registerExtension({
       type: "boolean",
       defaultValue: loadSavedScaleViewerMedia(),
       category: ["Media Feed", "Viewer", "Fit media to viewer"],
+      sortOrder: 1,
       tooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
       onChange: (newValue) => {
         scaleViewerMediaSettingSeen = true;
