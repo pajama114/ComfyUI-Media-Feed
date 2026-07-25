@@ -909,6 +909,48 @@ export function ensureMediaFeedStyles({
       font-weight: 700;
     }
 
+    .cmf-prompt-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cmf-viewer-metadata-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .cmf-viewer-metadata-toggle svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+
+    .cmf-show-metadata {
+      position: absolute;
+      z-index: 2;
+      top: 14px;
+      right: 14px;
+    }
+
+    .cmf-viewer-body[data-metadata-position="left"] .cmf-show-metadata {
+      right: auto;
+      left: 14px;
+    }
+
+    .cmf-show-metadata[hidden],
+    .cmf-hide-metadata[hidden] {
+      display: none;
+    }
+
     .cmf-prompt-status {
       min-height: 16px;
       color: var(--cmf-muted);
@@ -1020,6 +1062,14 @@ export function ensureMediaFeedStyles({
 
       .cmf-prompt-panel {
         max-width: none;
+      }
+
+      .cmf-show-metadata,
+      .cmf-viewer-body[data-metadata-position="left"] .cmf-show-metadata {
+        top: auto;
+        right: 14px;
+        bottom: 14px;
+        left: auto;
       }
     }
 

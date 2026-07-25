@@ -45,6 +45,7 @@ const STORAGE_KEYS = {
   showFavoriteButton: "comfyui-media-feed:show-favorite-button",
   favorites: "comfyui-media-feed:favorites",
 };
+const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "opus", "wav"]);
@@ -475,10 +476,23 @@ function setThumbnailHeight(nextHeight) {
   updateViews(false);
 }
 
-function setShowPrompts(nextValue) {
-  applyShowPrompts(nextValue);
-  saveShowPrompts();
-  updateViewerPromptPanel();
+function syncComfySettingValue(settingId, value) {
+  try {
+    app.ui?.settings?.setSettingValue?.(settingId, value);
+  } catch {
+    // Older ComfyUI frontends do not expose a way to update an open settings panel.
+  }
+}
+
+function setShowPrompts(nextValue, { syncSettings = false } = {}) {
+  const showPrompts = normalizeBooleanSetting(nextValue);
+  if (showPrompts !== state.showPrompts) {
+    applyShowPrompts(showPrompts);
+    saveShowPrompts();
+    syncViewerMetadataToggle();
+    updateViewerPromptPanel();
+  }
+  if (syncSettings) syncComfySettingValue(SHOW_PROMPTS_SETTING_ID, state.showPrompts);
 }
 
 function setScaleViewerMedia(nextValue) {
@@ -685,7 +699,10 @@ function ensureViewer() {
         <div class="cmf-viewer-media"></div>
       </section>
       <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
-        <h2 class="cmf-prompt-panel-title">Metadata</h2>
+        <div class="cmf-prompt-panel-header">
+          <h2 class="cmf-prompt-panel-title">Metadata</h2>
+          <button class="cmf-button cmf-viewer-metadata-toggle cmf-hide-metadata" type="button" title="Hide metadata" aria-label="Hide metadata" aria-pressed="true">${ICONS.eyeOff}<span>Hide</span></button>
+        </div>
         <div class="cmf-prompt-status"></div>
         <button class="cmf-button cmf-scan-full-metadata" type="button" hidden>Read full file metadata</button>
         <section class="cmf-prompt-section cmf-resources-section" hidden>
@@ -722,11 +739,15 @@ function ensureViewer() {
           <div class="cmf-metadata-grid"></div>
         </section>
       </aside>
+      <button class="cmf-button cmf-viewer-metadata-toggle cmf-show-metadata" type="button" title="Show metadata" aria-label="Show metadata" aria-pressed="false">${ICONS.eye}<span>Show metadata</span></button>
     </div>
   `;
 
   root.addEventListener("click", handleViewerBackdropClick);
   root.querySelector(".cmf-close").addEventListener("click", closeViewer);
+  for (const button of root.querySelectorAll(".cmf-viewer-metadata-toggle")) {
+    button.addEventListener("click", () => setShowPrompts(!state.showPrompts, { syncSettings: true }));
+  }
   root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => toggleFavorite(viewer?.item));
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
@@ -773,6 +794,8 @@ function ensureViewer() {
     promptPositive: root.querySelector(".cmf-prompt-positive"),
     promptNegative: root.querySelector(".cmf-prompt-negative"),
     openLink: root.querySelector(".cmf-open-link"),
+    hideMetadataButton: root.querySelector(".cmf-hide-metadata"),
+    showMetadataButton: root.querySelector(".cmf-show-metadata"),
     favoriteButton: root.querySelector(".cmf-viewer-favorite"),
     zoomControls: root.querySelector(".cmf-viewer-zoom-controls"),
     fitButton: root.querySelector(".cmf-viewer-fit"),
@@ -798,6 +821,7 @@ function ensureViewer() {
   };
   viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
   viewer.resizeObserver.observe(viewer.media);
+  syncViewerMetadataToggle();
   syncViewerMetadataPosition();
   return viewer;
 }
@@ -810,6 +834,16 @@ function syncViewerScaleMedia() {
 function syncViewerMetadataPosition() {
   if (!viewer) return;
   viewer.body.dataset.metadataPosition = state.metadataPosition;
+}
+
+function syncViewerMetadataToggle() {
+  if (!viewer) return;
+
+  const showing = state.showPrompts;
+  viewer.hideMetadataButton.hidden = !showing;
+  viewer.showMetadataButton.hidden = showing;
+  viewer.hideMetadataButton.setAttribute("aria-pressed", String(showing));
+  viewer.showMetadataButton.setAttribute("aria-pressed", String(showing));
 }
 
 function closeViewer() {
