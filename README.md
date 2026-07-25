@@ -50,6 +50,7 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Placement: `Bottom`
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
+- Show favorite button on hover: `On`
 - Show metadata in vieweredia: `Off`
 - Show prompts in viewer: `On`
 - Metadata position: `Left`
@@ -156,6 +157,9 @@ number is appended when a favorite already has the same filename. Selecting a
 registered star again removes that specific copied file from `favorites`; it
 never removes the source media. Media from `input` or `temp` is not eligible,
 so this feature never accepts an arbitrary filesystem path.
+
+The **Favorite storage folder** setting displays the fixed relative path
+`output/favorites`; it is informational and cannot be changed.
 
 ## Current Limitations
 
