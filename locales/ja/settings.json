@@ -16,5 +16,16 @@
   "comfyui-media-feed_scale-viewer-media": {
     "name": "メディアをビューアに合わせる",
     "tooltip": "小さい画像や動画を、全体がビューア内に収まる最大サイズで表示します。"
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "ホバー時にお気に入りボタンを表示",
+    "tooltip": "フィードカードにマウスを重ねたとき、右上にお気に入りの星を表示します。"
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "お気に入りの保存先",
+    "tooltip": "お気に入りは常に output/favorites に保存されます。この保存先は変更できません。",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
   }
 }

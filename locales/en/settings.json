@@ -16,5 +16,16 @@
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Fit media to viewer",
     "tooltip": "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio."
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "Show favorite button on hover",
+    "tooltip": "Show the favorite star in the upper-right corner of a feed card when you hover over it."
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "Favorite storage folder",
+    "tooltip": "Favorites are always stored in the output/favorites folder and this location cannot be changed.",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
   }
 }

@@ -24,6 +24,7 @@ const DEFAULT_SCALE_VIEWER_MEDIA = false;
 const DEFAULT_FOLLOW_LATEST = true;
 const DEFAULT_METADATA_POSITION = "left";
 const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
+const DEFAULT_SHOW_FAVORITE_BUTTON = true;
 const VIEWER_IMAGE_ZOOM_STEP = 0.25;
 const VIEWER_IMAGE_WHEEL_ZOOM_FACTOR = 1.1;
 const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
@@ -41,6 +42,7 @@ const STORAGE_KEYS = {
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
+  showFavoriteButton: "comfyui-media-feed:show-favorite-button",
   favorites: "comfyui-media-feed:favorites",
 };
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
@@ -61,6 +63,7 @@ const state = {
   followLatest: DEFAULT_FOLLOW_LATEST,
   metadataPosition: DEFAULT_METADATA_POSITION,
   excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
+  showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
   favoriteFiles: new Map(),
   favoritingKeys: new Set(),
 };
@@ -76,6 +79,7 @@ let scaleViewerMediaSettingSeen = false;
 let followLatestSettingSeen = false;
 let metadataPositionSettingSeen = false;
 let excludePreviewMediaSettingSeen = false;
+let showFavoriteButtonSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -296,6 +300,10 @@ function applyExcludePreviewMedia(nextValue) {
   state.excludePreviewMedia = normalizeBooleanSetting(nextValue);
 }
 
+function applyShowFavoriteButton(nextValue) {
+  state.showFavoriteButton = normalizeBooleanSetting(nextValue);
+}
+
 function loadSavedPlacement() {
   try {
     return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -348,6 +356,15 @@ function loadSavedExcludePreviewMedia() {
   }
 }
 
+function loadSavedShowFavoriteButton() {
+  try {
+    const savedValue = window.localStorage?.getItem(STORAGE_KEYS.showFavoriteButton);
+    return savedValue === null ? DEFAULT_SHOW_FAVORITE_BUTTON : normalizeBooleanSetting(savedValue);
+  } catch {
+    return DEFAULT_SHOW_FAVORITE_BUTTON;
+  }
+}
+
 function loadSavedFavoriteFiles() {
   try {
     const savedValue = window.localStorage?.getItem(STORAGE_KEYS.favorites);
@@ -376,6 +393,7 @@ function loadSettings() {
   if (!followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
   if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
   if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
+  if (!showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
   state.favoriteFiles = loadSavedFavoriteFiles();
 }
 
@@ -435,6 +453,14 @@ function saveExcludePreviewMedia() {
   }
 }
 
+function saveShowFavoriteButton() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.showFavoriteButton, String(state.showFavoriteButton));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function saveFavoriteFiles() {
   try {
     window.localStorage?.setItem(STORAGE_KEYS.favorites, JSON.stringify(Object.fromEntries(state.favoriteFiles)));
@@ -475,6 +501,12 @@ function setMetadataPosition(nextPosition) {
 function setExcludePreviewMedia(nextValue) {
   applyExcludePreviewMedia(nextValue);
   saveExcludePreviewMedia();
+}
+
+function setShowFavoriteButton(nextValue) {
+  applyShowFavoriteButton(nextValue);
+  saveShowFavoriteButton();
+  for (const view of state.views) view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
 }
 
 function setPlacement(nextPlacement) {
@@ -1864,6 +1896,7 @@ function updateViews(scrollToLatest, prependedCount = 0) {
 
 function applyViewSizing(view) {
   applyFallbackPlacement(view.root);
+  view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
   view.root.style.setProperty("--cmf-item-width", `${state.itemWidth}px`);
   view.root.style.setProperty("--cmf-item-height", `${state.itemHeight}px`);
   view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
@@ -2096,6 +2129,28 @@ app.registerExtension({
         scaleViewerMediaSettingSeen = true;
         setScaleViewerMedia(newValue);
       },
+    },
+    {
+      id: "comfyui-media-feed.show-favorite-button",
+      name: "Show favorite button on hover",
+      type: "boolean",
+      defaultValue: loadSavedShowFavoriteButton(),
+      category: ["Media Feed", "Favorites", "Show favorite button on hover"],
+      tooltip: "Show the favorite star in the upper-right corner of a feed card when you hover over it.",
+      onChange: (newValue) => {
+        showFavoriteButtonSettingSeen = true;
+        setShowFavoriteButton(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.favorite-folder",
+      name: "Favorite storage folder",
+      type: "combo",
+      defaultValue: "output/favorites",
+      options: [{ text: "output/favorites", value: "output/favorites" }],
+      attrs: { disabled: true },
+      category: ["Media Feed", "Favorites", "Favorite storage folder"],
+      tooltip: "Favorites are always stored in the output/favorites folder and this location cannot be changed.",
     },
   ],
   bottomPanelTabs: [

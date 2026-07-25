@@ -589,6 +589,10 @@ export function ensureMediaFeedStyles({
       fill: currentColor;
     }
 
+    .cmf-root[data-show-favorite-button="false"] .cmf-card-favorite {
+      display: none;
+    }
+
     .cmf-video-badge,
     .cmf-video-duration {
       position: absolute;
