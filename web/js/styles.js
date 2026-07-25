@@ -53,7 +53,6 @@ export function ensureMediaFeedStyles({
       position: fixed;
       z-index: 10;
       overflow: hidden;
-      border: 1px solid var(--cmf-border);
       border-radius: 8px;
     }
 
@@ -370,7 +369,6 @@ export function ensureMediaFeedStyles({
       overflow-y: hidden;
       scrollbar-color: #c1c1c1 transparent;
       scrollbar-width: none;
-      border: 1px solid var(--cmf-border);
       border-radius: 8px;
       background: var(--cmf-view-bg);
     }
