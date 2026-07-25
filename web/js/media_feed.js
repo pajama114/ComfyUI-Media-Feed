@@ -46,6 +46,7 @@ const STORAGE_KEYS = {
   favorites: "comfyui-media-feed:favorites",
 };
 const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
+const SCALE_VIEWER_MEDIA_SETTING_ID = "comfyui-media-feed.scale-viewer-media";
 const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "opus", "wav"]);
@@ -495,10 +496,14 @@ function setShowPrompts(nextValue, { syncSettings = false } = {}) {
   if (syncSettings) syncComfySettingValue(SHOW_PROMPTS_SETTING_ID, state.showPrompts);
 }
 
-function setScaleViewerMedia(nextValue) {
-  applyScaleViewerMedia(nextValue);
-  saveScaleViewerMedia();
-  syncViewerScaleMedia();
+function setScaleViewerMedia(nextValue, { syncSettings = false } = {}) {
+  const scaleViewerMedia = normalizeBooleanSetting(nextValue);
+  if (scaleViewerMedia !== state.scaleViewerMedia) {
+    applyScaleViewerMedia(scaleViewerMedia);
+    saveScaleViewerMedia();
+    syncViewerScaleMedia();
+  }
+  if (syncSettings) syncComfySettingValue(SCALE_VIEWER_MEDIA_SETTING_ID, state.scaleViewerMedia);
 }
 
 function setFollowLatest(nextValue) {
@@ -1065,7 +1070,10 @@ function resetViewerImageView(baseMode = viewer?.imageBaseMode || "native") {
 
 function setViewerImageBaseMode(baseMode) {
   if (!getViewerImage()) return;
-  resetViewerImageView(baseMode);
+  const scaleMedia = baseMode === "fit";
+  const settingChanged = scaleMedia !== state.scaleViewerMedia;
+  setScaleViewerMedia(scaleMedia, { syncSettings: true });
+  if (!settingChanged) resetViewerImageView(baseMode);
 }
 
 function setViewerImageZoom(nextZoom, origin) {
