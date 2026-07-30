@@ -231,6 +231,35 @@ export function ensureMediaFeedStyles({
       min-height: 0;
     }
 
+    .cmf-root[data-feed-style="frameless"] {
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-jump {
+      display: none;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-title,
+    .cmf-root[data-feed-style="frameless"] .cmf-filter,
+    .cmf-root[data-feed-style="frameless"] .cmf-count,
+    .cmf-root[data-feed-style="frameless"] .cmf-clear,
+    .cmf-root[data-feed-style="frameless"] .cmf-collapse {
+      display: none;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-size-control {
+      pointer-events: auto;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-viewport {
+      background: transparent;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-card {
+      pointer-events: auto;
+    }
+
     .cmf-toolbar {
       display: flex;
       align-items: center;

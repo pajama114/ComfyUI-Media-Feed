@@ -25,6 +25,7 @@ const DEFAULT_FOLLOW_LATEST = true;
 const DEFAULT_METADATA_POSITION = "left";
 const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
 const DEFAULT_SHOW_FAVORITE_BUTTON = true;
+const DEFAULT_FEED_STYLE = "default";
 const VIEWER_IMAGE_ZOOM_STEP = 0.25;
 const VIEWER_IMAGE_WHEEL_ZOOM_FACTOR = 1.1;
 const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
@@ -34,6 +35,7 @@ const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const METADATA_POSITIONS = new Set(["left", "right"]);
+const FEED_STYLES = new Set(["default", "frameless"]);
 const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
@@ -43,6 +45,7 @@ const STORAGE_KEYS = {
   metadataPosition: "comfyui-media-feed:metadata-position",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
   showFavoriteButton: "comfyui-media-feed:show-favorite-button",
+  feedStyle: "comfyui-media-feed:feed-style",
   favorites: "comfyui-media-feed:favorites",
 };
 const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
@@ -66,6 +69,7 @@ const state = {
   metadataPosition: DEFAULT_METADATA_POSITION,
   excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
   showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
+  feedStyle: DEFAULT_FEED_STYLE,
   favoriteFiles: new Map(),
   favoritingKeys: new Set(),
 };
@@ -82,6 +86,7 @@ let followLatestSettingSeen = false;
 let metadataPositionSettingSeen = false;
 let excludePreviewMediaSettingSeen = false;
 let showFavoriteButtonSettingSeen = false;
+let feedStyleSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
 
@@ -260,6 +265,11 @@ function normalizeMetadataPosition(nextPosition) {
   return METADATA_POSITIONS.has(position) ? position : DEFAULT_METADATA_POSITION;
 }
 
+function normalizeFeedStyle(nextStyle) {
+  const style = String(nextStyle || "").toLowerCase();
+  return FEED_STYLES.has(style) ? style : DEFAULT_FEED_STYLE;
+}
+
 function normalizeBooleanSetting(nextValue) {
   return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
 }
@@ -304,6 +314,10 @@ function applyExcludePreviewMedia(nextValue) {
 
 function applyShowFavoriteButton(nextValue) {
   state.showFavoriteButton = normalizeBooleanSetting(nextValue);
+}
+
+function applyFeedStyle(nextStyle) {
+  state.feedStyle = normalizeFeedStyle(nextStyle);
 }
 
 function loadSavedPlacement() {
@@ -367,6 +381,14 @@ function loadSavedShowFavoriteButton() {
   }
 }
 
+function loadSavedFeedStyle() {
+  try {
+    return normalizeFeedStyle(window.localStorage?.getItem(STORAGE_KEYS.feedStyle));
+  } catch {
+    return DEFAULT_FEED_STYLE;
+  }
+}
+
 function loadSavedFavoriteFiles() {
   try {
     const savedValue = window.localStorage?.getItem(STORAGE_KEYS.favorites);
@@ -396,6 +418,7 @@ function loadSettings() {
   if (!metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
   if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
   if (!showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
+  if (!feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
   state.favoriteFiles = loadSavedFavoriteFiles();
 }
 
@@ -458,6 +481,14 @@ function saveExcludePreviewMedia() {
 function saveShowFavoriteButton() {
   try {
     window.localStorage?.setItem(STORAGE_KEYS.showFavoriteButton, String(state.showFavoriteButton));
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
+function saveFeedStyle() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.feedStyle, state.feedStyle);
   } catch {
     // Ignore storage failures; the feed should keep working with in-memory settings.
   }
@@ -526,6 +557,12 @@ function setShowFavoriteButton(nextValue) {
   applyShowFavoriteButton(nextValue);
   saveShowFavoriteButton();
   for (const view of state.views) view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
+}
+
+function setFeedStyle(nextStyle) {
+  applyFeedStyle(nextStyle);
+  saveFeedStyle();
+  for (const view of state.views) view.root.dataset.feedStyle = state.feedStyle;
 }
 
 function setPlacement(nextPlacement) {
@@ -1939,6 +1976,7 @@ function updateViews(scrollToLatest, prependedCount = 0) {
 function applyViewSizing(view) {
   applyFallbackPlacement(view.root);
   view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
+  view.root.dataset.feedStyle = state.feedStyle;
   view.root.style.setProperty("--cmf-item-width", `${state.itemWidth}px`);
   view.root.style.setProperty("--cmf-item-height", `${state.itemHeight}px`);
   view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
@@ -2133,6 +2171,23 @@ app.registerExtension({
       onChange: (newValue) => {
         excludePreviewMediaSettingSeen = true;
         setExcludePreviewMedia(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.feed-style",
+      name: "Feed style",
+      type: "combo",
+      defaultValue: loadSavedFeedStyle(),
+      options: [
+        { text: "Default", value: "default" },
+        { text: "Frameless", value: "frameless" },
+      ],
+      category: ["Media Feed", "Feed", "Feed style"],
+      sortOrder: 1,
+      tooltip: "Choose the standard feed or a frameless feed that keeps the on-panel size control while hiding other panel chrome.",
+      onChange: (newValue) => {
+        feedStyleSettingSeen = true;
+        setFeedStyle(newValue);
       },
     },
     {

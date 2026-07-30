@@ -50,6 +50,7 @@ Media Feed uses a fixed panel on the chosen edge of the canvas.
 - Placement: `Bottom`
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
+- Feed style: `Default`
 - Show favorite button on hover: `On`
 - Show metadata in vieweredia: `Off`
 - Show prompts in viewer: `On`
