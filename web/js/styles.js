@@ -235,6 +235,19 @@ export function ensureMediaFeedStyles({
       pointer-events: none;
     }
 
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-collapsed="true"] {
+      background: var(--cmf-bg);
+      pointer-events: auto;
+    }
+
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-collapsed="true"]:hover {
+      background: var(--cmf-panel);
+    }
+
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-collapsed="true"] .cmf-title {
+      display: block;
+    }
+
     .cmf-root[data-feed-style="frameless"] .cmf-jump {
       display: none;
     }
