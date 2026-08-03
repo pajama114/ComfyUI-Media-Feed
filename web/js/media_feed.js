@@ -562,7 +562,7 @@ function setShowFavoriteButton(nextValue) {
 function setFeedStyle(nextStyle) {
   applyFeedStyle(nextStyle);
   saveFeedStyle();
-  for (const view of state.views) view.root.dataset.feedStyle = state.feedStyle;
+  updateViews(false);
 }
 
 function setPlacement(nextPlacement) {
@@ -1964,8 +1964,9 @@ function syncFloatingPanel() {
 }
 
 function applyFallbackPlacement(root) {
-  if (!root?.classList?.contains("cmf-fallback")) return;
+  if (!root) return;
   root.dataset.placement = state.placement;
+  if (!root.classList?.contains("cmf-fallback")) return;
   root.dataset.orientation = isVerticalPlacement() ? "vertical" : "horizontal";
 }
 
@@ -2054,7 +2055,7 @@ function updateView(view, scrollToLatest, prependedCount = 0) {
     view.root.dataset.scrollable = String(totalWidth > view.viewport.clientWidth + 1);
   }
 
-  view.empty.style.display = items.length ? "none" : "grid";
+  view.empty.style.display = items.length || state.feedStyle === "frameless" ? "none" : "grid";
   view.count.textContent = `${items.length} shown / ${state.items.length} kept`;
 
   if (scrollToLatest) {

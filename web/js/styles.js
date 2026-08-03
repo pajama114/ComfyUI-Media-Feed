@@ -242,13 +242,13 @@ export function ensureMediaFeedStyles({
 
     .cmf-root[data-feed-style="frameless"] .cmf-title,
     .cmf-root[data-feed-style="frameless"] .cmf-filter,
-    .cmf-root[data-feed-style="frameless"] .cmf-count,
-    .cmf-root[data-feed-style="frameless"] .cmf-clear,
-    .cmf-root[data-feed-style="frameless"] .cmf-collapse {
+    .cmf-root[data-feed-style="frameless"] .cmf-count {
       display: none;
     }
 
-    .cmf-root[data-feed-style="frameless"] .cmf-size-control {
+    .cmf-root[data-feed-style="frameless"] .cmf-size-control,
+    .cmf-root[data-feed-style="frameless"] .cmf-clear,
+    .cmf-root[data-feed-style="frameless"] .cmf-collapse {
       pointer-events: auto;
     }
 
@@ -258,6 +258,14 @@ export function ensureMediaFeedStyles({
 
     .cmf-root[data-feed-style="frameless"] .cmf-card {
       pointer-events: auto;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-toolbar {
+      order: 2;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-feed-frame {
+      order: 1;
     }
 
     .cmf-toolbar {
