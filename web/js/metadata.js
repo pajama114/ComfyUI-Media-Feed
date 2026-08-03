@@ -560,6 +560,7 @@ function isTextCarrierNode(node) {
   const nodeClass = promptNodeClass(node);
   const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
   if (isTextEncodeNode(node)) return true;
+  if (Object.keys(node?.inputs || {}).some((name) => /text|string|prompt|caption|message/i.test(name))) return true;
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeClass} ${title}`);
 }
 
@@ -1014,11 +1015,16 @@ function extractFromPromptGraph(prompt) {
 
   for (const node of Object.values(prompt)) {
     const inputs = node?.inputs || {};
-    if (!inputs.positive || !inputs.negative) continue;
-    if (!/sampler/i.test(promptNodeClass(node)) && !isPromptLink(inputs.positive)) continue;
+    if (inputs.positive && inputs.negative) {
+      if (!/sampler/i.test(promptNodeClass(node)) && !isPromptLink(inputs.positive)) continue;
 
-    positives.push(...collectPromptNodeTexts(prompt, inputs.positive, new Set(), false, "positive"));
-    negatives.push(...collectPromptNodeTexts(prompt, inputs.negative, new Set(), false, "negative"));
+      positives.push(...collectPromptNodeTexts(prompt, inputs.positive, new Set(), false, "positive"));
+      negatives.push(...collectPromptNodeTexts(prompt, inputs.negative, new Set(), false, "negative"));
+      continue;
+    }
+
+    if (!/guider|guidance/i.test(promptNodeClass(node)) || !isPromptLink(inputs.conditioning)) continue;
+    positives.push(...collectPromptNodeTexts(prompt, inputs.conditioning, new Set(), true, "positive"));
   }
 
   return {
@@ -1039,6 +1045,7 @@ function isWorkflowTextCarrierNode(node) {
   const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
   const outputTypes = (node?.outputs || []).map((output) => `${output?.name || ""} ${output?.type || ""}`).join(" ");
   if (isTextEncodeNode({ class_type: nodeType })) return true;
+  if ((node?.inputs || []).some((input) => /text|string|prompt|caption|message/i.test(String(input?.name || "")))) return true;
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeType} ${title} ${outputTypes}`);
 }
 
@@ -1220,7 +1227,9 @@ function collectWorkflowExternalInputTexts(origin, maps, visited, context) {
   if (!externalNode || !externalMaps || !inputName) return [];
 
   const input = workflowInputByName(externalNode, inputName);
-  return workflowInputLinkedTexts(input, externalMaps, new Set(), context?.parentContext || null);
+  const texts = workflowInputLinkedTexts(input, externalMaps, new Set(), context?.parentContext || null);
+  if (texts.length) return texts;
+  return uniqueNonEmpty(collectStringValues(workflowInputValue(externalNode, input)));
 }
 
 function workflowInputLinkedTexts(input, maps, visited, context = null) {
@@ -1727,12 +1736,18 @@ function extractFromWorkflowGraph(workflow, context = null) {
   for (const node of maps.nodes) {
     const positiveLink = workflowInputLink(node, "positive");
     const negativeLink = workflowInputLink(node, "negative");
-    if (!positiveLink || !negativeLink) continue;
+    if (positiveLink && negativeLink) {
+      const positiveOrigin = workflowLinkOrigin(maps, positiveLink);
+      const negativeOrigin = workflowLinkOrigin(maps, negativeLink);
+      positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive", context));
+      negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative", context));
+      continue;
+    }
 
-    const positiveOrigin = workflowLinkOrigin(maps, positiveLink);
-    const negativeOrigin = workflowLinkOrigin(maps, negativeLink);
-    positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive", context));
-    negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative", context));
+    const conditioningLink = workflowInputLink(node, "conditioning");
+    if (!conditioningLink || !/guider|guidance/i.test(workflowNodeType(node))) continue;
+    const conditioningOrigin = workflowLinkOrigin(maps, conditioningLink);
+    positives.push(...collectWorkflowNodeTexts(conditioningOrigin?.originId, maps, new Set(), true, "positive", context));
   }
 
   return {
