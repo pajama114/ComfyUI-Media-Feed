@@ -294,7 +294,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-card {
-      top: 20px;
+      top: 17px;
     }
 
     .cmf-toolbar {
