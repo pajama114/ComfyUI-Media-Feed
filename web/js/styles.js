@@ -36,6 +36,7 @@ export function ensureMediaFeedStyles({
       --cmf-right-bottom-extension: 20px;
       --cmf-safe-bottom: 12px;
       --cmf-minimap-height: 300px;
+      --cmf-top-controls-inset: clamp(160px, 27vw, 480px);
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -68,8 +69,12 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-placement="top"] {
-      top: var(--cmf-placement-top);
+      top: calc(var(--cmf-placement-top) - 30px);
       right: calc(12px - var(--cmf-side-outset));
+    }
+
+    .cmf-root.cmf-fallback[data-placement="top"]:not([data-collapsed="true"]) .cmf-collapse {
+      margin-right: var(--cmf-top-controls-inset);
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] {
@@ -202,6 +207,7 @@ export function ensureMediaFeedStyles({
 
     @media (max-width: 720px) {
       .cmf-root.cmf-fallback {
+        --cmf-top-controls-inset: 0px;
         right: 12px;
         left: 12px;
         width: auto;
