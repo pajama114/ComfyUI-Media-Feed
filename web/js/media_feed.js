@@ -7,7 +7,7 @@ import { ensureMediaFeedStyles } from "./styles.js";
 const EXTENSION_NAME = "comfyui.media_feed";
 const MAX_ITEMS = 256;
 const DECODED_IMAGE_CACHE_SIZE = 32;
-const DEFAULT_ITEM_WIDTH = 148;
+const DEFAULT_ITEM_WIDTH = 143;
 const DEFAULT_ITEM_HEIGHT = 143;
 const MIN_ITEM_HEIGHT = 96;
 const MAX_ITEM_HEIGHT = 220;
@@ -76,7 +76,6 @@ const state = {
 
 const decodedImageCache = new Map();
 const mediaDimensionCache = new Map();
-let bottomPanelView = null;
 let floatingView = null;
 let setupComplete = false;
 let placementSettingSeen = false;
@@ -285,7 +284,7 @@ function isVerticalView(view) {
 function applyThumbnailHeight(nextHeight) {
   const itemHeight = normalizeThumbnailHeight(nextHeight);
   state.itemHeight = itemHeight;
-  state.itemWidth = Math.round(itemHeight * DEFAULT_ITEM_WIDTH / DEFAULT_ITEM_HEIGHT);
+  state.itemWidth = itemHeight;
 }
 
 function applyPlacement(nextPlacement) {
@@ -568,7 +567,6 @@ function setFeedStyle(nextStyle) {
 function setPlacement(nextPlacement) {
   applyPlacement(nextPlacement);
   savePlacement();
-  syncBottomPanelVisibility();
   if (setupComplete) syncFloatingPanel();
   updateViews(false);
 }
@@ -580,7 +578,6 @@ function ensureStyles() {
     panelHeight: fallbackPanelHeight(),
     railHeight: railHeight(),
     viewportHeight: viewportHeight(),
-    railPadding: RAIL_PADDING,
     cardTopOffset: CARD_TOP_OFFSET,
   });
 }
@@ -721,8 +718,8 @@ function ensureViewer() {
     <div class="cmf-viewer-bar">
       <div class="cmf-viewer-title"></div>
       <div class="cmf-spacer"></div>
-      <div class="cmf-viewer-zoom-controls" hidden aria-label="Image zoom controls">
-        <div class="cmf-viewer-size-toggle" role="group" aria-label="Image display size">
+      <div class="cmf-viewer-zoom-controls" hidden aria-label="Media zoom controls">
+        <div class="cmf-viewer-size-toggle" role="group" aria-label="Media display size">
           <button class="cmf-button cmf-viewer-zoom-text cmf-viewer-fit" type="button" title="Fit to viewer" aria-label="Fit to viewer" aria-pressed="false">Fit</button>
           <button class="cmf-button cmf-viewer-zoom-text cmf-viewer-native" type="button" title="Actual size" aria-label="Actual size" aria-pressed="false">1:1</button>
         </div>
@@ -1024,6 +1021,13 @@ function getViewerImage() {
   return image instanceof HTMLImageElement && image.dataset.mediaItemKey === viewer?.item?.key ? image : null;
 }
 
+function getViewerScalableMedia() {
+  const element = viewer?.media?.querySelector(
+    "img.cmf-zoomable-image, video.cmf-zoomable-video, audio.cmf-zoomable-audio",
+  );
+  return element instanceof HTMLElement && element.dataset.mediaItemKey === viewer?.item?.key ? element : null;
+}
+
 function clampViewerImageZoom(value) {
   return Math.min(VIEWER_IMAGE_MAX_ZOOM, Math.max(VIEWER_IMAGE_MIN_ZOOM, value));
 }
@@ -1053,38 +1057,63 @@ function canPanViewerImage(bounds) {
   return !isFitAtBaseZoom && (bounds.x > 0 || bounds.y > 0);
 }
 
-function updateViewerImageControls(image = getViewerImage()) {
+function updateViewerImageControls(media = getViewerScalableMedia()) {
   if (!viewer) return;
-  const isImageItem = viewer.item?.kind === "image";
-  const hasImage = Boolean(image);
-  viewer.zoomControls.hidden = !isImageItem;
-  if (!isImageItem) return;
+  const isScalableItem = viewer.item?.kind === "image" || viewer.item?.kind === "video" || viewer.item?.kind === "audio";
+  const hasMedia = Boolean(media);
+  viewer.zoomControls.hidden = !isScalableItem;
+  if (!isScalableItem) return;
 
   const isBaseZoom = Math.abs(viewer.imageZoom - 1) < 0.001;
   viewer.fitButton.setAttribute("aria-pressed", String(viewer.imageBaseMode === "fit" && isBaseZoom));
   viewer.nativeButton.setAttribute("aria-pressed", String(viewer.imageBaseMode === "native" && isBaseZoom));
-  viewer.zoomOutButton.disabled = hasImage && viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
-  viewer.zoomInButton.disabled = hasImage && viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
+  viewer.fitButton.disabled = !hasMedia;
+  viewer.nativeButton.disabled = !hasMedia;
+  viewer.zoomOutButton.disabled = !hasMedia || viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
+  viewer.zoomInButton.disabled = !hasMedia || viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
   viewer.zoomLevel.textContent = viewer.imageBaseMode === "fit" && isBaseZoom
     ? "Fit"
     : `${Math.round(viewer.imageZoom * 100)}%`;
 }
 
 function updateViewerImageLayout() {
-  const image = getViewerImage();
-  if (!image || !viewer?.media) {
+  const media = getViewerScalableMedia();
+  if (!media || !viewer?.media) {
     updateViewerImageControls(null);
     return;
   }
 
   const frame = viewer.media.getBoundingClientRect();
-  const natural = viewerMediaNaturalSize(image);
-  if (!frame.width || !frame.height || !natural.width || !natural.height) return;
+  if (!frame.width || !frame.height) return;
+
+  if (media instanceof HTMLAudioElement) {
+    const nativeWidth = 300;
+    const fitWidth = Math.min(720, frame.width * 0.9);
+    const baseWidth = viewer.imageBaseMode === "fit" ? fitWidth : nativeWidth;
+    media.style.width = `${baseWidth * viewer.imageZoom}px`;
+    viewer.media.dataset.pannable = "false";
+    viewer.media.dataset.dragging = "false";
+    updateViewerImageControls(media);
+    return;
+  }
+
+  const natural = viewerMediaNaturalSize(media);
+  if (!natural.width || !natural.height) return;
 
   const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
   const baseScale = viewer.imageBaseMode === "fit" ? fitScale : 1;
-  image.style.width = `${natural.width * baseScale}px`;
-  image.style.height = `${natural.height * baseScale}px`;
+  const layoutZoom = media instanceof HTMLVideoElement ? viewer.imageZoom : 1;
+  media.style.width = `${natural.width * baseScale * layoutZoom}px`;
+  media.style.height = `${natural.height * baseScale * layoutZoom}px`;
+
+  if (media instanceof HTMLVideoElement) {
+    viewer.media.dataset.pannable = "false";
+    viewer.media.dataset.dragging = "false";
+    updateViewerImageControls(media);
+    return;
+  }
+
+  const image = media;
   const bounds = constrainViewerImagePan(image);
   image.style.setProperty("--cmf-image-zoom", String(viewer.imageZoom));
   image.style.setProperty("--cmf-image-pan-x", `${viewer.imagePanX}px`);
@@ -1106,7 +1135,7 @@ function resetViewerImageView(baseMode = viewer?.imageBaseMode || "native") {
 }
 
 function setViewerImageBaseMode(baseMode) {
-  if (!getViewerImage()) return;
+  if (!getViewerScalableMedia()) return;
   const scaleMedia = baseMode === "fit";
   const settingChanged = scaleMedia !== state.scaleViewerMedia;
   setScaleViewerMedia(scaleMedia, { syncSettings: true });
@@ -1114,14 +1143,15 @@ function setViewerImageBaseMode(baseMode) {
 }
 
 function setViewerImageZoom(nextZoom, origin) {
+  const media = getViewerScalableMedia();
   const image = getViewerImage();
-  if (!image || !viewer) return;
+  if (!media || !viewer) return;
 
   const previousZoom = viewer.imageZoom;
   const zoom = clampViewerImageZoom(nextZoom);
   if (Math.abs(zoom - previousZoom) < 0.001) return;
 
-  if (origin) {
+  if (origin && image) {
     const frame = viewer.media.getBoundingClientRect();
     const pointX = origin.x - (frame.left + frame.width / 2) - viewer.imagePanX;
     const pointY = origin.y - (frame.top + frame.height / 2) - viewer.imagePanY;
@@ -1319,6 +1349,7 @@ async function renderViewerItem(item, thumbnail) {
 
   if (item.kind === "video") {
     const video = document.createElement("video");
+    video.classList.add("cmf-zoomable-video");
     video.controls = true;
     video.playsInline = true;
     video.preload = "auto";
@@ -1326,7 +1357,10 @@ async function renderViewerItem(item, thumbnail) {
     video.dataset.mediaItemKey = item.key;
     video.addEventListener("loadedmetadata", () => {
       rememberMediaDimensions(item, video);
-      if (isCurrentViewerRender(currentViewer, requestId, item)) refreshViewerPromptPanelDetails();
+      if (isCurrentViewerRender(currentViewer, requestId, item)) {
+        updateViewerImageLayout();
+        refreshViewerPromptPanelDetails();
+      }
     }, { once: true });
     video.src = item.url;
     currentViewer.pendingMedia = video;
@@ -1339,14 +1373,17 @@ async function renderViewerItem(item, thumbnail) {
     }
     currentViewer.pendingMedia = null;
     replaceViewerMedia(currentViewer, video);
+    updateViewerImageLayout();
     refreshViewerPromptPanelDetails();
     return;
   }
 
   const audio = document.createElement("audio");
+  audio.classList.add("cmf-zoomable-audio");
   audio.controls = true;
   audio.preload = "auto";
   audio.muted = true;
+  audio.dataset.mediaItemKey = item.key;
   audio.src = item.url;
   currentViewer.pendingMedia = audio;
   audio.play().catch(() => {});
@@ -1358,6 +1395,7 @@ async function renderViewerItem(item, thumbnail) {
   }
   currentViewer.pendingMedia = null;
   replaceViewerMedia(currentViewer, audio);
+  updateViewerImageLayout();
 }
 
 function resetViewerPromptPanel(status = "") {
@@ -1892,14 +1930,6 @@ function createView(root, kind = "embedded") {
   return view;
 }
 
-function renderBottomPanelView(root) {
-  if (bottomPanelView && bottomPanelView.root !== root) destroyView(bottomPanelView, false);
-  bottomPanelView = createView(root, "bottom-panel");
-  syncBottomPanelVisibility();
-  syncFloatingPanel();
-  return bottomPanelView;
-}
-
 function createFloatingPanel() {
   if (floatingView) return floatingView;
   if (document.getElementById(FALLBACK_ROOT_ID)) return floatingView;
@@ -1932,31 +1962,7 @@ function createFloatingPanel() {
   return view;
 }
 
-function destroyView(view, removeRoot) {
-  view?.resizeObserver?.disconnect();
-  for (const card of view?.cards?.values?.() || []) card.thumbnailResizeObserver?.disconnect();
-  state.views.delete(view);
-  if (removeRoot) view?.root?.remove();
-}
-
-function shouldUseFloatingPanel() {
-  return state.placement !== "bottom" || !bottomPanelView;
-}
-
-function syncBottomPanelVisibility() {
-  if (!bottomPanelView) return;
-  bottomPanelView.root.hidden = state.placement !== "bottom";
-}
-
 function syncFloatingPanel() {
-  if (!shouldUseFloatingPanel()) {
-    if (floatingView) {
-      destroyView(floatingView, true);
-      floatingView = null;
-    }
-    return;
-  }
-
   const view = createFloatingPanel();
   if (!view) return;
   applyFallbackPlacement(view.root);
@@ -2228,7 +2234,7 @@ app.registerExtension({
       defaultValue: loadSavedScaleViewerMedia(),
       category: ["Media Feed", "Viewer", "Fit media to viewer"],
       sortOrder: 1,
-      tooltip: "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio.",
+      tooltip: "Fit images, videos, and audio players to the available viewer area.",
       onChange: (newValue) => {
         scaleViewerMediaSettingSeen = true;
         setScaleViewerMedia(newValue);
@@ -2255,14 +2261,6 @@ app.registerExtension({
       attrs: { disabled: true },
       category: ["Media Feed", "Favorites", "Favorite storage folder"],
       tooltip: "Favorites are always stored in the output/favorites folder and this location cannot be changed.",
-    },
-  ],
-  bottomPanelTabs: [
-    {
-      id: "comfyui-media-feed",
-      title: "Media Feed",
-      type: "custom",
-      render: renderBottomPanelView,
     },
   ],
   async setup() {

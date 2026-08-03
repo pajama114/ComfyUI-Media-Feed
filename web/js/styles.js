@@ -4,7 +4,6 @@ export function ensureMediaFeedStyles({
   panelHeight,
   railHeight,
   viewportHeight,
-  railPadding,
   cardTopOffset,
 }) {
   if (document.getElementById("comfy-media-feed-styles")) return;
@@ -152,8 +151,8 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-card {
       top: 0;
-      left: ${railPadding}px;
-      width: calc(100% - ${railPadding * 2}px);
+      left: calc(50% - var(--cmf-item-width) / 2);
+      width: var(--cmf-item-width);
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"] {
@@ -241,15 +240,27 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root[data-feed-style="frameless"] .cmf-title,
-    .cmf-root[data-feed-style="frameless"] .cmf-filter,
     .cmf-root[data-feed-style="frameless"] .cmf-count {
       display: none;
     }
 
+    .cmf-root[data-feed-style="frameless"] .cmf-filter,
     .cmf-root[data-feed-style="frameless"] .cmf-size-control,
     .cmf-root[data-feed-style="frameless"] .cmf-clear,
     .cmf-root[data-feed-style="frameless"] .cmf-collapse {
       pointer-events: auto;
+    }
+
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-orientation="vertical"] .cmf-filter {
+      flex: 1 1 0;
+      order: 1;
+      min-width: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-orientation="vertical"] .cmf-filter button {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 0;
     }
 
     .cmf-root[data-feed-style="frameless"] .cmf-viewport {
@@ -266,6 +277,24 @@ export function ensureMediaFeedStyles({
 
     .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-feed-frame {
       order: 1;
+    }
+
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-placement="bottom"] {
+      bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-placement="top"],
+    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] {
+      gap: 0;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-placement="top"] .cmf-card {
+      top: 2px;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-card {
+      top: 20px;
     }
 
     .cmf-toolbar {
@@ -414,6 +443,10 @@ export function ensureMediaFeedStyles({
       scrollbar-width: thin;
     }
 
+    .cmf-root[data-feed-style="frameless"][data-scrollable="true"] .cmf-viewport {
+      scrollbar-width: none;
+    }
+
     .cmf-viewport::-webkit-scrollbar {
       width: 0;
       height: 0;
@@ -422,6 +455,11 @@ export function ensureMediaFeedStyles({
     .cmf-root[data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
       width: 12px;
       height: 12px;
+    }
+
+    .cmf-root[data-feed-style="frameless"][data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
+      width: 0;
+      height: 0;
     }
 
     .cmf-viewport::-webkit-scrollbar-track {
@@ -904,6 +942,12 @@ export function ensureMediaFeedStyles({
       transform-origin: center;
       user-select: none;
       will-change: transform;
+    }
+
+    .cmf-viewer-media video.cmf-zoomable-video,
+    .cmf-viewer-media audio.cmf-zoomable-audio {
+      max-width: none;
+      max-height: none;
     }
 
     .cmf-viewer-media[data-pannable="true"] img.cmf-zoomable-image {
