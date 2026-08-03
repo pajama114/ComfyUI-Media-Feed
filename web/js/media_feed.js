@@ -1881,6 +1881,7 @@ function createView(root, kind = "embedded") {
     jumpLatest: root.querySelector(".cmf-jump-latest"),
     jumpOldest: root.querySelector(".cmf-jump-oldest"),
     cards: new Map(),
+    gaps: new Map(),
     kind,
     lastRange: "",
   };
@@ -1994,6 +1995,7 @@ function applyViewSizing(view) {
 
 function handleFeedWheel(event, view) {
   if (viewer?.root?.dataset.open === "true") return;
+  if (view.root.dataset.feedStyle === "frameless") event.stopPropagation();
   if (isVerticalView(view)) return;
 
   const canScroll = view.viewport.scrollWidth > view.viewport.clientWidth;
@@ -2096,6 +2098,7 @@ function renderVisibleItems(view) {
   view.lastRange = rangeKey;
 
   const visibleIds = new Set();
+  const visibleGapIds = new Set();
   for (let index = start; index < end; index++) {
     const item = items[index];
     visibleIds.add(item.id);
@@ -2109,6 +2112,23 @@ function renderVisibleItems(view) {
     card.style.transform = vertical
       ? `translateY(${RAIL_PADDING + index * pitch}px)`
       : `translateX(${RAIL_PADDING + index * pitch}px)`;
+
+    if (index < items.length - 1) {
+      visibleGapIds.add(item.id);
+      let gap = view.gaps.get(item.id);
+      if (!gap) {
+        gap = document.createElement("div");
+        gap.className = "cmf-feed-gap";
+        gap.setAttribute("aria-hidden", "true");
+        view.gaps.set(item.id, gap);
+        view.rail.appendChild(gap);
+      }
+      gap.style.width = `${vertical ? state.itemWidth : ITEM_GAP}px`;
+      gap.style.height = `${vertical ? ITEM_GAP : state.itemHeight}px`;
+      gap.style.transform = vertical
+        ? `translateY(${RAIL_PADDING + index * pitch + state.itemHeight}px)`
+        : `translateX(${RAIL_PADDING + index * pitch + state.itemWidth}px)`;
+    }
   }
 
   for (const [id, card] of view.cards) {
@@ -2116,6 +2136,12 @@ function renderVisibleItems(view) {
     card.thumbnailResizeObserver?.disconnect();
     card.remove();
     view.cards.delete(id);
+  }
+
+  for (const [id, gap] of view.gaps) {
+    if (visibleGapIds.has(id)) continue;
+    gap.remove();
+    view.gaps.delete(id);
   }
 }
 
