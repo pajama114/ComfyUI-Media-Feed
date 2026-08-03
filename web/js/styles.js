@@ -85,6 +85,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-placement="left"] {
+      top: calc(var(--cmf-placement-top) - 30px);
       bottom: 24px;
       left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
