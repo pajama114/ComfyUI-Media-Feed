@@ -1592,14 +1592,16 @@ function updateViewerPromptPanel() {
     });
 }
 
-function fitThumbnailImage(image, preview) {
+function fitThumbnailMedia(media, preview) {
   const width = preview.clientWidth;
   const height = preview.clientHeight;
-  if (!width || !height || !image.naturalWidth || !image.naturalHeight) return;
+  const mediaWidth = media.naturalWidth || media.videoWidth;
+  const mediaHeight = media.naturalHeight || media.videoHeight;
+  if (!width || !height || !mediaWidth || !mediaHeight) return;
 
-  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
-  image.style.width = `${image.naturalWidth * scale}px`;
-  image.style.height = `${image.naturalHeight * scale}px`;
+  const scale = Math.min(width / mediaWidth, height / mediaHeight);
+  media.style.width = `${mediaWidth * scale}px`;
+  media.style.height = `${mediaHeight * scale}px`;
 }
 
 function canFavorite(item) {
@@ -1697,15 +1699,15 @@ function createCard(item) {
     image.decoding = "async";
     image.loading = "lazy";
     image.src = item.url;
-    const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailImage(image, preview));
+    const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(image, preview));
     thumbnailResizeObserver.observe(preview);
     card.thumbnailResizeObserver = thumbnailResizeObserver;
     image.addEventListener("load", () => {
       rememberDecodedImage(item.url, image);
-      fitThumbnailImage(image, preview);
+      fitThumbnailMedia(image, preview);
     }, { once: true });
     preview.appendChild(image);
-    if (image.complete) window.requestAnimationFrame(() => fitThumbnailImage(image, preview));
+    if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
   } else if (item.kind === "video") {
     const video = document.createElement("video");
     const videoBadge = document.createElement("span");
@@ -1714,21 +1716,28 @@ function createCard(item) {
     video.playsInline = true;
     video.preload = "metadata";
     video.loop = true;
-    video.src = item.url;
     videoBadge.className = "cmf-video-badge";
     videoBadge.title = "Video";
     videoBadge.setAttribute("aria-hidden", "true");
     videoBadge.innerHTML = ICONS.play;
     duration.className = "cmf-video-duration";
     duration.hidden = true;
+    const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(video, preview));
+    thumbnailResizeObserver.observe(preview);
+    card.thumbnailResizeObserver = thumbnailResizeObserver;
     video.addEventListener("loadedmetadata", () => {
       rememberMediaDimensions(item, video);
+      fitThumbnailMedia(video, preview);
       const text = formatMediaDuration(video.duration);
       if (!text) return;
       duration.textContent = text;
       duration.hidden = false;
     }, { once: true });
+    video.src = item.url;
     preview.append(video, videoBadge, duration);
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      window.requestAnimationFrame(() => fitThumbnailMedia(video, preview));
+    }
   } else {
     const audioPreview = document.createElement("div");
     audioPreview.className = "cmf-audio-preview";
