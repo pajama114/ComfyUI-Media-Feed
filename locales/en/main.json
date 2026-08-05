@@ -2,9 +2,11 @@
   "settingsCategories": {
     "Media Feed": "Media Feed",
     "Panel": "Panel",
+    "Feed": "Feed",
     "Viewer": "Viewer",
     "Placement": "Placement",
     "Show metadata in viewer": "Show metadata in viewer",
-    "Fit media to viewer": "Fit media to viewer"
+    "Fit media to viewer": "Fit media to viewer",
+    "Media from": "Media from"
   }
 }

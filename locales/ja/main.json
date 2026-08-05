@@ -2,9 +2,11 @@
   "settingsCategories": {
     "Media Feed": "Media Feed",
     "Panel": "パネル",
+    "Feed": "フィード",
     "Viewer": "ビューア",
     "Placement": "配置",
     "Show metadata in viewer": "ビューアにメタデータを表示",
-    "Fit media to viewer": "メディアをビューアに合わせる"
+    "Fit media to viewer": "メディアをビューアに合わせる",
+    "Media from": "表示するメディア"
   }
 }

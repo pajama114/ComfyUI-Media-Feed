@@ -26,6 +26,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Lets you resize thumbnails, jump to the newest or oldest item, and clear the
   current feed from the toolbar.
 - Can automatically follow newly generated media.
+- Can show media from every workflow tab or only media queued from the current
+  workflow tab.
 - Adds ComfyUI settings for placing the feed at the top, right, bottom, or left
   of the canvas.
 - Reads embedded metadata in the viewer and displays inferred positive and
@@ -47,6 +49,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
 - Feed style: `Default`
+- Media from: `All workflow tabs`
 - Show favorite button on hover: `On`
 - Show metadata in vieweredia: `Off`
 - Show prompts in viewer: `On`

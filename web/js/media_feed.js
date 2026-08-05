@@ -26,6 +26,7 @@ const DEFAULT_METADATA_POSITION = "left";
 const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
 const DEFAULT_SHOW_FAVORITE_BUTTON = true;
 const DEFAULT_FEED_STYLE = "default";
+const DEFAULT_MEDIA_SCOPE = "all";
 const VIEWER_IMAGE_ZOOM_STEP = 0.25;
 const VIEWER_IMAGE_WHEEL_ZOOM_FACTOR = 1.1;
 const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
@@ -36,6 +37,7 @@ const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const METADATA_POSITIONS = new Set(["left", "right"]);
 const FEED_STYLES = new Set(["default", "frameless"]);
+const MEDIA_SCOPES = new Set(["all", "current-tab"]);
 const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
@@ -46,6 +48,7 @@ const STORAGE_KEYS = {
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
   showFavoriteButton: "comfyui-media-feed:show-favorite-button",
   feedStyle: "comfyui-media-feed:feed-style",
+  mediaScope: "comfyui-media-feed:media-scope",
   favorites: "comfyui-media-feed:favorites",
 };
 const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
@@ -70,6 +73,7 @@ const state = {
   excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
   showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
   feedStyle: DEFAULT_FEED_STYLE,
+  mediaScope: DEFAULT_MEDIA_SCOPE,
   favoriteFiles: new Map(),
   favoritingKeys: new Set(),
 };
@@ -86,8 +90,15 @@ let metadataPositionSettingSeen = false;
 let excludePreviewMediaSettingSeen = false;
 let showFavoriteButtonSettingSeen = false;
 let feedStyleSettingSeen = false;
+let mediaScopeSettingSeen = false;
 let viewer = null;
 let viewerWheelLock = false;
+let workflowTabSequence = 0;
+let activeWorkflowTabId = "";
+let activeQueueRequest = null;
+const workflowTabIds = new WeakMap();
+const promptWorkflowTabs = new Map();
+const pendingQueueRequests = [];
 
 function getExtension(filename) {
   const cleanName = String(filename || "").split(/[?#]/, 1)[0];
@@ -145,7 +156,7 @@ function mediaKey(file, kind) {
   ].join(":");
 }
 
-function collectMedia(output, promptId, nodeId) {
+function collectMedia(output, promptId, nodeId, workflowTabId = "") {
   const results = [];
   const seen = new Set();
 
@@ -178,8 +189,9 @@ function collectMedia(output, promptId, nodeId) {
             subfolder: file.subfolder,
             type: file.type,
             url: buildViewUrl(file),
-            promptId: promptId || "",
+            promptId: String(promptId || ""),
             nodeId: nodeId || "",
+            workflowTabId,
             createdAt: Date.now(),
           });
         }
@@ -216,13 +228,43 @@ function addItems(items) {
     if (removed) state.itemKeys.delete(removed.key);
   }
 
-  updateViews(state.followLatest && !isViewerOpen(), state.followLatest ? 0 : freshItems.length);
+  const visibleFreshCount = freshItems.filter(itemMatchesFilters).length;
+  updateViews(
+    visibleFreshCount > 0 && state.followLatest && !isViewerOpen(),
+    state.followLatest ? 0 : visibleFreshCount,
+  );
   syncViewerItems();
 }
 
+function currentWorkflow() {
+  return app.extensionManager?.workflow?.activeWorkflow || null;
+}
+
+function workflowTabId(workflow) {
+  if (!workflow || (typeof workflow !== "object" && typeof workflow !== "function")) return "";
+
+  let tabId = workflowTabIds.get(workflow);
+  if (!tabId) {
+    tabId = `workflow-tab-${++workflowTabSequence}`;
+    workflowTabIds.set(workflow, tabId);
+  }
+  return tabId;
+}
+
+function currentWorkflowTabId() {
+  return workflowTabId(currentWorkflow());
+}
+
+function itemMatchesFilters(item) {
+  if (state.filter !== "all" && item.kind !== state.filter) return false;
+  if (state.mediaScope !== "current-tab") return true;
+
+  const tabId = currentWorkflowTabId();
+  return !tabId || item.workflowTabId === tabId;
+}
+
 function filteredItems() {
-  if (state.filter === "all") return state.items;
-  return state.items.filter((item) => item.kind === state.filter);
+  return state.items.filter(itemMatchesFilters);
 }
 
 function isViewerOpen() {
@@ -267,6 +309,11 @@ function normalizeMetadataPosition(nextPosition) {
 function normalizeFeedStyle(nextStyle) {
   const style = String(nextStyle || "").toLowerCase();
   return FEED_STYLES.has(style) ? style : DEFAULT_FEED_STYLE;
+}
+
+function normalizeMediaScope(nextScope) {
+  const scope = String(nextScope || "").toLowerCase();
+  return MEDIA_SCOPES.has(scope) ? scope : DEFAULT_MEDIA_SCOPE;
 }
 
 function normalizeBooleanSetting(nextValue) {
@@ -317,6 +364,10 @@ function applyShowFavoriteButton(nextValue) {
 
 function applyFeedStyle(nextStyle) {
   state.feedStyle = normalizeFeedStyle(nextStyle);
+}
+
+function applyMediaScope(nextScope) {
+  state.mediaScope = normalizeMediaScope(nextScope);
 }
 
 function loadSavedPlacement() {
@@ -388,6 +439,14 @@ function loadSavedFeedStyle() {
   }
 }
 
+function loadSavedMediaScope() {
+  try {
+    return normalizeMediaScope(window.localStorage?.getItem(STORAGE_KEYS.mediaScope));
+  } catch {
+    return DEFAULT_MEDIA_SCOPE;
+  }
+}
+
 function loadSavedFavoriteFiles() {
   try {
     const savedValue = window.localStorage?.getItem(STORAGE_KEYS.favorites);
@@ -418,6 +477,7 @@ function loadSettings() {
   if (!excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
   if (!showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
   if (!feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
+  if (!mediaScopeSettingSeen) applyMediaScope(loadSavedMediaScope());
   state.favoriteFiles = loadSavedFavoriteFiles();
 }
 
@@ -493,6 +553,14 @@ function saveFeedStyle() {
   }
 }
 
+function saveMediaScope() {
+  try {
+    window.localStorage?.setItem(STORAGE_KEYS.mediaScope, state.mediaScope);
+  } catch {
+    // Ignore storage failures; the feed should keep working with in-memory settings.
+  }
+}
+
 function saveFavoriteFiles() {
   try {
     window.localStorage?.setItem(STORAGE_KEYS.favorites, JSON.stringify(Object.fromEntries(state.favoriteFiles)));
@@ -562,6 +630,21 @@ function setFeedStyle(nextStyle) {
   applyFeedStyle(nextStyle);
   saveFeedStyle();
   updateViews(false);
+}
+
+function setMediaScope(nextScope) {
+  const mediaScope = normalizeMediaScope(nextScope);
+  if (mediaScope === state.mediaScope) return;
+
+  applyMediaScope(mediaScope);
+  saveMediaScope();
+  updateViews(false);
+
+  if (isViewerOpen() && viewer?.item && !filteredItems().some((item) => item.key === viewer.item.key)) {
+    closeViewer();
+  } else {
+    syncViewerItems();
+  }
 }
 
 function setPlacement(nextPlacement) {
@@ -2160,10 +2243,112 @@ function isPreviewNode(nodeId) {
   return /^preview/i.test(String(node?.type || ""));
 }
 
+function rememberPromptWorkflowTab(promptId, tabId) {
+  const normalizedPromptId = String(promptId || "");
+  if (!normalizedPromptId || !tabId) return;
+
+  promptWorkflowTabs.delete(normalizedPromptId);
+  promptWorkflowTabs.set(normalizedPromptId, tabId);
+  while (promptWorkflowTabs.size > 1024) {
+    promptWorkflowTabs.delete(promptWorkflowTabs.keys().next().value);
+  }
+
+  let updatedItems = false;
+  let newlyVisibleCount = 0;
+  for (const item of state.items) {
+    if (item.promptId !== normalizedPromptId || item.workflowTabId === tabId) continue;
+    const wasVisible = itemMatchesFilters(item);
+    item.workflowTabId = tabId;
+    if (!wasVisible && itemMatchesFilters(item)) newlyVisibleCount++;
+    updatedItems = true;
+  }
+  if (updatedItems) {
+    // A very fast execution can emit output before the /prompt response arrives.
+    // Reveal those items once the response supplies the prompt ID mapping.
+    updateViews(
+      newlyVisibleCount > 0 && state.followLatest && !isViewerOpen(),
+      state.followLatest ? 0 : newlyVisibleCount,
+    );
+    syncViewerItems();
+  }
+}
+
+function handlePromptQueueing(event) {
+  const detail = event?.detail || {};
+  pendingQueueRequests.push({
+    requestId: detail.requestId,
+    workflowTabId: currentWorkflowTabId(),
+  });
+  while (pendingQueueRequests.length > 1024) pendingQueueRequests.shift();
+}
+
+function handlePromptQueued(event) {
+  const requestId = event?.detail?.requestId;
+  if (activeQueueRequest && (requestId === undefined || activeQueueRequest.requestId === requestId)) {
+    activeQueueRequest = null;
+  }
+}
+
+function beginPromptSubmission() {
+  if (!activeQueueRequest && pendingQueueRequests.length) {
+    activeQueueRequest = pendingQueueRequests.pop();
+  }
+
+  if (activeQueueRequest) {
+    return {
+      workflowTabId: activeQueueRequest.workflowTabId,
+      trackedRequest: activeQueueRequest,
+    };
+  }
+  return { workflowTabId: currentWorkflowTabId(), trackedRequest: null };
+}
+
+function wrapQueuePrompt() {
+  if (typeof api.queuePrompt !== "function" || api.queuePrompt.__mediaFeedWrapped) return;
+
+  const originalQueuePrompt = api.queuePrompt;
+  async function mediaFeedQueuePrompt(...args) {
+    const submission = beginPromptSubmission();
+    try {
+      const response = await Reflect.apply(originalQueuePrompt, this, args);
+      rememberPromptWorkflowTab(response?.prompt_id, submission.workflowTabId);
+      return response;
+    } catch (error) {
+      if (submission.trackedRequest === activeQueueRequest) activeQueueRequest = null;
+      throw error;
+    }
+  }
+  mediaFeedQueuePrompt.__mediaFeedWrapped = true;
+  api.queuePrompt = mediaFeedQueuePrompt;
+}
+
+function handleActiveWorkflowChange() {
+  const nextTabId = currentWorkflowTabId();
+  if (nextTabId === activeWorkflowTabId) return;
+
+  activeWorkflowTabId = nextTabId;
+  if (state.mediaScope !== "current-tab") return;
+
+  updateViews(false);
+  if (isViewerOpen() && viewer?.item && !filteredItems().some((item) => item.key === viewer.item.key)) {
+    closeViewer();
+  } else {
+    syncViewerItems();
+  }
+}
+
+function watchActiveWorkflow() {
+  activeWorkflowTabId = currentWorkflowTabId();
+  const workflowStore = app.extensionManager?.workflow;
+  workflowStore?.$subscribe?.(handleActiveWorkflowChange, { detached: true });
+}
+
 function handleExecuted(event) {
   const detail = event?.detail || {};
   if (state.excludePreviewMedia && isPreviewNode(detail.node)) return;
-  const mediaItems = collectMedia(detail.output, detail.prompt_id, detail.node);
+  const promptId = String(detail.prompt_id || "");
+  const tabId = promptWorkflowTabs.get(promptId) || "";
+  const mediaItems = collectMedia(detail.output, promptId, detail.node, tabId);
   addItems(mediaItems);
 }
 
@@ -2230,6 +2415,23 @@ app.registerExtension({
       onChange: (newValue) => {
         feedStyleSettingSeen = true;
         setFeedStyle(newValue);
+      },
+    },
+    {
+      id: "comfyui-media-feed.media-scope",
+      name: "Media from",
+      type: "combo",
+      defaultValue: loadSavedMediaScope(),
+      options: [
+        { text: "All workflow tabs", value: "all" },
+        { text: "Current workflow tab", value: "current-tab" },
+      ],
+      category: ["Media Feed", "Feed", "Media from"],
+      sortOrder: 1,
+      tooltip: "Show media from every workflow tab or only media queued from the currently active workflow tab.",
+      onChange: (newValue) => {
+        mediaScopeSettingSeen = true;
+        setMediaScope(newValue);
       },
     },
     {
@@ -2302,7 +2504,11 @@ app.registerExtension({
     console.info("[ComfyUI Media Feed] extension loaded");
     loadSettings();
     ensureStyles();
+    watchActiveWorkflow();
+    api.addEventListener("promptQueueing", handlePromptQueueing);
+    api.addEventListener("promptQueued", handlePromptQueued);
     api.addEventListener("executed", handleExecuted);
+    wrapQueuePrompt();
     setupComplete = true;
     window.setTimeout(syncFloatingPanel, 1000);
   },

@@ -13,6 +13,14 @@
     "name": "Show metadata in viewer",
     "tooltip": "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media."
   },
+  "comfyui-media-feed_media-scope": {
+    "name": "Media from",
+    "tooltip": "Show media from every workflow tab or only media queued from the currently active workflow tab.",
+    "options": {
+      "all": "All workflow tabs",
+      "current-tab": "Current workflow tab"
+    }
+  },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Fit media to viewer",
     "tooltip": "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio."
