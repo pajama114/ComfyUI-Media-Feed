@@ -419,18 +419,12 @@ export function ensureMediaFeedStyles({
       position: absolute;
       right: 2px;
       bottom: 1px;
-      min-width: 11px;
-      padding: 0 2px;
-      border-radius: 5px;
-      background: rgba(0, 0, 0, 0.56);
-      background: color-mix(in srgb, var(--cmf-bg) 82%, transparent);
       color: var(--cmf-text);
       font-size: 8px;
       font-variant-numeric: tabular-nums;
       font-weight: 650;
       line-height: 10px;
       pointer-events: none;
-      text-align: center;
     }
 
     .cmf-filter svg {

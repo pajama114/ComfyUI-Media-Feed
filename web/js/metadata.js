@@ -560,7 +560,7 @@ function isTextCarrierNode(node) {
   const nodeClass = promptNodeClass(node);
   const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
   if (isTextEncodeNode(node)) return true;
-  if (Object.keys(node?.inputs || {}).some((name) => /text|string|prompt|caption|message/i.test(name))) return true;
+  if (Object.entries(node?.inputs || {}).some(([name, value]) => promptInputIsText(node, name, value))) return true;
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeClass} ${title}`);
 }
 
@@ -608,11 +608,10 @@ function collectWidgetStringValues(value, results = []) {
 
 function collectPromptInputTexts(node) {
   const inputs = node?.inputs || {};
-  const textInputNames = new Set(["text", "value", "string", "prompt", "positive", "negative"]);
   const texts = [];
 
   for (const [name, value] of Object.entries(inputs)) {
-    if (!textInputNames.has(name) && !/text|string|prompt|caption/i.test(name)) continue;
+    if (!promptInputIsText(node, name, value)) continue;
     if (isPromptLink(value)) continue;
     texts.push(...collectStringValues(value));
   }
@@ -662,7 +661,7 @@ function isPromptTextGenerationNode(node) {
 function promptNodeHasLinkedTextInput(node) {
   const inputs = node?.inputs || {};
   for (const [name, value] of Object.entries(inputs)) {
-    if (!/text|string|prompt|caption/i.test(name)) continue;
+    if (!promptInputIsText(node, name, value)) continue;
     if (isPromptLink(value)) return true;
   }
   return false;
@@ -712,9 +711,21 @@ function promptNodeInputValue(node, name) {
   return Object.prototype.hasOwnProperty.call(inputs, name) ? inputs[name] : undefined;
 }
 
+function isPromptStringCombinerNode(node) {
+  return /string.*(function|concat|join|combine)|(concat|join|combine).*string|text.*(concat|join|combine)|(concat|join|combine).*text/i
+    .test(promptNodeClass(node));
+}
+
+function promptInputIsText(node, name, value) {
+  if (/text|string|prompt|caption|input|message|^value$/i.test(String(name || ""))) return true;
+  if (!isPromptStringCombinerNode(node)) return false;
+  if (/action|operation|function|separator|delimiter|tidy|mode/i.test(String(name || ""))) return false;
+  return typeof value === "string" || isPromptLink(value) || Array.isArray(value);
+}
+
 function promptNodeTextInputs(node) {
   return Object.entries(node?.inputs || {})
-    .filter(([name]) => /text|string|prompt|caption|input|message/i.test(name));
+    .filter(([name, value]) => promptInputIsText(node, name, value));
 }
 
 function preferredUserInputNames(entries) {
@@ -769,7 +780,11 @@ function collectPromptUserInputTexts(prompt, reference, visited = new Set()) {
 
   const texts = [];
   for (const [, value] of textInputs) {
-    if (isPromptLink(value)) texts.push(...collectPromptUserInputTexts(prompt, value, visited));
+    if (isPromptLink(value)) {
+      texts.push(...collectPromptUserInputTexts(prompt, value, visited));
+    } else {
+      texts.push(...collectStringValues(value));
+    }
   }
   return uniqueNonEmpty(texts);
 }
@@ -990,7 +1005,7 @@ function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceTex
       continue;
     }
 
-    const isTextInput = /text|string|prompt|caption/i.test(name);
+    const isTextInput = promptInputIsText(node, name, value);
     if (textCarrier && !isTextInput) continue;
 
     if (isPromptLink(value)) {
@@ -998,7 +1013,10 @@ function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceTex
     } else if (Array.isArray(value)) {
       for (const child of value) {
         if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, forceText || Boolean(selectedSwitchInputName), polarity));
+        else if ((forceText || textCarrier) && isTextInput) texts.push(...collectStringValues(child));
       }
+    } else if ((forceText || textCarrier) && isTextInput) {
+      texts.push(...collectStringValues(value));
     }
   }
 
@@ -1040,12 +1058,17 @@ function workflowNodeType(node) {
   return String(node?.type || node?.class_type || "");
 }
 
+function workflowInputIsText(input) {
+  const description = `${input?.name || ""} ${input?.type || ""}`;
+  return /text|string|prompt|caption|input|message/i.test(description);
+}
+
 function isWorkflowTextCarrierNode(node) {
   const nodeType = workflowNodeType(node);
   const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
   const outputTypes = (node?.outputs || []).map((output) => `${output?.name || ""} ${output?.type || ""}`).join(" ");
   if (isTextEncodeNode({ class_type: nodeType })) return true;
-  if ((node?.inputs || []).some((input) => /text|string|prompt|caption|message/i.test(String(input?.name || "")))) return true;
+  if ((node?.inputs || []).some((input) => workflowInputIsText(input))) return true;
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeType} ${title} ${outputTypes}`);
 }
 
@@ -1148,7 +1171,7 @@ function isWorkflowTextGenerationNode(node) {
 
 function workflowNodeHasLinkedTextInput(node) {
   for (const input of node?.inputs || []) {
-    if (!/text|string|prompt|caption/i.test(String(input?.name || ""))) continue;
+    if (!workflowInputIsText(input)) continue;
     if (input?.link !== undefined && input?.link !== null) return true;
   }
   return false;
@@ -1213,38 +1236,44 @@ function workflowSwitchSelectedInputName(maps, node) {
 
 function workflowTextInputs(node) {
   return (node?.inputs || [])
-    .filter((input) => /text|string|prompt|caption|input|message/i.test(String(input?.name || "")));
+    .filter((input) => workflowInputIsText(input));
 }
 
 function isWorkflowSubgraphInputOrigin(origin) {
   return String(origin?.originId || "") === "-10";
 }
 
-function collectWorkflowExternalInputTexts(origin, maps, visited, context) {
+function collectWorkflowExternalInputTexts(origin, maps, visited, context, preferUserInputs = false) {
   const externalNode = context?.externalNode;
   const externalMaps = context?.externalMaps;
   const inputName = String(origin?.outputName || workflowSubgraphInputName(maps.workflow, origin?.originSlot));
   if (!externalNode || !externalMaps || !inputName) return [];
 
   const input = workflowInputByName(externalNode, inputName);
-  const texts = workflowInputLinkedTexts(input, externalMaps, new Set(), context?.parentContext || null);
+  const texts = workflowInputLinkedTexts(
+    input,
+    externalMaps,
+    new Set(),
+    context?.parentContext || null,
+    preferUserInputs,
+  );
   if (texts.length) return texts;
-  return uniqueNonEmpty(collectStringValues(workflowInputValue(externalNode, input)));
+  return uniqueNonEmpty(collectWidgetStringValues(workflowInputValue(externalNode, input)));
 }
 
-function workflowInputLinkedTexts(input, maps, visited, context = null) {
+function workflowInputLinkedTexts(input, maps, visited, context = null, preferUserInputs = false) {
   if (!input) return [];
   if (input.link !== undefined && input.link !== null) {
     const origin = workflowLinkOrigin(maps, input.link);
     if (isWorkflowSubgraphInputOrigin(origin)) {
-      return collectWorkflowExternalInputTexts(origin, maps, visited, context);
+      return collectWorkflowExternalInputTexts(origin, maps, visited, context, preferUserInputs);
     }
-    return collectWorkflowUserInputTexts(origin?.originId, maps, visited, context);
+    return collectWorkflowUserInputTexts(origin?.originId, maps, visited, context, preferUserInputs);
   }
-  return collectStringValues(input.value ?? input.default ?? input.widget?.value);
+  return collectWidgetStringValues(input.value ?? input.default ?? input.widget?.value);
 }
 
-function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), context = null) {
+function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), context = null, preferUserInputs = false) {
   if (!nodeId || visited.has(String(nodeId))) return [];
   visited.add(String(nodeId));
 
@@ -1253,28 +1282,42 @@ function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), contex
 
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
   if (selectedSwitchInputName) {
-    return workflowInputLinkedTexts(workflowInputByName(node, selectedSwitchInputName), maps, visited, context);
+    return workflowInputLinkedTexts(
+      workflowInputByName(node, selectedSwitchInputName),
+      maps,
+      visited,
+      context,
+      preferUserInputs,
+    );
   }
 
   const textInputs = workflowTextInputs(node);
-  const preferredNames = preferredUserInputNames(textInputs.map((input) => [String(input?.name || ""), input]));
+  const preferredNames = preferUserInputs
+    ? preferredUserInputNames(textInputs.map((input) => [String(input?.name || ""), input]))
+    : [];
   if (preferredNames.length) {
     const texts = [];
     for (const name of preferredNames) {
-      texts.push(...workflowInputLinkedTexts(workflowInputByName(node, name), maps, visited, context));
+      texts.push(...workflowInputLinkedTexts(workflowInputByName(node, name), maps, visited, context, true));
     }
-    return uniqueNonEmpty(texts);
-  }
-
-  if (isWorkflowTextCarrierNode(node) && !workflowNodeHasLinkedTextInput(node)) {
-    return uniqueNonEmpty(collectWidgetStringValues(node.widgets_values || []));
+    const preferredTexts = uniqueNonEmpty(texts);
+    if (preferredTexts.length) return preferredTexts;
   }
 
   const texts = [];
   for (const input of textInputs) {
-    if (input?.link !== undefined && input?.link !== null) texts.push(...workflowInputLinkedTexts(input, maps, visited, context));
+    if (input?.link !== undefined && input?.link !== null) {
+      texts.push(...workflowInputLinkedTexts(input, maps, visited, context, preferUserInputs));
+    } else {
+      texts.push(...collectWidgetStringValues(workflowInputValue(node, input)));
+    }
   }
-  return uniqueNonEmpty(texts);
+  const inputTexts = uniqueNonEmpty(texts);
+  if (inputTexts.length) return inputTexts;
+
+  return isWorkflowTextCarrierNode(node)
+    ? uniqueNonEmpty(collectWidgetStringValues(node.widgets_values || []))
+    : [];
 }
 
 function collectWorkflowTextGenerationInputTexts(node, maps, visited, context) {
@@ -1283,7 +1326,7 @@ function collectWorkflowTextGenerationInputTexts(node, maps, visited, context) {
     || workflowInputByName(node, "input")
     || workflowInputByName(node, "message")
     || workflowInputByName(node, "messages");
-  return workflowInputLinkedTexts(promptInput, maps, new Set(visited), context);
+  return workflowInputLinkedTexts(promptInput, maps, new Set(visited), context, true);
 }
 
 function collectWorkflowPropertySeedEntries(object, label) {
@@ -1688,14 +1731,21 @@ function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText =
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
   const linkedTextInput = workflowNodeHasLinkedTextInput(node);
   if ((forceText || textCarrier) && !linkedTextInput) {
-    texts.push(...collectWidgetStringValues(node.widgets_values || []));
+    const directTexts = workflowTextInputs(node)
+      .flatMap((input) => collectWidgetStringValues(workflowInputValue(node, input)));
+    texts.push(...(directTexts.length ? directTexts : collectWidgetStringValues(node.widgets_values || [])));
   }
 
   for (const input of node.inputs || []) {
     if (selectedSwitchInputName && input.name !== selectedSwitchInputName) continue;
 
-    if (input?.link === undefined || input?.link === null) continue;
-    const isTextInput = /text|string|prompt|caption/i.test(String(input.name || ""));
+    const isTextInput = workflowInputIsText(input);
+    if (input?.link === undefined || input?.link === null) {
+      if ((forceText || textCarrier) && isTextInput) {
+        texts.push(...collectWidgetStringValues(workflowInputValue(node, input)));
+      }
+      continue;
+    }
     if (textCarrier && !isTextInput && !isWorkflowTextPassthroughNode(node)) continue;
 
     if (
