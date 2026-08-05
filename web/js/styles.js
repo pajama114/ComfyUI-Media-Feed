@@ -119,11 +119,6 @@ export function ensureMediaFeedStyles({
       order: 3;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-count {
-      flex: 1 1 100%;
-      order: 4;
-    }
-
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control {
       flex: 1 1 100%;
       order: 5;
@@ -198,7 +193,6 @@ export function ensureMediaFeedStyles({
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-feed-frame,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-filter,
-    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-count,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-size-control,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-clear {
       display: none;
@@ -264,8 +258,7 @@ export function ensureMediaFeedStyles({
       display: none;
     }
 
-    .cmf-root[data-feed-style="frameless"] .cmf-title,
-    .cmf-root[data-feed-style="frameless"] .cmf-count {
+    .cmf-root[data-feed-style="frameless"] .cmf-title {
       display: none;
     }
 
@@ -276,16 +269,8 @@ export function ensureMediaFeedStyles({
       pointer-events: auto;
     }
 
-    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-orientation="vertical"] .cmf-filter {
-      flex: 1 1 0;
-      order: 1;
-      min-width: 0;
-    }
-
-    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-orientation="vertical"] .cmf-filter button {
-      flex: 1 1 0;
-      width: auto;
-      min-width: 0;
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-orientation="vertical"] .cmf-clear {
+      margin-left: auto;
     }
 
     .cmf-root[data-feed-style="frameless"] .cmf-viewport {
@@ -355,11 +340,6 @@ export function ensureMediaFeedStyles({
       white-space: nowrap;
     }
 
-    .cmf-count {
-      color: var(--cmf-muted);
-      white-space: nowrap;
-    }
-
     .cmf-size-control {
       display: inline-flex;
       align-items: center;
@@ -421,6 +401,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-filter button {
+      position: relative;
       display: grid;
       place-items: center;
       width: 34px;
@@ -432,6 +413,24 @@ export function ensureMediaFeedStyles({
       color: var(--cmf-muted);
       cursor: pointer;
       font: inherit;
+    }
+
+    .cmf-filter-count {
+      position: absolute;
+      right: 2px;
+      bottom: 1px;
+      min-width: 11px;
+      padding: 0 2px;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.56);
+      background: color-mix(in srgb, var(--cmf-bg) 82%, transparent);
+      color: var(--cmf-text);
+      font-size: 8px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 650;
+      line-height: 10px;
+      pointer-events: none;
+      text-align: center;
     }
 
     .cmf-filter svg {

@@ -7,6 +7,8 @@ import { ensureMediaFeedStyles } from "./styles.js";
 const EXTENSION_NAME = "comfyui.media_feed";
 const MAX_ITEMS = 256;
 const DECODED_IMAGE_CACHE_SIZE = 32;
+const THUMBNAIL_CARD_CACHE_SIZE = 32;
+const WORKFLOW_SCROLL_POSITION_CACHE_SIZE = 64;
 const DEFAULT_ITEM_WIDTH = 143;
 const DEFAULT_ITEM_HEIGHT = 143;
 const MIN_ITEM_HEIGHT = 96;
@@ -214,7 +216,10 @@ function addItems(items) {
   for (const item of items) {
     if (state.itemKeys.has(item.key)) {
       const existingIndex = state.items.findIndex((current) => current.key === item.key);
-      if (existingIndex !== -1) state.items.splice(existingIndex, 1);
+      if (existingIndex !== -1) {
+        const [replaced] = state.items.splice(existingIndex, 1);
+        for (const view of state.views) discardCachedCard(view, replaced.id);
+      }
     }
     state.itemKeys.add(item.key);
     freshItems.push(item);
@@ -225,7 +230,10 @@ function addItems(items) {
   state.items.unshift(...freshItems.reverse());
   while (state.items.length > MAX_ITEMS) {
     const removed = state.items.pop();
-    if (removed) state.itemKeys.delete(removed.key);
+    if (removed) {
+      state.itemKeys.delete(removed.key);
+      for (const view of state.views) discardCachedCard(view, removed.id);
+    }
   }
 
   const visibleFreshCount = freshItems.filter(itemMatchesFilters).length;
@@ -255,12 +263,15 @@ function currentWorkflowTabId() {
   return workflowTabId(currentWorkflow());
 }
 
-function itemMatchesFilters(item) {
-  if (state.filter !== "all" && item.kind !== state.filter) return false;
+function itemMatchesMediaScope(item) {
   if (state.mediaScope !== "current-tab") return true;
 
   const tabId = currentWorkflowTabId();
   return !tabId || item.workflowTabId === tabId;
+}
+
+function itemMatchesFilters(item) {
+  return itemMatchesMediaScope(item) && (state.filter === "all" || item.kind === state.filter);
 }
 
 function filteredItems() {
@@ -636,9 +647,14 @@ function setMediaScope(nextScope) {
   const mediaScope = normalizeMediaScope(nextScope);
   if (mediaScope === state.mediaScope) return;
 
+  if (state.mediaScope === "current-tab") saveWorkflowScrollPositions(activeWorkflowTabId);
   applyMediaScope(mediaScope);
   saveMediaScope();
-  updateViews(false);
+  if (state.mediaScope === "current-tab") {
+    updateViewsForWorkflowTab(activeWorkflowTabId);
+  } else {
+    updateViews(false);
+  }
 
   if (isViewerOpen() && viewer?.item && !filteredItems().some((item) => item.key === viewer.item.key)) {
     closeViewer();
@@ -1780,7 +1796,8 @@ function createCard(item) {
     const image = document.createElement("img");
     image.alt = item.filename;
     image.decoding = "async";
-    image.loading = "lazy";
+    // Cards are already virtualized, so every created thumbnail is in or near the viewport.
+    image.loading = "eager";
     image.src = item.url;
     const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(image, preview));
     thumbnailResizeObserver.observe(preview);
@@ -1854,6 +1871,7 @@ function createCard(item) {
     toggleFavorite(item);
   });
   card.favoriteButton = favoriteButton;
+  card.thumbnailPreview = preview;
   syncFavoriteButton(favoriteButton, item);
   card.append(preview, favoriteButton);
   const previewVideo = card.querySelector("video");
@@ -1939,12 +1957,11 @@ function createView(root, kind = "embedded") {
     <div class="cmf-toolbar">
       <strong class="cmf-title">Media Feed</strong>
       <div class="cmf-filter" role="group" aria-label="Media filter">
-        <button type="button" data-filter="all" aria-pressed="true" title="All" aria-label="All">${ICONS.grid}</button>
-        <button type="button" data-filter="image" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}</button>
-        <button type="button" data-filter="video" aria-pressed="false" title="Movies" aria-label="Movies">${ICONS.video}</button>
-        <button type="button" data-filter="audio" aria-pressed="false" title="Sound" aria-label="Sound">${ICONS.music}</button>
+        <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media">${ICONS.grid}<span class="cmf-filter-count">0</span></button>
+        <button type="button" data-filter="image" data-filter-label="Images" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}<span class="cmf-filter-count">0</span></button>
+        <button type="button" data-filter="video" data-filter-label="Videos" aria-pressed="false" title="Videos" aria-label="Videos">${ICONS.video}<span class="cmf-filter-count">0</span></button>
+        <button type="button" data-filter="audio" data-filter-label="Audio" aria-pressed="false" title="Audio" aria-label="Audio">${ICONS.music}<span class="cmf-filter-count">0</span></button>
       </div>
-      <span class="cmf-count"></span>
       <div class="cmf-spacer"></div>
       <label class="cmf-size-control" title="Thumbnail size">
         <span>Size</span>
@@ -1968,11 +1985,12 @@ function createView(root, kind = "embedded") {
     viewport: root.querySelector(".cmf-viewport"),
     rail: root.querySelector(".cmf-rail"),
     empty: root.querySelector(".cmf-empty"),
-    count: root.querySelector(".cmf-count"),
     sizeSlider: root.querySelector(".cmf-size-slider"),
     jumpLatest: root.querySelector(".cmf-jump-latest"),
     jumpOldest: root.querySelector(".cmf-jump-oldest"),
     cards: new Map(),
+    cardCache: new Map(),
+    workflowScrollPositions: new Map(),
     gaps: new Map(),
     kind,
     lastRange: "",
@@ -2006,6 +2024,10 @@ function createView(root, kind = "embedded") {
   });
 
   root.querySelector(".cmf-clear").addEventListener("click", () => {
+    for (const currentView of state.views) {
+      clearCachedCards(currentView);
+      currentView.workflowScrollPositions.clear();
+    }
     state.items = [];
     state.itemKeys.clear();
     decodedImageCache.clear();
@@ -2073,6 +2095,32 @@ function updateViews(scrollToLatest, prependedCount = 0) {
   for (const view of state.views) updateView(view, scrollToLatest, prependedCount);
 }
 
+function saveWorkflowScrollPositions(tabId) {
+  if (!tabId) return;
+
+  for (const view of state.views) {
+    view.workflowScrollPositions.delete(tabId);
+    view.workflowScrollPositions.set(tabId, {
+      left: view.viewport.scrollLeft,
+      top: view.viewport.scrollTop,
+    });
+    while (view.workflowScrollPositions.size > WORKFLOW_SCROLL_POSITION_CACHE_SIZE) {
+      view.workflowScrollPositions.delete(view.workflowScrollPositions.keys().next().value);
+    }
+  }
+}
+
+function updateViewsForWorkflowTab(tabId) {
+  for (const view of state.views) {
+    const savedPosition = tabId ? view.workflowScrollPositions.get(tabId) : null;
+    if (savedPosition) {
+      view.workflowScrollPositions.delete(tabId);
+      view.workflowScrollPositions.set(tabId, savedPosition);
+    }
+    updateView(view, false, 0, savedPosition || { left: 0, top: 0 });
+  }
+}
+
 function applyViewSizing(view) {
   applyFallbackPlacement(view.root);
   view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
@@ -2123,6 +2171,23 @@ function updateJumpButtons(view) {
   view.jumpOldest.hidden = maxScroll <= 1 || atOldest;
 }
 
+function updateFilterCounts(view) {
+  const counts = { all: 0, image: 0, video: 0, audio: 0 };
+  for (const item of state.items) {
+    if (!itemMatchesMediaScope(item)) continue;
+    counts.all++;
+    if (counts[item.kind] !== undefined) counts[item.kind]++;
+  }
+
+  for (const button of view.root.querySelectorAll("button[data-filter]")) {
+    const count = counts[button.dataset.filter] || 0;
+    const label = button.dataset.filterLabel || "Media";
+    button.querySelector(".cmf-filter-count").textContent = String(count);
+    button.title = `${label}: ${count}`;
+    button.setAttribute("aria-label", `${label}: ${count}`);
+  }
+}
+
 function scrollFeedToEdge(view, edge) {
   const vertical = isVerticalView(view);
   const maxScroll = feedMaxScroll(view);
@@ -2137,7 +2202,7 @@ function scrollFeedToEdge(view, edge) {
   updateJumpButtons(view);
 }
 
-function updateView(view, scrollToLatest, prependedCount = 0) {
+function updateView(view, scrollToLatest, prependedCount = 0, scrollPosition = null) {
   applyViewSizing(view);
   const items = filteredItems();
   const pitch = viewPitch(view);
@@ -2156,11 +2221,14 @@ function updateView(view, scrollToLatest, prependedCount = 0) {
   }
 
   view.empty.style.display = items.length || state.feedStyle === "frameless" ? "none" : "grid";
-  view.count.textContent = `${items.length} shown / ${state.items.length} kept`;
+  updateFilterCounts(view);
 
   if (scrollToLatest) {
     view.viewport.scrollLeft = 0;
     view.viewport.scrollTop = 0;
+  } else if (scrollPosition) {
+    view.viewport.scrollLeft = Math.max(0, Number(scrollPosition.left) || 0);
+    view.viewport.scrollTop = Math.max(0, Number(scrollPosition.top) || 0);
   } else if (prependedCount > 0) {
     const prependedDistance = prependedCount * pitch;
     if (vertical) {
@@ -2172,6 +2240,55 @@ function updateView(view, scrollToLatest, prependedCount = 0) {
   view.lastRange = "";
   renderVisibleItems(view);
   updateJumpButtons(view);
+}
+
+function destroyCard(card) {
+  if (!card) return;
+  card.thumbnailResizeObserver?.disconnect();
+  for (const media of card.querySelectorAll("video, audio")) discardStagedMedia(media);
+  card.remove();
+}
+
+function discardCachedCard(view, id) {
+  const card = view?.cardCache?.get(id);
+  if (!card) return;
+  view.cardCache.delete(id);
+  destroyCard(card);
+}
+
+function clearCachedCards(view) {
+  if (!view?.cardCache) return;
+  for (const card of view.cardCache.values()) destroyCard(card);
+  view.cardCache.clear();
+}
+
+function cacheCard(view, id, card) {
+  card.thumbnailResizeObserver?.disconnect();
+  for (const media of card.querySelectorAll("video, audio")) media.pause();
+  card.remove();
+  view.cards.delete(id);
+
+  if (!state.items.some((item) => item.id === id)) {
+    destroyCard(card);
+    return;
+  }
+
+  view.cardCache.delete(id);
+  view.cardCache.set(id, card);
+  while (view.cardCache.size > THUMBNAIL_CARD_CACHE_SIZE) {
+    discardCachedCard(view, view.cardCache.keys().next().value);
+  }
+}
+
+function takeCachedCard(view, id) {
+  const card = view.cardCache.get(id);
+  if (!card) return null;
+  view.cardCache.delete(id);
+  syncFavoriteButton(card.favoriteButton, state.items.find((item) => item.id === id));
+  if (card.thumbnailResizeObserver && card.thumbnailPreview) {
+    card.thumbnailResizeObserver.observe(card.thumbnailPreview);
+  }
+  return card;
 }
 
 function renderVisibleItems(view) {
@@ -2197,7 +2314,7 @@ function renderVisibleItems(view) {
 
     let card = view.cards.get(item.id);
     if (!card) {
-      card = createCard(item);
+      card = takeCachedCard(view, item.id) || createCard(item);
       view.cards.set(item.id, card);
       view.rail.appendChild(card);
     }
@@ -2225,9 +2342,7 @@ function renderVisibleItems(view) {
 
   for (const [id, card] of view.cards) {
     if (visibleIds.has(id)) continue;
-    card.thumbnailResizeObserver?.disconnect();
-    card.remove();
-    view.cards.delete(id);
+    cacheCard(view, id, card);
   }
 
   for (const [id, gap] of view.gaps) {
@@ -2326,10 +2441,11 @@ function handleActiveWorkflowChange() {
   const nextTabId = currentWorkflowTabId();
   if (nextTabId === activeWorkflowTabId) return;
 
+  if (state.mediaScope === "current-tab") saveWorkflowScrollPositions(activeWorkflowTabId);
   activeWorkflowTabId = nextTabId;
   if (state.mediaScope !== "current-tab") return;
 
-  updateViews(false);
+  updateViewsForWorkflowTab(activeWorkflowTabId);
   if (isViewerOpen() && viewer?.item && !filteredItems().some((item) => item.key === viewer.item.key)) {
     closeViewer();
   } else {
@@ -2340,7 +2456,7 @@ function handleActiveWorkflowChange() {
 function watchActiveWorkflow() {
   activeWorkflowTabId = currentWorkflowTabId();
   const workflowStore = app.extensionManager?.workflow;
-  workflowStore?.$subscribe?.(handleActiveWorkflowChange, { detached: true });
+  workflowStore?.$subscribe?.(handleActiveWorkflowChange, { detached: true, flush: "sync" });
 }
 
 function handleExecuted(event) {
