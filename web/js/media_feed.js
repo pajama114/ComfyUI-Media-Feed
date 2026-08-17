@@ -2230,6 +2230,7 @@ function updateFloatingPanelBounds() {
 
   const leftInset = Math.max(FALLBACK_MIN_LEFT_INSET, rect.left + FALLBACK_EDGE_GAP);
   const rightInset = Math.max(FALLBACK_MIN_RIGHT_INSET, window.innerWidth - rect.right + FALLBACK_EDGE_GAP);
+  const bottomInset = Math.max(FALLBACK_MIN_BOTTOM_INSET, window.innerHeight - rect.bottom + FALLBACK_EDGE_GAP);
 
   root.style.setProperty("--cmf-safe-left", `${Math.round(leftInset)}px`);
   root.style.setProperty("--cmf-edge-right", `${Math.round(rightInset)}px`);
@@ -2238,9 +2239,9 @@ function updateFloatingPanelBounds() {
     `${Math.round(FALLBACK_MIN_BOTTOM_RIGHT_INSET + rightInset - FALLBACK_MIN_RIGHT_INSET)}px`,
   );
 
-  // Queue banners and progress bars temporarily resize the graph vertically.
-  // Keep the feed's vertical anchors stable while still following side panels.
-  root.style.setProperty("--cmf-safe-bottom", `${FALLBACK_MIN_BOTTOM_INSET}px`);
+  // Queue banners and progress bars temporarily move the graph's top edge, while
+  // the bottom edge tracks the persistent bottom panel and should remain visible.
+  root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
   root.style.setProperty("--cmf-safe-top", `${FALLBACK_MIN_TOP_INSET}px`);
 }
 

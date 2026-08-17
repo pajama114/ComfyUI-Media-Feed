@@ -21,6 +21,7 @@ export function ensureMediaFeedStyles({
       --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-view-bg: var(--bg-color, rgba(0, 0, 0, 0.22));
+      --cmf-feed-line: rgba(140, 140, 140, 0.384);
       --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
       --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       --cmf-item-width: ${itemWidth}px;
@@ -96,7 +97,12 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-placement="right"] {
       right: calc(var(--cmf-edge-right) - var(--cmf-side-outset));
-      bottom: max(var(--cmf-safe-bottom), calc(var(--cmf-minimap-height) - var(--cmf-right-bottom-extension)));
+      bottom: calc(
+        var(--cmf-safe-bottom)
+        + var(--cmf-minimap-height)
+        - var(--cmf-right-bottom-extension)
+        - 12px
+      );
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar {
@@ -246,7 +252,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-root[data-feed-style="default"] {
       border-radius: 8px;
-      box-shadow: inset 0 0 0 1px var(--cmf-border);
+      box-shadow: inset 0 0 0 1px var(--cmf-feed-line);
     }
 
     .cmf-root[data-feed-style="default"] .cmf-viewport {
@@ -475,11 +481,11 @@ export function ensureMediaFeedStyles({
       content: "";
       position: absolute;
       z-index: 3;
-      top: 0;
+      top: -2px;
       right: 0;
       left: 0;
       height: 1px;
-      background: color-mix(in srgb, var(--cmf-border) 75%, transparent);
+      background: var(--cmf-feed-line);
       pointer-events: none;
     }
 
@@ -526,6 +532,15 @@ export function ensureMediaFeedStyles({
     .cmf-root[data-feed-style="frameless"][data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
       width: 0;
       height: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="default"] .cmf-viewport {
+      scrollbar-gutter: stable both-edges;
+      scrollbar-width: thin;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="default"] .cmf-viewport::-webkit-scrollbar {
+      width: 8px;
     }
 
     .cmf-viewport::-webkit-scrollbar-track {
