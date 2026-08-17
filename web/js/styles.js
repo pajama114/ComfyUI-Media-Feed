@@ -323,7 +323,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-feed-style="frameless"][data-placement="bottom"] {
-      bottom: 0;
+      bottom: calc(var(--cmf-safe-bottom) - 12px);
       padding-bottom: 0;
     }
 
