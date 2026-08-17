@@ -299,6 +299,7 @@ export function parseMp4TextMetadata(bytes) {
 
   const parsed = findJsonMetadataObject(decodeUtf8(bytes));
   if (parsed) {
+    chunks.embedded_json = parsed;
     if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
     if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
     if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;
@@ -385,6 +386,7 @@ export function parseWebmTextMetadata(bytes) {
   const parsed = findJsonMetadataObject(text);
   if (!parsed) return chunks;
 
+  chunks.embedded_json = parsed;
   if (parsed.prompt !== undefined) chunks.prompt = parsed.prompt;
   if (parsed.workflow !== undefined) chunks.workflow = parsed.workflow;
   if (parsed.Prompt !== undefined) chunks.Prompt = parsed.Prompt;

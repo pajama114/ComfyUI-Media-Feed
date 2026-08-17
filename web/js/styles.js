@@ -237,6 +237,11 @@ export function ensureMediaFeedStyles({
       min-height: 0;
     }
 
+    .cmf-root[data-feed-style="default"] {
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px var(--cmf-border);
+    }
+
     .cmf-root[data-feed-style="frameless"] {
       background: transparent;
       pointer-events: none;
@@ -1038,6 +1043,30 @@ export function ensureMediaFeedStyles({
       gap: 8px;
     }
 
+    .cmf-metadata-toolbar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .cmf-metadata-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .cmf-metadata-action svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+    }
+
     .cmf-viewer-metadata-toggle {
       display: inline-flex;
       align-items: center;
@@ -1103,6 +1132,43 @@ export function ensureMediaFeedStyles({
       font-size: 11px;
       font-weight: 600;
       overflow-wrap: anywhere;
+    }
+
+    .cmf-copy-success {
+      position: relative;
+      border-color: #43b66f !important;
+      background: color-mix(in srgb, #43b66f 30%, var(--cmf-button-bg)) !important;
+      color: color-mix(in srgb, #43b66f 35%, var(--cmf-text)) !important;
+      animation: cmf-copy-confirm 260ms ease-out;
+    }
+
+    .cmf-copy-success::after {
+      content: "✓";
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      display: grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border: 1px solid color-mix(in srgb, #43b66f 75%, white);
+      border-radius: 50%;
+      background: #278f50;
+      color: #fff;
+      font: 700 11px/1 sans-serif;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+
+    @keyframes cmf-copy-confirm {
+      from { transform: scale(0.94); }
+      to { transform: scale(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cmf-copy-success {
+        animation: none;
+      }
     }
 
     .cmf-resource-chip-label,

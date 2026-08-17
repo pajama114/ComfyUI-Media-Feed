@@ -33,7 +33,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Reads embedded metadata in the viewer and displays inferred positive and
   negative prompts, seeds, model resources such as checkpoints and LoRAs, and
   other available generation details.
-- Lets you copy the displayed prompt, negative prompt, or seed with one click.
+- Lets you copy prompts, seeds, resource and generation-detail sections, or all
+  displayed metadata with visual copy confirmation.
+- Downloads all embedded JSON metadata as a formatted `.json` file.
 - Lets you place the metadata panel on either side of the viewer.
 - Provides Fit, actual-size, and zoom controls for images, videos, and audio
   players. Zoomed images can be panned by dragging, and double-clicking zooms in

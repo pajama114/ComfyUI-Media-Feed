@@ -112,6 +112,7 @@ let activeQueueRequest = null;
 const workflowTabIds = new WeakMap();
 const promptWorkflowTabs = new Map();
 const pendingQueueRequests = [];
+const copyFeedbackTimers = new WeakMap();
 
 function getExtension(filename) {
   const cleanName = String(filename || "").split(/[?#]/, 1)[0];
@@ -779,11 +780,36 @@ function isCurrentViewerRender(currentViewer, requestId, item) {
     && currentViewer.item?.key === item.key;
 }
 
+function showCopyFeedback(button) {
+  const previousFeedback = copyFeedbackTimers.get(button);
+  if (previousFeedback) window.clearTimeout(previousFeedback.timeoutId);
+
+  const title = previousFeedback?.title ?? button.title;
+  const ariaLabel = previousFeedback?.ariaLabel ?? button.getAttribute("aria-label");
+  button.title = "Copied";
+  button.setAttribute("aria-label", "Copied");
+  button.classList.remove("cmf-copy-success");
+  void button.offsetWidth;
+  button.classList.add("cmf-copy-success");
+
+  const timeoutId = window.setTimeout(() => {
+    button.classList.remove("cmf-copy-success");
+    button.title = title;
+    if (ariaLabel === null) {
+      button.removeAttribute("aria-label");
+    } else {
+      button.setAttribute("aria-label", ariaLabel);
+    }
+    copyFeedbackTimers.delete(button);
+  }, 1200);
+  copyFeedbackTimers.set(button, { timeoutId, title, ariaLabel });
+}
+
 async function copyPromptText(event, source) {
   const button = event.currentTarget;
   button.blur();
 
-  const text = String(source?.textContent || "");
+  const text = typeof source === "string" ? source : String(source?.textContent || "");
   if (!text.trim()) return;
 
   try {
@@ -797,7 +823,7 @@ async function copyPromptText(event, source) {
       try {
         document.body.appendChild(textarea);
         textarea.select();
-        document.execCommand("copy");
+        if (!document.execCommand("copy")) throw new Error("Clipboard copy failed");
       } finally {
         textarea.remove();
       }
@@ -806,13 +832,85 @@ async function copyPromptText(event, source) {
     return;
   }
 
-  const previousTitle = button.title;
-  button.title = "Copied";
-  button.setAttribute("aria-label", "Copied");
-  window.setTimeout(() => {
-    button.title = previousTitle;
-    button.setAttribute("aria-label", previousTitle);
-  }, 900);
+  showCopyFeedback(button);
+}
+
+function formatAllViewerMetadata(result, details) {
+  const sections = [];
+  const appendSection = (heading, values) => {
+    const lines = values.filter((value) => String(value || "").trim());
+    if (lines.length) sections.push(`${heading}:\n${lines.join("\n")}`);
+  };
+
+  appendSection(
+    "Resources",
+    (Array.isArray(result?.resources) ? result.resources : [])
+      .map((entry) => `${entry.label}: ${entry.value}`),
+  );
+  appendSection("Prompt", [result?.positive]);
+  appendSection("Negative Prompt", [result?.negative]);
+  appendSection("Seed", [result?.seed]);
+  appendSection(
+    "Other Metadata",
+    (Array.isArray(details) ? details : [])
+      .filter((entry) => String(entry?.label || "").toLowerCase() !== "seed")
+      .map((entry) => `${entry.label}: ${entry.value}`),
+  );
+
+  return sections.join("\n\n");
+}
+
+function copyAllViewerMetadata(event) {
+  const text = formatAllViewerMetadata(viewer?.lastPromptMetadata, viewer?.lastMetadataDetails);
+  return copyPromptText(event, text);
+}
+
+function formatMetadataEntriesForCopy(entries, options = {}) {
+  return (Array.isArray(entries) ? entries : [])
+    .filter((entry) => !options.skipSeed || String(entry?.label || "").toLowerCase() !== "seed")
+    .map((entry) => `${entry?.label || ""}: ${entry?.value || ""}`)
+    .filter((line) => line !== ": ")
+    .join("\n");
+}
+
+function copyViewerResources(event) {
+  return copyPromptText(event, formatMetadataEntriesForCopy(viewer?.lastPromptMetadata?.resources));
+}
+
+function copyViewerOtherMetadata(event) {
+  return copyPromptText(event, formatMetadataEntriesForCopy(viewer?.lastMetadataDetails, { skipSeed: true }));
+}
+
+function metadataDownloadFilename(filename) {
+  const basename = String(filename || "metadata")
+    .replace(/\.[^./\\]+$/, "")
+    .replace(/[^\p{L}\p{N}._-]+/gu, "_")
+    .replace(/^_+|_+$/g, "");
+  return `${basename || "metadata"}-metadata.json`;
+}
+
+function downloadViewerEmbeddedJson(event) {
+  const button = event.currentTarget;
+  button.blur();
+
+  const embeddedJson = viewer?.lastPromptMetadata?.embeddedJson;
+  if (!embeddedJson || !Object.keys(embeddedJson).length) return;
+
+  let json;
+  try {
+    json = JSON.stringify(embeddedJson, null, 2);
+  } catch {
+    return;
+  }
+
+  const url = URL.createObjectURL(new Blob([`${json}\n`], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = metadataDownloadFilename(viewer?.item?.filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function ensureViewer() {
@@ -852,11 +950,16 @@ function ensureViewer() {
           <h2 class="cmf-prompt-panel-title">Metadata</h2>
           <button class="cmf-button cmf-viewer-metadata-toggle cmf-hide-metadata" type="button" title="Hide metadata" aria-label="Hide metadata" aria-pressed="true">${ICONS.eyeOff}<span>Hide</span></button>
         </div>
+        <div class="cmf-metadata-toolbar" role="group" aria-label="Metadata actions">
+          <button class="cmf-button cmf-metadata-action cmf-copy-all" type="button" title="Copy all metadata" aria-label="Copy all metadata" disabled>${ICONS.copy}<span>Copy all</span></button>
+          <button class="cmf-button cmf-metadata-action cmf-download-json" type="button" title="Download all embedded JSON" aria-label="Download all embedded JSON" disabled>${ICONS.download}<span>JSON</span></button>
+        </div>
         <div class="cmf-prompt-status"></div>
         <button class="cmf-button cmf-scan-full-metadata" type="button" hidden>Read full file metadata</button>
         <section class="cmf-prompt-section cmf-resources-section" hidden>
           <div class="cmf-prompt-section-header">
             <h2 class="cmf-prompt-heading">Resources</h2>
+            <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-resources" type="button" title="Copy all resources" aria-label="Copy all resources">${ICONS.copy}</button>
           </div>
           <div class="cmf-resource-grid"></div>
         </section>
@@ -884,6 +987,7 @@ function ensureViewer() {
         <section class="cmf-prompt-section cmf-metadata-section" hidden>
           <div class="cmf-prompt-section-header">
             <h2 class="cmf-prompt-heading">Other Metadata</h2>
+            <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-other-metadata" type="button" title="Copy all other metadata" aria-label="Copy all other metadata">${ICONS.copy}</button>
           </div>
           <div class="cmf-metadata-grid"></div>
         </section>
@@ -901,6 +1005,10 @@ function ensureViewer() {
   root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, viewer?.promptSeed));
   root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, viewer?.promptPositive));
   root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, viewer?.promptNegative));
+  root.querySelector(".cmf-copy-all").addEventListener("click", copyAllViewerMetadata);
+  root.querySelector(".cmf-copy-resources").addEventListener("click", copyViewerResources);
+  root.querySelector(".cmf-copy-other-metadata").addEventListener("click", copyViewerOtherMetadata);
+  root.querySelector(".cmf-download-json").addEventListener("click", downloadViewerEmbeddedJson);
   root.querySelector(".cmf-scan-full-metadata").addEventListener("click", scanFullViewerMetadata);
   root.querySelector(".cmf-viewer-fit").addEventListener("click", () => setViewerImageBaseMode("fit"));
   root.querySelector(".cmf-viewer-native").addEventListener("click", () => setViewerImageBaseMode("native"));
@@ -935,6 +1043,8 @@ function ensureViewer() {
     promptPanel: root.querySelector(".cmf-prompt-panel"),
     promptStatus: root.querySelector(".cmf-prompt-status"),
     scanFullMetadataButton: root.querySelector(".cmf-scan-full-metadata"),
+    copyAllMetadataButton: root.querySelector(".cmf-copy-all"),
+    downloadMetadataButton: root.querySelector(".cmf-download-json"),
     resourcesSection: root.querySelector(".cmf-resources-section"),
     resourcesGrid: root.querySelector(".cmf-resource-grid"),
     metadataSection: root.querySelector(".cmf-metadata-section"),
@@ -957,6 +1067,7 @@ function ensureViewer() {
     promptRequestId: 0,
     renderRequestId: 0,
     lastPromptMetadataItemKey: "",
+    lastMetadataDetails: [],
     pendingMedia: null,
     item: null,
     items: [],
@@ -1512,9 +1623,12 @@ function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
   viewer.lastPromptMetadata = null;
   viewer.lastPromptMetadataItemKey = "";
+  viewer.lastMetadataDetails = [];
   viewer.promptStatus.textContent = status;
   viewer.scanFullMetadataButton.hidden = true;
   viewer.scanFullMetadataButton.disabled = false;
+  viewer.copyAllMetadataButton.disabled = true;
+  viewer.downloadMetadataButton.disabled = true;
   viewer.resourcesGrid.replaceChildren();
   viewer.resourcesSection.hidden = true;
   viewer.metadataGrid.replaceChildren();
@@ -1621,6 +1735,7 @@ function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
     // Workflow metadata can describe a pre-upscale latent; the rendered media is authoritative.
     viewer.item?.kind === "image" || viewer.item?.kind === "video" ? ["Width", "Height"] : [],
   );
+  viewer.lastMetadataDetails = details;
   appendMetadataChips(
     viewer.metadataGrid,
     details,
@@ -1633,6 +1748,8 @@ function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
   viewer.promptSeed.textContent = result.seed || "(not found)";
   viewer.promptPositive.textContent = result.positive || "(not found)";
   viewer.promptNegative.textContent = result.negative || "(not found)";
+  viewer.copyAllMetadataButton.disabled = !formatAllViewerMetadata(result, details);
+  viewer.downloadMetadataButton.disabled = !Object.keys(result.embeddedJson || {}).length;
 }
 
 async function scanFullViewerMetadata(event) {
@@ -1678,11 +1795,7 @@ function updateViewerPromptPanel() {
   }
 
   const requestId = viewer.promptRequestId;
-  if (viewer.lastPromptMetadata) {
-    viewer.promptStatus.textContent = "Loading embedded prompt metadata...";
-  } else {
-    resetViewerPromptPanel("Loading embedded prompt metadata...");
-  }
+  resetViewerPromptPanel("Loading embedded prompt metadata...");
 
   loadPromptMetadata(item)
     .then((result) => {
@@ -2107,8 +2220,6 @@ function updateFloatingPanelBounds() {
 
   const leftInset = Math.max(FALLBACK_MIN_LEFT_INSET, rect.left + FALLBACK_EDGE_GAP);
   const rightInset = Math.max(FALLBACK_MIN_RIGHT_INSET, window.innerWidth - rect.right + FALLBACK_EDGE_GAP);
-  const bottomInset = Math.max(FALLBACK_MIN_BOTTOM_INSET, window.innerHeight - rect.bottom + FALLBACK_EDGE_GAP);
-  const topInset = Math.max(FALLBACK_MIN_TOP_INSET, rect.top + FALLBACK_EDGE_GAP);
 
   root.style.setProperty("--cmf-safe-left", `${Math.round(leftInset)}px`);
   root.style.setProperty("--cmf-edge-right", `${Math.round(rightInset)}px`);
@@ -2116,8 +2227,11 @@ function updateFloatingPanelBounds() {
     "--cmf-safe-right",
     `${Math.round(FALLBACK_MIN_BOTTOM_RIGHT_INSET + rightInset - FALLBACK_MIN_RIGHT_INSET)}px`,
   );
-  root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
-  root.style.setProperty("--cmf-safe-top", `${Math.round(topInset)}px`);
+
+  // Queue banners and progress bars temporarily resize the graph vertically.
+  // Keep the feed's vertical anchors stable while still following side panels.
+  root.style.setProperty("--cmf-safe-bottom", `${FALLBACK_MIN_BOTTOM_INSET}px`);
+  root.style.setProperty("--cmf-safe-top", `${FALLBACK_MIN_TOP_INSET}px`);
 }
 
 function scheduleFloatingPanelBoundsUpdate() {

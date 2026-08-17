@@ -41,7 +41,15 @@ function rememberPromptMetadata(key, result) {
 
 export async function loadPromptMetadata(item, options = {}) {
   if (!item?.key) {
-    return { seed: "", positive: "", negative: "", resources: [], status: "No media item selected." };
+    return {
+      seed: "",
+      positive: "",
+      negative: "",
+      resources: [],
+      details: [],
+      embeddedJson: {},
+      status: "No media item selected.",
+    };
   }
 
   const fullScan = options.fullScan === true;
@@ -72,6 +80,7 @@ function emptyMetadataResult(status, options = {}) {
     negative: "",
     resources: [],
     details: [],
+    embeddedJson: {},
     status,
     requiresFullScan: options.requiresFullScan === true,
   };
@@ -89,7 +98,8 @@ function metadataFound(result) {
     || result?.positive
     || result?.negative
     || result?.resources?.length
-    || result?.details?.length,
+    || result?.details?.length
+    || Object.keys(result?.embeddedJson || {}).length
   );
 }
 
@@ -237,7 +247,6 @@ function extractPromptMetadata(chunks) {
     ...(fromDefinitions.resources || []),
   ]);
   const resources = mergeResourceEntriesByLabel(fromPrompt.resources || [], workflowResources);
-  const source = fromPrompt.source || fromWorkflow.source || fromDefinitions.source || fromChunks.source || "";
   const graphDetails = mergeMetadataDetailsByLabel(
     mergeMetadataDetailsByLabel(fromPrompt.details || [], fromWorkflow.details || []),
     fromDefinitions.details || [],
@@ -246,7 +255,13 @@ function extractPromptMetadata(chunks) {
     ...graphDetails,
     ...(fromChunks.details || []),
   ]);
-  const found = seed || positive || negative || resources.length || details.length;
+  const embeddedJson = collectEmbeddedJson(chunks);
+  const found = seed
+    || positive
+    || negative
+    || resources.length
+    || details.length
+    || Object.keys(embeddedJson).length;
 
   return {
     seed,
@@ -254,11 +269,42 @@ function extractPromptMetadata(chunks) {
     negative,
     resources,
     details,
-    status: found
-      ? `Loaded embedded ${source || "prompt"} metadata.`
-      : "No prompt or seed metadata found in embedded metadata.",
+    embeddedJson,
+    status: found ? "" : "No prompt or seed metadata found in embedded metadata.",
     requiresFullScan: false,
   };
+}
+
+function collectEmbeddedJson(chunks) {
+  const entries = Object.create(null);
+  const seenValues = new Set();
+
+  for (const [key, value] of Object.entries(chunks || {})) {
+    const parsed = parseJsonMetadata(value);
+    if (!parsed || typeof parsed !== "object") continue;
+
+    let serialized;
+    try {
+      serialized = JSON.stringify(parsed);
+    } catch {
+      continue;
+    }
+    if (!serialized || seenValues.has(serialized)) continue;
+
+    seenValues.add(serialized);
+    entries[String(key)] = parsed;
+
+    for (const child of Object.values(parsed)) {
+      if (!child || typeof child !== "object") continue;
+      try {
+        seenValues.add(JSON.stringify(child));
+      } catch {
+        // The parent value is still safe to include if an unusual child cannot be serialized alone.
+      }
+    }
+  }
+
+  return entries;
 }
 
 function uniqueNonEmpty(values) {
