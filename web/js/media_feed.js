@@ -1257,7 +1257,7 @@ function handleViewerWheel(event) {
   viewerWheelLock = true;
   window.setTimeout(() => {
     viewerWheelLock = false;
-  }, 180);
+  }, 70);
 
   const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
   showViewerRelative(dominantDelta > 0 ? 1 : -1);
