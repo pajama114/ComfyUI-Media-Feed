@@ -278,10 +278,6 @@ export function ensureMediaFeedStyles({
       display: block;
     }
 
-    .cmf-root[data-feed-style="frameless"] .cmf-jump {
-      display: none;
-    }
-
     .cmf-root[data-feed-style="frameless"] .cmf-title {
       display: none;
     }
