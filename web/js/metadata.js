@@ -232,10 +232,11 @@ function extractPromptMetadata(chunks) {
   const seed = fromPrompt.seed || fromWorkflow.seed || fromDefinitions.seed || fromChunks.seed || "";
   const positive = fromPrompt.positive || fromWorkflow.positive || fromDefinitions.positive || "";
   const negative = fromPrompt.negative || fromWorkflow.negative || fromDefinitions.negative || "";
-  const resources = formatResourceEntries([
+  const workflowResources = formatResourceEntries([
     ...(fromWorkflow.resources || []),
     ...(fromDefinitions.resources || []),
   ]);
+  const resources = mergeResourceEntriesByLabel(fromPrompt.resources || [], workflowResources);
   const source = fromPrompt.source || fromWorkflow.source || fromDefinitions.source || fromChunks.source || "";
   const graphDetails = mergeMetadataDetailsByLabel(
     mergeMetadataDetailsByLabel(fromPrompt.details || [], fromWorkflow.details || []),
@@ -408,6 +409,18 @@ function formatResourceEntries(entries) {
 
   results.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
   return results.map(({ label, value }) => ({ label, value }));
+}
+
+function mergeResourceEntriesByLabel(primary, fallback) {
+  const primaryLabels = new Set(
+    (primary || [])
+      .map((entry) => String(entry?.label || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return formatResourceEntries([
+    ...(primary || []),
+    ...(fallback || []).filter((entry) => !primaryLabels.has(String(entry?.label || "").trim().toLowerCase())),
+  ]);
 }
 
 function mergeMetadataDetailsByLabel(primary, fallback) {
@@ -974,6 +987,26 @@ function collectPromptMetadataEntries(prompt) {
   return entries;
 }
 
+function collectPromptResourceEntries(prompt) {
+  const entries = [];
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return entries;
+
+  for (const node of Object.values(prompt)) {
+    const nodeClass = promptNodeClass(node);
+    if (!/checkpoint|unetloader|diffusion/i.test(nodeClass)) continue;
+
+    for (const [name, value] of Object.entries(node?.inputs || {})) {
+      if (!/^(ckpt|ckpt_name|checkpoint|checkpoint_name|model_name|unet_name|diffusion_model_name)$/i.test(name)) continue;
+      if (isPromptLink(value)) continue;
+
+      const checkpoint = resourceBasename(value);
+      if (checkpoint) addResourceEntry(entries, "Checkpoint", checkpoint);
+    }
+  }
+
+  return formatResourceEntries(entries);
+}
+
 function collectPromptNodeTexts(prompt, reference, visited = new Set(), forceText = false, polarity = "") {
   if (!prompt || !isPromptLink(reference)) return [];
 
@@ -1029,6 +1062,7 @@ function extractFromPromptGraph(prompt) {
   const positives = [];
   const negatives = [];
   const seedEntries = collectPromptSeedEntries(prompt);
+  const resources = collectPromptResourceEntries(prompt);
   const details = collectPromptMetadataEntries(prompt);
 
   for (const node of Object.values(prompt)) {
@@ -1049,8 +1083,9 @@ function extractFromPromptGraph(prompt) {
     seed: formatSeedEntries(seedEntries),
     positive: joinPrompts(positives),
     negative: joinPrompts(negatives),
+    resources,
     details,
-    source: seedEntries.length || positives.length || negatives.length || details.length ? "prompt" : "",
+    source: seedEntries.length || positives.length || negatives.length || resources.length || details.length ? "prompt" : "",
   };
 }
 
