@@ -20,6 +20,12 @@ const CARD_TOP_OFFSET = 10;
 const OVERSCAN = 5;
 const FALLBACK_PANEL_EXTRA_HEIGHT = 80;
 const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
+const FALLBACK_EDGE_GAP = 12;
+const FALLBACK_MIN_LEFT_INSET = 76;
+const FALLBACK_MIN_RIGHT_INSET = 12;
+const FALLBACK_MIN_BOTTOM_INSET = 12;
+const FALLBACK_MIN_TOP_INSET = 118;
+const FALLBACK_MIN_BOTTOM_RIGHT_INSET = 300;
 const DEFAULT_PLACEMENT = "bottom";
 const DEFAULT_SHOW_PROMPTS = true;
 const DEFAULT_SCALE_VIEWER_MEDIA = false;
@@ -83,6 +89,11 @@ const state = {
 const decodedImageCache = new Map();
 const mediaDimensionCache = new Map();
 let floatingView = null;
+let floatingWorkspaceResizeObserver = null;
+let floatingWorkspaceMutationObserver = null;
+let floatingWorkspaceElement = null;
+let floatingBoundsAnimationFrame = 0;
+let floatingBoundsWindowListenerAdded = false;
 let setupComplete = false;
 let placementSettingSeen = false;
 let promptSettingSeen = false;
@@ -2077,9 +2088,72 @@ function createFloatingPanel() {
   return view;
 }
 
+function floatingWorkspaceTarget() {
+  const graphPanel = document.querySelector(".graph-canvas-panel");
+  if (graphPanel instanceof Element) return graphPanel;
+
+  const canvas = app.canvas?.canvas;
+  return canvas instanceof Element ? canvas : null;
+}
+
+function updateFloatingPanelBounds() {
+  floatingBoundsAnimationFrame = 0;
+  const root = floatingView?.root;
+  const target = floatingWorkspaceTarget();
+  if (!root || !target) return;
+
+  const rect = target.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+
+  const leftInset = Math.max(FALLBACK_MIN_LEFT_INSET, rect.left + FALLBACK_EDGE_GAP);
+  const rightInset = Math.max(FALLBACK_MIN_RIGHT_INSET, window.innerWidth - rect.right + FALLBACK_EDGE_GAP);
+  const bottomInset = Math.max(FALLBACK_MIN_BOTTOM_INSET, window.innerHeight - rect.bottom + FALLBACK_EDGE_GAP);
+  const topInset = Math.max(FALLBACK_MIN_TOP_INSET, rect.top + FALLBACK_EDGE_GAP);
+
+  root.style.setProperty("--cmf-safe-left", `${Math.round(leftInset)}px`);
+  root.style.setProperty("--cmf-edge-right", `${Math.round(rightInset)}px`);
+  root.style.setProperty(
+    "--cmf-safe-right",
+    `${Math.round(FALLBACK_MIN_BOTTOM_RIGHT_INSET + rightInset - FALLBACK_MIN_RIGHT_INSET)}px`,
+  );
+  root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
+  root.style.setProperty("--cmf-safe-top", `${Math.round(topInset)}px`);
+}
+
+function scheduleFloatingPanelBoundsUpdate() {
+  if (floatingBoundsAnimationFrame) return;
+  floatingBoundsAnimationFrame = window.requestAnimationFrame(updateFloatingPanelBounds);
+}
+
+function watchFloatingPanelBounds() {
+  const target = floatingWorkspaceTarget();
+  if (target !== floatingWorkspaceElement) {
+    floatingWorkspaceResizeObserver?.disconnect();
+    floatingWorkspaceElement = target;
+    floatingWorkspaceResizeObserver = target
+      ? new ResizeObserver(scheduleFloatingPanelBoundsUpdate)
+      : null;
+    floatingWorkspaceResizeObserver?.observe(target);
+  }
+
+  if (!floatingBoundsWindowListenerAdded) {
+    window.addEventListener("resize", scheduleFloatingPanelBoundsUpdate, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleFloatingPanelBoundsUpdate, { passive: true });
+    floatingBoundsWindowListenerAdded = true;
+  }
+  if (!floatingWorkspaceMutationObserver) {
+    floatingWorkspaceMutationObserver = new MutationObserver(() => {
+      if (floatingWorkspaceTarget() !== floatingWorkspaceElement) watchFloatingPanelBounds();
+    });
+    floatingWorkspaceMutationObserver.observe(document.body, { childList: true, subtree: true });
+  }
+  scheduleFloatingPanelBoundsUpdate();
+}
+
 function syncFloatingPanel() {
   const view = createFloatingPanel();
   if (!view) return;
+  watchFloatingPanelBounds();
   applyFallbackPlacement(view.root);
   updateView(view, false);
 }

@@ -30,6 +30,7 @@ export function ensureMediaFeedStyles({
       --cmf-viewport-height: ${viewportHeight}px;
       --cmf-safe-left: 76px;
       --cmf-safe-right: 300px;
+      --cmf-edge-right: 12px;
       --cmf-safe-top: 118px;
       --cmf-placement-top: calc(var(--cmf-safe-top) + 13px);
       --cmf-side-outset: 5px;
@@ -59,7 +60,7 @@ export function ensureMediaFeedStyles({
     .cmf-root.cmf-fallback[data-orientation="horizontal"] {
       left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
       height: auto;
-      max-height: calc(100vh - var(--cmf-placement-top) - 24px);
+      max-height: calc(100vh - var(--cmf-placement-top) - var(--cmf-safe-bottom) - 12px);
       min-height: 0;
     }
 
@@ -70,7 +71,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-placement="top"] {
       top: calc(var(--cmf-placement-top) - 30px);
-      right: calc(12px - var(--cmf-side-outset));
+      right: calc(var(--cmf-edge-right) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-placement="top"]:not([data-collapsed="true"]) .cmf-collapse {
@@ -86,13 +87,13 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-placement="left"] {
       top: calc(var(--cmf-placement-top) - 30px);
-      bottom: 24px;
+      bottom: var(--cmf-safe-bottom);
       left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-placement="right"] {
-      right: calc(12px - var(--cmf-side-outset));
-      bottom: calc(var(--cmf-minimap-height) - var(--cmf-right-bottom-extension));
+      right: calc(var(--cmf-edge-right) - var(--cmf-side-outset));
+      bottom: max(var(--cmf-safe-bottom), calc(var(--cmf-minimap-height) - var(--cmf-right-bottom-extension)));
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar {
@@ -187,7 +188,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="right"] {
       top: var(--cmf-placement-top);
-      right: calc(12px - var(--cmf-side-outset));
+      right: calc(var(--cmf-edge-right) - var(--cmf-side-outset));
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
@@ -200,8 +201,8 @@ export function ensureMediaFeedStyles({
 
     @media (max-width: 980px) {
       .cmf-root.cmf-fallback[data-orientation="horizontal"] {
-        right: 12px;
-        left: 64px;
+        right: max(12px, calc(var(--cmf-edge-right) - var(--cmf-side-outset)));
+        left: max(64px, calc(var(--cmf-safe-left) - var(--cmf-side-outset)));
       }
     }
 
