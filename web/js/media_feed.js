@@ -15,8 +15,9 @@ const MIN_ITEM_HEIGHT = 96;
 const MAX_ITEM_HEIGHT = 220;
 const ITEM_GAP = 8;
 const SCROLLBAR_SPACE = 14;
-const RAIL_PADDING = 12;
+const RAIL_PADDING = 4;
 const CARD_TOP_OFFSET = 10;
+const DEFAULT_CARD_TOP_OFFSET = 2;
 const OVERSCAN = 5;
 const FALLBACK_PANEL_EXTRA_HEIGHT = 80;
 const FALLBACK_ROOT_ID = "comfy-media-feed-fallback";
@@ -298,12 +299,20 @@ function viewPitch(view) {
   return (isVerticalView(view) ? state.itemHeight : state.itemWidth) + ITEM_GAP;
 }
 
+function feedRailPadding() {
+  return RAIL_PADDING;
+}
+
+function feedCardTopOffset() {
+  return state.feedStyle === "default" ? DEFAULT_CARD_TOP_OFFSET : CARD_TOP_OFFSET;
+}
+
 function viewportHeight() {
-  return state.itemHeight + CARD_TOP_OFFSET + SCROLLBAR_SPACE;
+  return state.itemHeight + feedCardTopOffset() + SCROLLBAR_SPACE;
 }
 
 function railHeight() {
-  return state.itemHeight + CARD_TOP_OFFSET;
+  return state.itemHeight + feedCardTopOffset();
 }
 
 function fallbackPanelHeight() {
@@ -312,7 +321,7 @@ function fallbackPanelHeight() {
 
 function horizontalContentWidth(itemCount) {
   if (!itemCount) return 0;
-  return RAIL_PADDING * 2 + itemCount * state.itemWidth + (itemCount - 1) * ITEM_GAP;
+  return feedRailPadding() * 2 + itemCount * state.itemWidth + (itemCount - 1) * ITEM_GAP;
 }
 
 function normalizeThumbnailHeight(nextHeight) {
@@ -689,7 +698,7 @@ function ensureStyles() {
     panelHeight: fallbackPanelHeight(),
     railHeight: railHeight(),
     viewportHeight: viewportHeight(),
-    cardTopOffset: CARD_TOP_OFFSET,
+    cardTopOffset: feedCardTopOffset(),
   });
 }
 
@@ -2318,6 +2327,7 @@ function applyViewSizing(view) {
   view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
   view.root.style.setProperty("--cmf-rail-height", `${railHeight()}px`);
   view.root.style.setProperty("--cmf-viewport-height", `${viewportHeight()}px`);
+  view.root.style.setProperty("--cmf-card-top-offset", `${feedCardTopOffset()}px`);
   view.sizeSlider.value = String(state.itemHeight);
 }
 
@@ -2397,7 +2407,7 @@ function updateView(view, scrollToLatest, prependedCount = 0, scrollPosition = n
   const vertical = isVerticalView(view);
 
   if (vertical) {
-    const totalHeight = Math.max(view.viewport.clientHeight, RAIL_PADDING * 2 + items.length * pitch);
+    const totalHeight = Math.max(view.viewport.clientHeight, feedRailPadding() * 2 + items.length * pitch);
     view.rail.style.width = "100%";
     view.rail.style.height = `${totalHeight}px`;
     view.root.dataset.scrollable = String(totalHeight > view.viewport.clientHeight + 1);
@@ -2485,8 +2495,9 @@ function renderVisibleItems(view) {
   const viewportSize = vertical ? view.viewport.clientHeight || 1 : view.viewport.clientWidth || 1;
   const scrollOffset = vertical ? view.viewport.scrollTop : view.viewport.scrollLeft;
   const pitch = viewPitch(view);
-  const rawStart = Math.floor((scrollOffset - RAIL_PADDING) / pitch) - OVERSCAN;
-  const rawEnd = Math.ceil((scrollOffset + viewportSize - RAIL_PADDING) / pitch) + OVERSCAN;
+  const railPadding = feedRailPadding();
+  const rawStart = Math.floor((scrollOffset - railPadding) / pitch) - OVERSCAN;
+  const rawEnd = Math.ceil((scrollOffset + viewportSize - railPadding) / pitch) + OVERSCAN;
   const start = Math.max(0, rawStart);
   const end = Math.min(items.length, rawEnd);
   const rangeKey = `${state.filter}:${vertical ? "vertical" : "horizontal"}:${items.length}:${start}:${end}`;
@@ -2507,8 +2518,8 @@ function renderVisibleItems(view) {
       view.rail.appendChild(card);
     }
     card.style.transform = vertical
-      ? `translateY(${RAIL_PADDING + index * pitch}px)`
-      : `translateX(${RAIL_PADDING + index * pitch}px)`;
+      ? `translateY(${railPadding + index * pitch}px)`
+      : `translateX(${railPadding + index * pitch}px)`;
 
     if (index < items.length - 1) {
       visibleGapIds.add(item.id);
@@ -2523,8 +2534,8 @@ function renderVisibleItems(view) {
       gap.style.width = `${vertical ? state.itemWidth : ITEM_GAP}px`;
       gap.style.height = `${vertical ? ITEM_GAP : state.itemHeight}px`;
       gap.style.transform = vertical
-        ? `translateY(${RAIL_PADDING + index * pitch + state.itemHeight}px)`
-        : `translateX(${RAIL_PADDING + index * pitch + state.itemWidth}px)`;
+        ? `translateY(${railPadding + index * pitch + state.itemHeight}px)`
+        : `translateX(${railPadding + index * pitch + state.itemWidth}px)`;
     }
   }
 

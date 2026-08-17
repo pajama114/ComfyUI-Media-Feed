@@ -28,6 +28,7 @@ export function ensureMediaFeedStyles({
       --cmf-panel-height: ${panelHeight}px;
       --cmf-rail-height: ${railHeight}px;
       --cmf-viewport-height: ${viewportHeight}px;
+      --cmf-card-top-offset: ${cardTopOffset}px;
       --cmf-safe-left: 76px;
       --cmf-safe-right: 300px;
       --cmf-edge-right: 12px;
@@ -240,6 +241,11 @@ export function ensureMediaFeedStyles({
     .cmf-root[data-feed-style="default"] {
       border-radius: 8px;
       box-shadow: inset 0 0 0 1px var(--cmf-border);
+    }
+
+    .cmf-root[data-feed-style="default"] .cmf-viewport {
+      border-radius: 0;
+      background: transparent;
     }
 
     .cmf-root[data-feed-style="frameless"] {
@@ -617,7 +623,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-card {
       position: absolute;
-      top: ${cardTopOffset}px;
+      top: var(--cmf-card-top-offset);
       display: flex;
       flex-direction: column;
       width: var(--cmf-item-width);
@@ -632,7 +638,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-feed-gap {
       position: absolute;
-      top: ${cardTopOffset}px;
+      top: var(--cmf-card-top-offset);
       left: 0;
       pointer-events: none;
     }
