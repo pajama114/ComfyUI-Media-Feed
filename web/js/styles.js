@@ -105,8 +105,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-title {
-      flex: 1 1 auto;
-      order: 1;
+      display: none;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-collapse,
@@ -124,8 +123,13 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control {
-      flex: 1 1 100%;
-      order: 5;
+      flex: 1 1 0;
+      order: 1;
+      min-width: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control span {
+      display: none;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control input {
@@ -465,6 +469,22 @@ export function ensureMediaFeedStyles({
       flex: 1;
       min-width: 0;
       min-height: var(--cmf-viewport-height);
+    }
+
+    .cmf-feed-frame::before {
+      content: "";
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 1px;
+      background: color-mix(in srgb, var(--cmf-border) 75%, transparent);
+      pointer-events: none;
+    }
+
+    .cmf-root[data-feed-style="frameless"] .cmf-feed-frame::before {
+      display: none;
     }
 
     .cmf-root:not([data-orientation="vertical"]) .cmf-feed-frame {
