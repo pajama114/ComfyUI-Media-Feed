@@ -81,9 +81,11 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] {
       top: var(--cmf-placement-top);
-      width: clamp(196px, calc(var(--cmf-item-width) + 58px), 340px);
+      width: clamp(156px, calc(var(--cmf-item-width) + 28px), 260px);
       height: auto;
       min-height: 0;
+      padding-right: 6px;
+      padding-left: 6px;
     }
 
     .cmf-root.cmf-fallback[data-placement="left"] {
@@ -319,7 +321,6 @@ export function ensureMediaFeedStyles({
       padding-bottom: 0;
     }
 
-    .cmf-root[data-feed-style="frameless"][data-placement="top"],
     .cmf-root[data-feed-style="frameless"][data-placement="bottom"] {
       gap: 0;
     }

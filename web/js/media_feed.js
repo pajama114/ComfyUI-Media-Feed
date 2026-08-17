@@ -304,6 +304,7 @@ function feedRailPadding() {
 }
 
 function feedCardTopOffset() {
+  if (state.placement === "top") return DEFAULT_CARD_TOP_OFFSET;
   return state.feedStyle === "default" ? DEFAULT_CARD_TOP_OFFSET : CARD_TOP_OFFSET;
 }
 
