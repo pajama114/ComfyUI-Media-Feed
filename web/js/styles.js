@@ -1068,6 +1068,13 @@ export function ensureMediaFeedStyles({
       display: none;
     }
 
+    .cmf-prompt-panel[data-loading="true"] .cmf-prompt-status,
+    .cmf-prompt-panel[data-loading="true"] .cmf-scan-full-metadata,
+    .cmf-prompt-panel[data-loading="true"] .cmf-prompt-section {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
     .cmf-prompt-panel-title {
       margin: 0;
       font-size: 13px;

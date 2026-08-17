@@ -15,6 +15,12 @@ const PROMPT_AUDIO_EXTENSIONS = new Set(["flac", "m4a", "mp3", "ogg", "opus"]);
 const PROMPT_VIDEO_EXTENSIONS = new Set(["mp4", "m4v", "mov", "webm", "mkv"]);
 
 const promptMetadataCache = new Map();
+const pendingPromptMetadata = new Map();
+let promptMetadataCacheGeneration = 0;
+
+function promptMetadataCacheKey(item) {
+  return String(item?.id || item?.key || "");
+}
 
 function getExtension(filename) {
   const cleanName = String(filename || "").split(/[?#]/, 1)[0];
@@ -24,6 +30,8 @@ function getExtension(filename) {
 
 export function clearPromptMetadataCache() {
   promptMetadataCache.clear();
+  pendingPromptMetadata.clear();
+  promptMetadataCacheGeneration++;
 }
 
 function rememberPromptMetadata(key, result) {
@@ -36,6 +44,17 @@ function rememberPromptMetadata(key, result) {
     promptMetadataCache.delete(oldestKey);
   }
 
+  return result;
+}
+
+export function getCachedPromptMetadata(item) {
+  const key = promptMetadataCacheKey(item);
+  if (!key || !promptMetadataCache.has(key)) return null;
+
+  const result = promptMetadataCache.get(key);
+  // Refresh the entry's LRU position when it is used by the viewer.
+  promptMetadataCache.delete(key);
+  promptMetadataCache.set(key, result);
   return result;
 }
 
@@ -53,17 +72,34 @@ export async function loadPromptMetadata(item, options = {}) {
   }
 
   const fullScan = options.fullScan === true;
-  if (!fullScan && promptMetadataCache.has(item.key)) return promptMetadataCache.get(item.key);
-
-  const extension = getExtension(item.filename);
-  if (!supportsPromptMetadata(extension)) {
-    return rememberPromptMetadata(item.key, unsupportedMetadataResult());
+  const cacheKey = promptMetadataCacheKey(item);
+  if (!fullScan) {
+    const cached = getCachedPromptMetadata(item);
+    if (cached) return cached;
+    if (pendingPromptMetadata.has(cacheKey)) return pendingPromptMetadata.get(cacheKey);
   }
 
-  const result = fullScan
-    ? await scanFullMetadata(item.url, extension)
-    : await scanMetadataRanges(item.url, extension);
-  return rememberPromptMetadata(item.key, result);
+  const cacheGeneration = promptMetadataCacheGeneration;
+  const request = (async () => {
+    const extension = getExtension(item.filename);
+    const result = !supportsPromptMetadata(extension)
+      ? unsupportedMetadataResult()
+      : fullScan
+        ? await scanFullMetadata(item.url, extension)
+        : await scanMetadataRanges(item.url, extension);
+    return cacheGeneration === promptMetadataCacheGeneration
+      ? rememberPromptMetadata(cacheKey, result)
+      : result;
+  })();
+
+  if (!fullScan) pendingPromptMetadata.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    if (!fullScan && pendingPromptMetadata.get(cacheKey) === request) {
+      pendingPromptMetadata.delete(cacheKey);
+    }
+  }
 }
 
 function supportsPromptMetadata(extension) {

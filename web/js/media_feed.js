@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ICONS } from "./icons.js";
-import { clearPromptMetadataCache, loadPromptMetadata } from "./metadata.js";
+import { clearPromptMetadataCache, getCachedPromptMetadata, loadPromptMetadata } from "./metadata.js";
 import { ensureMediaFeedStyles } from "./styles.js";
 
 const EXTENSION_NAME = "comfyui.media_feed";
@@ -42,6 +42,7 @@ const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
 const VIEWER_IMAGE_MIN_ZOOM = 0.25;
 const VIEWER_IMAGE_MAX_ZOOM = 8;
 const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
+const VIEWER_METADATA_LOADING_DELAY_MS = 120;
 const SIDE_PLACEMENTS = new Set(["left", "right"]);
 const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 const METADATA_POSITIONS = new Set(["left", "right"]);
@@ -254,6 +255,10 @@ function addItems(items) {
     visibleFreshCount > 0 && state.followLatest && !isViewerOpen(),
     state.followLatest ? 0 : visibleFreshCount,
   );
+  if (isViewerOpen() && state.showPrompts) {
+    const newestImage = freshItems.find((item) => item.kind === "image");
+    if (newestImage) prefetchPromptMetadata(newestImage);
+  }
   syncViewerItems();
 }
 
@@ -1075,9 +1080,12 @@ function ensureViewer() {
     prevButton: root.querySelector(".cmf-nav-prev"),
     nextButton: root.querySelector(".cmf-nav-next"),
     promptRequestId: 0,
+    promptLoadingTimer: 0,
     renderRequestId: 0,
-    lastPromptMetadataItemKey: "",
+    lastPromptMetadataItemId: "",
     lastMetadataDetails: [],
+    pendingPromptMetadataResult: null,
+    mediaReadyItemId: "",
     pendingMedia: null,
     item: null,
     items: [],
@@ -1121,6 +1129,7 @@ function closeViewer() {
   viewer.root.dataset.open = "false";
   viewer.promptRequestId++;
   viewer.renderRequestId++;
+  clearViewerPromptLoadingTimer();
   viewer.body.dataset.prompts = "false";
   viewer.promptPanel.hidden = true;
   discardStagedMedia(viewer.pendingMedia);
@@ -1170,14 +1179,21 @@ function syncViewerItems() {
 
   const items = filteredItems();
   const index = items.findIndex((current) => current.key === viewer.item.key);
+  let replacedCurrentItem = false;
   viewer.items = items;
   if (index !== -1) {
+    replacedCurrentItem = viewer.item.id !== items[index].id;
     viewer.index = index;
     viewer.item = items[index];
   } else {
     viewer.index = Math.min(viewer.index, Math.max(0, items.length - 1));
   }
   syncViewerNav();
+
+  if (replacedCurrentItem) {
+    renderViewerItem(viewer.item);
+    updateViewerPromptPanel();
+  }
 }
 
 function handleViewerControlKeydown(event) {
@@ -1531,6 +1547,7 @@ async function renderViewerItem(item, thumbnail) {
   discardStagedMedia(currentViewer.pendingMedia);
   currentViewer.pendingMedia = null;
   currentViewer.item = item;
+  currentViewer.mediaReadyItemId = "";
   resetViewerImageView();
   currentViewer.title.textContent = item.filename;
   currentViewer.openLink.href = item.url;
@@ -1552,6 +1569,8 @@ async function renderViewerItem(item, thumbnail) {
       currentViewer.media.replaceChildren(image);
       updateViewerImageLayout();
       rememberDecodedImage(item.url, image);
+      rememberMediaDimensions(item, image);
+      currentViewer.mediaReadyItemId = item.id;
       refreshViewerPromptPanelDetails();
       return;
     }
@@ -1564,6 +1583,8 @@ async function renderViewerItem(item, thumbnail) {
       currentViewer.media.replaceChildren(image);
       updateViewerImageLayout();
       rememberDecodedImage(item.url, image);
+      rememberMediaDimensions(item, image);
+      currentViewer.mediaReadyItemId = item.id;
       refreshViewerPromptPanelDetails();
       return;
     }
@@ -1574,6 +1595,8 @@ async function renderViewerItem(item, thumbnail) {
     currentViewer.media.replaceChildren(image);
     updateViewerImageLayout();
     rememberDecodedImage(item.url, image);
+    rememberMediaDimensions(item, image);
+    currentViewer.mediaReadyItemId = item.id;
     refreshViewerPromptPanelDetails();
     return;
   }
@@ -1590,7 +1613,6 @@ async function renderViewerItem(item, thumbnail) {
       rememberMediaDimensions(item, video);
       if (isCurrentViewerRender(currentViewer, requestId, item)) {
         updateViewerImageLayout();
-        refreshViewerPromptPanelDetails();
       }
     }, { once: true });
     video.src = item.url;
@@ -1605,6 +1627,7 @@ async function renderViewerItem(item, thumbnail) {
     currentViewer.pendingMedia = null;
     replaceViewerMedia(currentViewer, video);
     updateViewerImageLayout();
+    currentViewer.mediaReadyItemId = item.id;
     refreshViewerPromptPanelDetails();
     return;
   }
@@ -1627,13 +1650,19 @@ async function renderViewerItem(item, thumbnail) {
   currentViewer.pendingMedia = null;
   replaceViewerMedia(currentViewer, audio);
   updateViewerImageLayout();
+  currentViewer.mediaReadyItemId = item.id;
 }
 
 function resetViewerPromptPanel(status = "") {
   if (!viewer) return;
+  clearViewerPromptLoadingTimer();
+  viewer.promptPanel.dataset.loading = "false";
+  viewer.promptPanel.dataset.rendered = "false";
+  viewer.promptPanel.setAttribute("aria-busy", "false");
   viewer.lastPromptMetadata = null;
-  viewer.lastPromptMetadataItemKey = "";
+  viewer.lastPromptMetadataItemId = "";
   viewer.lastMetadataDetails = [];
+  viewer.pendingPromptMetadataResult = null;
   viewer.promptStatus.textContent = status;
   viewer.scanFullMetadataButton.hidden = true;
   viewer.scanFullMetadataButton.disabled = false;
@@ -1646,6 +1675,56 @@ function resetViewerPromptPanel(status = "") {
   viewer.promptSeed.textContent = "";
   viewer.promptPositive.textContent = "";
   viewer.promptNegative.textContent = "";
+}
+
+function clearViewerPromptLoadingTimer() {
+  if (!viewer?.promptLoadingTimer) return;
+  window.clearTimeout(viewer.promptLoadingTimer);
+  viewer.promptLoadingTimer = 0;
+}
+
+function beginViewerPromptPanelLoading() {
+  if (!viewer) return;
+
+  const hasRenderedMetadata = viewer.promptPanel.dataset.rendered === "true";
+  if (!hasRenderedMetadata) resetViewerPromptPanel();
+  clearViewerPromptLoadingTimer();
+  viewer.lastPromptMetadata = null;
+  viewer.lastPromptMetadataItemId = "";
+  viewer.lastMetadataDetails = [];
+  viewer.pendingPromptMetadataResult = null;
+  viewer.promptStatus.textContent = "";
+  viewer.scanFullMetadataButton.hidden = true;
+  viewer.scanFullMetadataButton.disabled = false;
+  viewer.copyAllMetadataButton.disabled = true;
+  viewer.downloadMetadataButton.disabled = true;
+  viewer.promptPanel.setAttribute("aria-busy", "true");
+  if (!hasRenderedMetadata) {
+    viewer.promptPanel.dataset.loading = "true";
+    return;
+  }
+
+  // Fast local Range reads usually finish before this delay. Keeping the
+  // existing layout until then avoids a blank intermediate frame.
+  viewer.promptPanel.dataset.loading = "false";
+  viewer.promptLoadingTimer = window.setTimeout(() => {
+    viewer.promptLoadingTimer = 0;
+    if (viewer?.promptPanel.getAttribute("aria-busy") === "true") {
+      viewer.promptPanel.dataset.loading = "true";
+    }
+  }, VIEWER_METADATA_LOADING_DELAY_MS);
+}
+
+function prefetchPromptMetadata(item) {
+  if (!item || item.kind !== "image" || getCachedPromptMetadata(item)) return;
+  loadPromptMetadata(item).catch(() => {});
+}
+
+function prefetchAdjacentViewerPromptMetadata() {
+  if (!viewer || !state.showPrompts || viewer.root.dataset.open !== "true") return;
+  for (const index of [viewer.index - 1, viewer.index + 1]) {
+    if (index >= 0 && index < viewer.items.length) prefetchPromptMetadata(viewer.items[index]);
+  }
 }
 
 function currentViewerMediaDetails() {
@@ -1698,9 +1777,28 @@ function appendMetadataDetails(details, fallbackDetails, preferredLabels = []) {
 }
 
 function refreshViewerPromptPanelDetails() {
+  const pending = viewer?.pendingPromptMetadataResult;
+  if (pending && pending.itemId === viewer.item?.id && viewer.mediaReadyItemId === pending.itemId) {
+    viewer.pendingPromptMetadataResult = null;
+    renderPromptMetadata(pending.result, pending.itemId);
+    return;
+  }
+
   if (!viewer?.lastPromptMetadata || viewer.root.dataset.open !== "true") return;
-  if (viewer.lastPromptMetadataItemKey !== viewer.item?.key) return;
+  if (viewer.lastPromptMetadataItemId !== viewer.item?.id) return;
   renderPromptMetadata(viewer.lastPromptMetadata);
+}
+
+function renderPromptMetadataWhenMediaReady(result, item) {
+  if (!viewer || viewer.item?.id !== item?.id) return;
+  const needsMediaDetails = item.kind === "image" || item.kind === "video";
+  if (needsMediaDetails && viewer.mediaReadyItemId !== item.id) {
+    viewer.pendingPromptMetadataResult = { result, itemId: item.id };
+    return;
+  }
+
+  viewer.pendingPromptMetadataResult = null;
+  renderPromptMetadata(result, item.id);
 }
 
 function appendMetadataChips(grid, entries, chipClassName, labelClassName, options = {}) {
@@ -1721,10 +1819,14 @@ function appendMetadataChips(grid, entries, chipClassName, labelClassName, optio
   }
 }
 
-function renderPromptMetadata(result, itemKey = viewer?.item?.key || "") {
+function renderPromptMetadata(result, itemId = viewer?.item?.id || "") {
   if (!viewer) return;
+  clearViewerPromptLoadingTimer();
+  viewer.promptPanel.dataset.loading = "false";
+  viewer.promptPanel.dataset.rendered = "true";
+  viewer.promptPanel.setAttribute("aria-busy", "false");
   viewer.lastPromptMetadata = result;
-  viewer.lastPromptMetadataItemKey = itemKey;
+  viewer.lastPromptMetadataItemId = itemId;
   viewer.promptStatus.textContent = result.status || "";
   viewer.scanFullMetadataButton.hidden = !result.requiresFullScan;
   viewer.scanFullMetadataButton.disabled = false;
@@ -1774,10 +1876,10 @@ async function scanFullViewerMetadata(event) {
 
   try {
     const result = await loadPromptMetadata(item, { fullScan: true });
-    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.key !== item.key) return;
-    renderPromptMetadata(result, item.key);
+    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.id !== item.id) return;
+    renderPromptMetadata(result, item.id);
   } catch {
-    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.key !== item.key) return;
+    if (!viewer || viewer !== currentViewer || requestId !== currentViewer.promptRequestId || currentViewer.item?.id !== item.id) return;
     renderPromptMetadata({
       seed: "",
       positive: "",
@@ -1786,7 +1888,7 @@ async function scanFullViewerMetadata(event) {
       details: [],
       status: "Could not read embedded prompt metadata.",
       requiresFullScan: false,
-    }, item.key);
+    }, item.id);
   }
 }
 
@@ -1805,23 +1907,31 @@ function updateViewerPromptPanel() {
   }
 
   const requestId = viewer.promptRequestId;
-  resetViewerPromptPanel("Loading embedded prompt metadata...");
+  const cached = getCachedPromptMetadata(item);
+  if (cached) {
+    renderPromptMetadataWhenMediaReady(cached, item);
+    prefetchAdjacentViewerPromptMetadata();
+    return;
+  }
+
+  beginViewerPromptPanelLoading();
 
   loadPromptMetadata(item)
     .then((result) => {
-      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
-      renderPromptMetadata(result, item.key);
+      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.id !== item.id) return;
+      renderPromptMetadataWhenMediaReady(result, item);
+      prefetchAdjacentViewerPromptMetadata();
     })
     .catch(() => {
-      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.key !== item.key) return;
-      renderPromptMetadata({
+      if (!viewer || requestId !== viewer.promptRequestId || viewer.item?.id !== item.id) return;
+      renderPromptMetadataWhenMediaReady({
         seed: "",
         positive: "",
         negative: "",
         resources: [],
         details: [],
         status: "Could not read embedded prompt metadata.",
-      }, item.key);
+      }, item);
     });
 }
 
@@ -1938,6 +2048,7 @@ function createCard(item) {
     card.thumbnailResizeObserver = thumbnailResizeObserver;
     image.addEventListener("load", () => {
       rememberDecodedImage(item.url, image);
+      rememberMediaDimensions(item, image);
       fitThumbnailMedia(image, preview);
     }, { once: true });
     preview.appendChild(image);
