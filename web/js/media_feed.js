@@ -29,10 +29,15 @@ const FALLBACK_MIN_TOP_INSET = 118;
 const FALLBACK_MIN_BOTTOM_RIGHT_INSET = 300;
 const FALLBACK_MIN_RIGHT_BOTTOM_INSET = 280;
 const FLOATING_CANVAS_CONTROLS_MARGIN = 5;
+const FLOATING_TOP_PROGRESS_MARGIN = 5;
 const FLOATING_CANVAS_CONTROLS_SELECTOR = [
   ".minimap-main-container",
   "[data-testid='minimap-container']",
   "[data-testid='toggle-minimap-button']",
+].join(", ");
+const FLOATING_TOP_PROGRESS_SELECTOR = [
+  "[data-testid='action-bar-card']",
+  "[data-testid='queue-progress-overlay']",
 ].join(", ");
 const DEFAULT_PLACEMENT = "bottom";
 const DEFAULT_SHOW_PROMPTS = true;
@@ -103,6 +108,8 @@ let floatingWorkspaceMutationObserver = null;
 let floatingWorkspaceElement = null;
 let floatingCanvasControlsResizeObserver = null;
 let floatingCanvasControlsElements = [];
+let floatingTopProgressResizeObserver = null;
+let floatingTopProgressElements = [];
 let floatingBoundsAnimationFrame = 0;
 let floatingBoundsWindowListenerAdded = false;
 let setupComplete = false;
@@ -2387,6 +2394,70 @@ function mutationChangesFloatingCanvasControls(mutation) {
     .some(nodeContainsFloatingCanvasControls);
 }
 
+function floatingTopProgressTargets() {
+  return [
+    document.querySelector("[data-testid='action-bar-card']"),
+    document.querySelector("[data-testid='queue-progress-overlay']"),
+  ].filter((element) => element instanceof Element);
+}
+
+function floatingTopProgressLeft() {
+  const actionBar = document.querySelector("[data-testid='action-bar-card']");
+  const progress = document.querySelector("[data-testid='queue-progress-overlay']");
+  const progressRect = progress?.getBoundingClientRect();
+  if (progressRect?.width > 0 && progressRect.height > 0) return progressRect.left;
+
+  const actionBarRect = actionBar?.getBoundingClientRect();
+  if (!actionBarRect?.width || !actionBarRect.height) return null;
+
+  const hiddenProgressWidth = Number.parseFloat(progress ? getComputedStyle(progress).width : "");
+  return Number.isFinite(hiddenProgressWidth) && hiddenProgressWidth > 0
+    ? actionBarRect.right - hiddenProgressWidth
+    : actionBarRect.left;
+}
+
+function refreshFloatingTopProgressObserver() {
+  const elements = floatingTopProgressTargets();
+  const unchanged = elements.length === floatingTopProgressElements.length
+    && elements.every((element, index) => element === floatingTopProgressElements[index]);
+  if (unchanged) return;
+
+  floatingTopProgressResizeObserver?.disconnect();
+  floatingTopProgressElements = elements;
+  floatingTopProgressResizeObserver = elements.length
+    ? new ResizeObserver(scheduleFloatingPanelBoundsUpdate)
+    : null;
+  for (const element of elements) floatingTopProgressResizeObserver?.observe(element);
+}
+
+function nodeContainsFloatingTopProgress(node) {
+  if (!(node instanceof Element)) return false;
+  return node.matches(FLOATING_TOP_PROGRESS_SELECTOR)
+    || Boolean(node.querySelector(FLOATING_TOP_PROGRESS_SELECTOR));
+}
+
+function mutationChangesFloatingTopProgress(mutation) {
+  return [...mutation.addedNodes, ...mutation.removedNodes]
+    .some(nodeContainsFloatingTopProgress);
+}
+
+function updateFloatingTopControlsInset(root) {
+  if (root.dataset.placement !== "top" || window.matchMedia("(max-width: 720px)").matches) {
+    root.style.removeProperty("--cmf-top-controls-inset");
+    return;
+  }
+
+  const progressLeft = floatingTopProgressLeft();
+  const toolbarRect = root.querySelector(".cmf-toolbar")?.getBoundingClientRect();
+  if (!Number.isFinite(progressLeft) || !toolbarRect?.width) {
+    root.style.removeProperty("--cmf-top-controls-inset");
+    return;
+  }
+
+  const reservedInset = Math.max(0, toolbarRect.right - progressLeft + FLOATING_TOP_PROGRESS_MARGIN);
+  root.style.setProperty("--cmf-top-controls-inset", `${Math.ceil(reservedInset)}px`);
+}
+
 function updateFloatingPanelBounds() {
   floatingBoundsAnimationFrame = 0;
   const root = floatingView?.root;
@@ -2416,6 +2487,7 @@ function updateFloatingPanelBounds() {
   // Bottom and right placements additionally hug the measured canvas controls.
   root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
   root.style.setProperty("--cmf-safe-top", `${FALLBACK_MIN_TOP_INSET}px`);
+  updateFloatingTopControlsInset(root);
 }
 
 function scheduleFloatingPanelBoundsUpdate() {
@@ -2434,6 +2506,7 @@ function watchFloatingPanelBounds() {
     floatingWorkspaceResizeObserver?.observe(target);
   }
   refreshFloatingCanvasControlsObserver();
+  refreshFloatingTopProgressObserver();
 
   if (!floatingBoundsWindowListenerAdded) {
     window.addEventListener("resize", scheduleFloatingPanelBoundsUpdate, { passive: true });
@@ -2448,6 +2521,10 @@ function watchFloatingPanelBounds() {
       }
       if (mutations.some(mutationChangesFloatingCanvasControls)) {
         refreshFloatingCanvasControlsObserver();
+        scheduleFloatingPanelBoundsUpdate();
+      }
+      if (mutations.some(mutationChangesFloatingTopProgress)) {
+        refreshFloatingTopProgressObserver();
         scheduleFloatingPanelBoundsUpdate();
       }
     });
