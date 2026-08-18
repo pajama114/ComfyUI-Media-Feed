@@ -2216,7 +2216,6 @@ function createView(root, kind = "embedded") {
   root.className = kind === "floating" ? "cmf-root cmf-fallback" : "cmf-root";
   root.innerHTML = `
     <div class="cmf-toolbar">
-      <strong class="cmf-title">Media Feed</strong>
       <div class="cmf-filter" role="group" aria-label="Media filter">
         <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media">${ICONS.grid}<span class="cmf-filter-count">0</span></button>
         <button type="button" data-filter="image" data-filter-label="Images" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}<span class="cmf-filter-count">0</span></button>

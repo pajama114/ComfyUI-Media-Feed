@@ -104,10 +104,6 @@ export function ensureMediaFeedStyles({
       align-content: flex-start;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-title {
-      display: none;
-    }
-
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-collapse,
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-clear {
       order: 2;
@@ -207,7 +203,7 @@ export function ensureMediaFeedStyles({
     }
 
     @media (max-width: 980px) {
-      .cmf-root.cmf-fallback[data-orientation="horizontal"] {
+      .cmf-root.cmf-fallback[data-orientation="horizontal"][data-placement="top"] {
         right: max(12px, calc(var(--cmf-edge-right) - var(--cmf-side-outset)));
         left: max(64px, calc(var(--cmf-safe-left) - var(--cmf-side-outset)));
       }
@@ -266,14 +262,6 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-feed-style="frameless"][data-collapsed="true"]:hover {
       background: var(--cmf-panel);
-    }
-
-    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-collapsed="true"] .cmf-title {
-      display: block;
-    }
-
-    .cmf-root[data-feed-style="frameless"] .cmf-title {
-      display: none;
     }
 
     .cmf-root[data-feed-style="frameless"] .cmf-filter,
@@ -344,13 +332,6 @@ export function ensureMediaFeedStyles({
 
     .cmf-spacer {
       flex: 1;
-    }
-
-    .cmf-title {
-      flex: 0 0 auto;
-      font-size: 12px;
-      font-weight: 650;
-      white-space: nowrap;
     }
 
     .cmf-size-control {
