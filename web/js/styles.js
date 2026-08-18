@@ -1148,6 +1148,10 @@ export function ensureMediaFeedStyles({
       line-height: 1.35;
     }
 
+    .cmf-prompt-status:empty {
+      display: none;
+    }
+
     .cmf-resource-grid,
     .cmf-metadata-grid {
       display: flex;
