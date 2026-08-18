@@ -32,13 +32,12 @@ export function ensureMediaFeedStyles({
       --cmf-card-top-offset: ${cardTopOffset}px;
       --cmf-safe-left: 76px;
       --cmf-safe-right: 300px;
+      --cmf-safe-right-bottom: 280px;
       --cmf-edge-right: 12px;
       --cmf-safe-top: 118px;
       --cmf-placement-top: calc(var(--cmf-safe-top) + 13px);
       --cmf-side-outset: 5px;
-      --cmf-right-bottom-extension: 20px;
       --cmf-safe-bottom: 12px;
-      --cmf-minimap-height: 300px;
       --cmf-top-controls-inset: clamp(160px, 27vw, 480px);
       box-sizing: border-box;
       display: flex;
@@ -67,7 +66,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-placement="bottom"] {
-      right: calc(var(--cmf-safe-right) - var(--cmf-side-outset));
+      right: var(--cmf-safe-right);
       bottom: var(--cmf-safe-bottom);
     }
 
@@ -97,12 +96,7 @@ export function ensureMediaFeedStyles({
 
     .cmf-root.cmf-fallback[data-placement="right"] {
       right: calc(var(--cmf-edge-right) - var(--cmf-side-outset));
-      bottom: calc(
-        var(--cmf-safe-bottom)
-        + var(--cmf-minimap-height)
-        - var(--cmf-right-bottom-extension)
-        - 12px
-      );
+      bottom: var(--cmf-safe-right-bottom);
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar {
@@ -531,7 +525,7 @@ export function ensureMediaFeedStyles({
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="default"] .cmf-viewport {
-      scrollbar-gutter: stable both-edges;
+      scrollbar-gutter: stable;
       scrollbar-width: thin;
     }
 
@@ -555,6 +549,25 @@ export function ensureMediaFeedStyles({
 
     .cmf-viewport::-webkit-scrollbar-thumb:hover {
       background: #a8a8a8;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="default"] .cmf-viewport::-webkit-scrollbar-thumb {
+      border-width: 1px;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport {
+      scrollbar-gutter: stable;
+      scrollbar-color: transparent transparent;
+      scrollbar-width: thin;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar-thumb,
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar-thumb:hover {
+      background: transparent;
     }
 
     .cmf-jump {

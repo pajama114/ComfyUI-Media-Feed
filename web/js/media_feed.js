@@ -27,6 +27,13 @@ const FALLBACK_MIN_RIGHT_INSET = 12;
 const FALLBACK_MIN_BOTTOM_INSET = 12;
 const FALLBACK_MIN_TOP_INSET = 118;
 const FALLBACK_MIN_BOTTOM_RIGHT_INSET = 300;
+const FALLBACK_MIN_RIGHT_BOTTOM_INSET = 280;
+const FLOATING_CANVAS_CONTROLS_MARGIN = 5;
+const FLOATING_CANVAS_CONTROLS_SELECTOR = [
+  ".minimap-main-container",
+  "[data-testid='minimap-container']",
+  "[data-testid='toggle-minimap-button']",
+].join(", ");
 const DEFAULT_PLACEMENT = "bottom";
 const DEFAULT_SHOW_PROMPTS = true;
 const DEFAULT_SCALE_VIEWER_MEDIA = false;
@@ -94,6 +101,8 @@ let floatingView = null;
 let floatingWorkspaceResizeObserver = null;
 let floatingWorkspaceMutationObserver = null;
 let floatingWorkspaceElement = null;
+let floatingCanvasControlsResizeObserver = null;
+let floatingCanvasControlsElements = [];
 let floatingBoundsAnimationFrame = 0;
 let floatingBoundsWindowListenerAdded = false;
 let setupComplete = false;
@@ -2330,6 +2339,54 @@ function floatingWorkspaceTarget() {
   return canvas instanceof Element ? canvas : null;
 }
 
+function floatingCanvasControls() {
+  const minimap = document.querySelector(".minimap-main-container")
+    || document.querySelector("[data-testid='minimap-container']");
+  const toolbar = document
+    .querySelector("[data-testid='toggle-minimap-button']")
+    ?.closest("[role='toolbar']");
+
+  return [...new Set([minimap, toolbar].filter((element) => element instanceof Element))];
+}
+
+function floatingCanvasControlsBounds() {
+  const rects = floatingCanvasControls()
+    .map((element) => element.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.height > 0);
+  if (!rects.length) return null;
+
+  const left = Math.min(...rects.map((rect) => rect.left));
+  const top = Math.min(...rects.map((rect) => rect.top));
+  const right = Math.max(...rects.map((rect) => rect.right));
+  const bottom = Math.max(...rects.map((rect) => rect.bottom));
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
+function refreshFloatingCanvasControlsObserver() {
+  const elements = floatingCanvasControls();
+  const unchanged = elements.length === floatingCanvasControlsElements.length
+    && elements.every((element, index) => element === floatingCanvasControlsElements[index]);
+  if (unchanged) return;
+
+  floatingCanvasControlsResizeObserver?.disconnect();
+  floatingCanvasControlsElements = elements;
+  floatingCanvasControlsResizeObserver = elements.length
+    ? new ResizeObserver(scheduleFloatingPanelBoundsUpdate)
+    : null;
+  for (const element of elements) floatingCanvasControlsResizeObserver?.observe(element);
+}
+
+function nodeContainsFloatingCanvasControls(node) {
+  if (!(node instanceof Element)) return false;
+  return node.matches(FLOATING_CANVAS_CONTROLS_SELECTOR)
+    || Boolean(node.querySelector(FLOATING_CANVAS_CONTROLS_SELECTOR));
+}
+
+function mutationChangesFloatingCanvasControls(mutation) {
+  return [...mutation.addedNodes, ...mutation.removedNodes]
+    .some(nodeContainsFloatingCanvasControls);
+}
+
 function updateFloatingPanelBounds() {
   floatingBoundsAnimationFrame = 0;
   const root = floatingView?.root;
@@ -2342,16 +2399,21 @@ function updateFloatingPanelBounds() {
   const leftInset = Math.max(FALLBACK_MIN_LEFT_INSET, rect.left + FALLBACK_EDGE_GAP);
   const rightInset = Math.max(FALLBACK_MIN_RIGHT_INSET, window.innerWidth - rect.right + FALLBACK_EDGE_GAP);
   const bottomInset = Math.max(FALLBACK_MIN_BOTTOM_INSET, window.innerHeight - rect.bottom + FALLBACK_EDGE_GAP);
+  const controlsBounds = floatingCanvasControlsBounds();
+  const bottomFeedRightInset = controlsBounds
+    ? Math.max(rightInset, window.innerWidth - controlsBounds.left + FLOATING_CANVAS_CONTROLS_MARGIN)
+    : FALLBACK_MIN_BOTTOM_RIGHT_INSET + rightInset - FALLBACK_MIN_RIGHT_INSET;
+  const rightFeedBottomInset = controlsBounds
+    ? Math.max(bottomInset, window.innerHeight - controlsBounds.top + FLOATING_CANVAS_CONTROLS_MARGIN)
+    : FALLBACK_MIN_RIGHT_BOTTOM_INSET + bottomInset - FALLBACK_MIN_BOTTOM_INSET;
 
   root.style.setProperty("--cmf-safe-left", `${Math.round(leftInset)}px`);
   root.style.setProperty("--cmf-edge-right", `${Math.round(rightInset)}px`);
-  root.style.setProperty(
-    "--cmf-safe-right",
-    `${Math.round(FALLBACK_MIN_BOTTOM_RIGHT_INSET + rightInset - FALLBACK_MIN_RIGHT_INSET)}px`,
-  );
+  root.style.setProperty("--cmf-safe-right", `${Math.ceil(bottomFeedRightInset)}px`);
+  root.style.setProperty("--cmf-safe-right-bottom", `${Math.ceil(rightFeedBottomInset)}px`);
 
-  // Queue banners and progress bars temporarily move the graph's top edge, while
-  // the bottom edge tracks the persistent bottom panel and should remain visible.
+  // The graph bounds keep placements clear of persistent side and bottom panels.
+  // Bottom and right placements additionally hug the measured canvas controls.
   root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
   root.style.setProperty("--cmf-safe-top", `${FALLBACK_MIN_TOP_INSET}px`);
 }
@@ -2371,6 +2433,7 @@ function watchFloatingPanelBounds() {
       : null;
     floatingWorkspaceResizeObserver?.observe(target);
   }
+  refreshFloatingCanvasControlsObserver();
 
   if (!floatingBoundsWindowListenerAdded) {
     window.addEventListener("resize", scheduleFloatingPanelBoundsUpdate, { passive: true });
@@ -2378,8 +2441,15 @@ function watchFloatingPanelBounds() {
     floatingBoundsWindowListenerAdded = true;
   }
   if (!floatingWorkspaceMutationObserver) {
-    floatingWorkspaceMutationObserver = new MutationObserver(() => {
-      if (floatingWorkspaceTarget() !== floatingWorkspaceElement) watchFloatingPanelBounds();
+    floatingWorkspaceMutationObserver = new MutationObserver((mutations) => {
+      if (floatingWorkspaceTarget() !== floatingWorkspaceElement) {
+        watchFloatingPanelBounds();
+        return;
+      }
+      if (mutations.some(mutationChangesFloatingCanvasControls)) {
+        refreshFloatingCanvasControlsObserver();
+        scheduleFloatingPanelBoundsUpdate();
+      }
     });
     floatingWorkspaceMutationObserver.observe(document.body, { childList: true, subtree: true });
   }

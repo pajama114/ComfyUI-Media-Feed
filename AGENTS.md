@@ -34,6 +34,9 @@ Python dependencies.
   matters because some installs do not support bottom-panel tabs.
 - Keep UI performance bounded. The feed currently retains 256 items and
   virtualizes visible cards. Do not replace virtualization with a full DOM list.
+- Keep media card positions identical between the Default and Frameless feed
+  styles for every placement. Hidden chrome and scrollbars must preserve the
+  equivalent layout space instead of shifting the media.
 - Avoid cache-busting media URLs. Image preview and full-screen view should reuse
   the same `/view` URL where possible.
 - Keep embedded metadata scans bounded. Start with Range requests and do not
@@ -89,6 +92,8 @@ After browser reload in ComfyUI:
   appears and completes a full scan when selected.
 - Audio thumbnails show a two-row layout with a full-width seek bar.
 - Thumbnail size changes with the slider and persists after reload.
+- Switching between Default and Frameless does not move the media cards in any
+  placement.
 
 ## Publishing Notes
 
