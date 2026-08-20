@@ -202,6 +202,64 @@ export function installViewerSupport(context) {
       .replace(/^_+|_+$/g, "");
     return `${basename || "metadata"}-metadata.json`;
   }
+
+  function mediaDownloadFilename(filename) {
+    return String(filename || "media")
+      .split(/[\\/]/)
+      .pop()
+      .replace(/[<>:"|?*\u0000-\u001f]/g, "_")
+      .replace(/[. ]+$/g, "") || "media";
+  }
+
+  function startBrowserDownload(item) {
+    const link = document.createElement("a");
+    link.href = item.url;
+    link.download = mediaDownloadFilename(item.filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function downloadViewerMedia(event) {
+    const button = event.currentTarget;
+    button.blur();
+
+    const item = runtime.viewer?.item;
+    if (!item?.url) return;
+
+    if (typeof window.showSaveFilePicker !== "function") {
+      startBrowserDownload(item);
+      return;
+    }
+
+    let fileHandle;
+    try {
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName: mediaDownloadFilename(item.filename),
+      });
+    } catch (error) {
+      if (error?.name !== "AbortError") startBrowserDownload(item);
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      const response = await fetch(item.url);
+      if (!response.ok) throw new Error(`Could not download media (${response.status})`);
+
+      const writable = await fileHandle.createWritable();
+      if (response.body) {
+        await response.body.pipeTo(writable);
+      } else {
+        await writable.write(await response.blob());
+        await writable.close();
+      }
+    } catch (error) {
+      console.error("[ComfyUI Media Feed] Could not download media", error);
+    } finally {
+      button.disabled = false;
+    }
+  }
   
   function downloadViewerEmbeddedJson(event) {
     const button = event.currentTarget;
@@ -244,7 +302,9 @@ export function installViewerSupport(context) {
     copyViewerResources,
     copyViewerOtherMetadata,
     metadataDownloadFilename,
+    mediaDownloadFilename,
+    startBrowserDownload,
+    downloadViewerMedia,
     downloadViewerEmbeddedJson,
   });
 }
-
