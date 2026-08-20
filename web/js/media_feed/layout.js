@@ -12,11 +12,13 @@ import {
   DEFAULT_METADATA_POSITION,
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
+  DEFAULT_BATCH_DIVIDERS,
   SIDE_PLACEMENTS,
   PLACEMENTS,
   METADATA_POSITIONS,
   FEED_STYLES,
   MEDIA_SCOPES,
+  BATCH_DIVIDER_STYLES,
 } from "./constants.js";
 
 export function installLayout(context) {
@@ -75,6 +77,11 @@ export function installLayout(context) {
     const scope = String(nextScope || "").toLowerCase();
     return MEDIA_SCOPES.has(scope) ? scope : DEFAULT_MEDIA_SCOPE;
   }
+
+  function normalizeBatchDividers(nextStyle) {
+    const style = String(nextStyle || "").toLowerCase();
+    return BATCH_DIVIDER_STYLES.has(style) ? style : DEFAULT_BATCH_DIVIDERS;
+  }
   
   function normalizeBooleanSetting(nextValue) {
     return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
@@ -129,6 +136,10 @@ export function installLayout(context) {
   function applyMediaScope(nextScope) {
     state.mediaScope = normalizeMediaScope(nextScope);
   }
+
+  function applyBatchDividers(nextStyle) {
+    state.batchDividers = normalizeBatchDividers(nextStyle);
+  }
   
   Object.assign(actions, {
     viewPitch,
@@ -143,6 +154,7 @@ export function installLayout(context) {
     normalizeMetadataPosition,
     normalizeFeedStyle,
     normalizeMediaScope,
+    normalizeBatchDividers,
     normalizeBooleanSetting,
     isVerticalPlacement,
     isVerticalView,
@@ -156,6 +168,6 @@ export function installLayout(context) {
     applyShowFavoriteButton,
     applyFeedStyle,
     applyMediaScope,
+    applyBatchDividers,
   });
 }
-

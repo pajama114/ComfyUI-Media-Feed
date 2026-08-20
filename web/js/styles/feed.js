@@ -226,6 +226,29 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       pointer-events: none;
     }
 
+    .cmf-root:not([data-batch-dividers="none"]) .cmf-feed-gap[data-batch-boundary="true"]::before {
+      content: "";
+      position: absolute;
+      top: 3%;
+      bottom: 3%;
+      left: 50%;
+      width: 3px;
+      border-radius: 999px;
+      background: rgba(128, 128, 128, 0.3);
+      background: color-mix(in srgb, var(--cmf-text) 60%, transparent);
+      transform: translateX(-50%);
+    }
+
+    .cmf-root[data-orientation="vertical"]:not([data-batch-dividers="none"]) .cmf-feed-gap[data-batch-boundary="true"]::before {
+      top: 50%;
+      right: 3%;
+      bottom: auto;
+      left: 3%;
+      width: auto;
+      height: 3px;
+      transform: translateY(-50%);
+    }
+
     .cmf-card:hover,
     .cmf-card:focus-visible {
       border-color: var(--cmf-accent);
@@ -386,4 +409,3 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     }
 
 `;
-

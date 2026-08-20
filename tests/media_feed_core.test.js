@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { installLayout } from "../web/js/media_feed/layout.js";
 import { installMediaItems } from "../web/js/media_feed/media_items.js";
+import { installFeedView } from "../web/js/media_feed/feed_view.js";
 import { createMediaFeedRuntime } from "../web/js/media_feed/runtime.js";
 import { installSettings } from "../web/js/media_feed/settings.js";
 import { installSettingsStorage } from "../web/js/media_feed/settings_storage.js";
@@ -23,6 +24,7 @@ function createContext() {
   installLayout(context);
   installSettingsStorage(context);
   installSettings(context);
+  installFeedView(context);
   return context;
 }
 
@@ -113,6 +115,22 @@ test("settings normalization and feed geometry remain bounded", () => {
   assert.equal(actions.normalizePlacement("diagonal"), "bottom");
   assert.equal(actions.normalizeBooleanSetting("True"), true);
   assert.equal(actions.normalizeBooleanSetting("false"), false);
+  assert.equal(actions.normalizeBatchDividers("LINE"), "line");
+  assert.equal(actions.normalizeBatchDividers("invalid"), "line");
+  assert.equal(actions.normalizeBatchDividers("labeled"), "line");
+
+  assert.equal(actions.isBatchBoundary(
+    { promptId: "prompt-2" },
+    { promptId: "prompt-1" },
+  ), true);
+  assert.equal(actions.isBatchBoundary(
+    { promptId: "prompt-1" },
+    { promptId: "prompt-1" },
+  ), false);
+  assert.equal(actions.isBatchBoundary(
+    { promptId: "" },
+    { promptId: "prompt-1" },
+  ), false);
 
   actions.applyThumbnailHeight(180);
   assert.equal(state.itemHeight, 180);

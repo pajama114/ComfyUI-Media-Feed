@@ -31,6 +31,7 @@ export function installSettings(context) {
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
   const applyMediaScope = (...args) => actions.applyMediaScope(...args);
+  const applyBatchDividers = (...args) => actions.applyBatchDividers(...args);
   const saveThumbnailHeight = (...args) => actions.saveThumbnailHeight(...args);
   const savePlacement = (...args) => actions.savePlacement(...args);
   const saveShowPrompts = (...args) => actions.saveShowPrompts(...args);
@@ -41,6 +42,7 @@ export function installSettings(context) {
   const saveShowFavoriteButton = (...args) => actions.saveShowFavoriteButton(...args);
   const saveFeedStyle = (...args) => actions.saveFeedStyle(...args);
   const saveMediaScope = (...args) => actions.saveMediaScope(...args);
+  const saveBatchDividers = (...args) => actions.saveBatchDividers(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const syncViewerScaleMedia = (...args) => actions.syncViewerScaleMedia(...args);
   const syncViewerMetadataPosition = (...args) => actions.syncViewerMetadataPosition(...args);
@@ -129,6 +131,12 @@ export function installSettings(context) {
       syncViewerItems();
     }
   }
+
+  function setBatchDividers(nextStyle) {
+    applyBatchDividers(nextStyle);
+    saveBatchDividers();
+    updateViews(false);
+  }
   
   function setPlacement(nextPlacement) {
     applyPlacement(nextPlacement);
@@ -159,8 +167,8 @@ export function installSettings(context) {
     setShowFavoriteButton,
     setFeedStyle,
     setMediaScope,
+    setBatchDividers,
     setPlacement,
     ensureStyles,
   });
 }
-

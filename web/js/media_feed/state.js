@@ -4,6 +4,7 @@ import {
   DEFAULT_FOLLOW_LATEST,
   DEFAULT_ITEM_HEIGHT,
   DEFAULT_ITEM_WIDTH,
+  DEFAULT_BATCH_DIVIDERS,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_METADATA_POSITION,
   DEFAULT_PLACEMENT,
@@ -30,6 +31,7 @@ export function createMediaFeedState() {
     showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
     feedStyle: DEFAULT_FEED_STYLE,
     mediaScope: DEFAULT_MEDIA_SCOPE,
+    batchDividers: DEFAULT_BATCH_DIVIDERS,
     favoriteFiles: new Map(),
     favoritingKeys: new Set(),
   };

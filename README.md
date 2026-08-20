@@ -16,7 +16,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 - Shows newly generated images, videos, and audio in one feed, with filters for
   each media type.
-- Opens media in an overlay viewer, with a link to open the original file.
+- Opens media in an overlay viewer, with actions to download or open the
+  original file.
 - Copies output media to `output/favorites` from the star button in the viewer
   or on a hovered feed card.
 - Supports previous/next navigation with side buttons, arrow keys, and wheel
@@ -28,6 +29,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Can automatically follow newly generated media.
 - Can show media from every workflow tab or only media queued from the current
   workflow tab.
+- Can visually separate media from different queued generations with a subtle,
+  theme-aware divider.
 - Adds ComfyUI settings for placing the feed at the top, right, bottom, or left
   of the canvas.
 - Reads embedded metadata in the viewer and displays inferred positive and
@@ -52,6 +55,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Follow latest media: `On`
 - Feed style: `Default`
 - Media from: `All workflow tabs`
+- Batch dividers: `Line`
 - Show favorite button on hover: `On`
 - Show metadata in vieweredia: `Off`
 - Show prompts in viewer: `On`

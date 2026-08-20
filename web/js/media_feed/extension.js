@@ -13,6 +13,7 @@ export function createMediaFeedExtension(context) {
   const loadSavedShowFavoriteButton = (...args) => actions.loadSavedShowFavoriteButton(...args);
   const loadSavedFeedStyle = (...args) => actions.loadSavedFeedStyle(...args);
   const loadSavedMediaScope = (...args) => actions.loadSavedMediaScope(...args);
+  const loadSavedBatchDividers = (...args) => actions.loadSavedBatchDividers(...args);
   const loadSettings = (...args) => actions.loadSettings(...args);
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
@@ -22,6 +23,7 @@ export function createMediaFeedExtension(context) {
   const setShowFavoriteButton = (...args) => actions.setShowFavoriteButton(...args);
   const setFeedStyle = (...args) => actions.setFeedStyle(...args);
   const setMediaScope = (...args) => actions.setMediaScope(...args);
+  const setBatchDividers = (...args) => actions.setBatchDividers(...args);
   const setPlacement = (...args) => actions.setPlacement(...args);
   const ensureStyles = (...args) => actions.ensureStyles(...args);
   const syncFloatingPanel = (...args) => actions.syncFloatingPanel(...args);
@@ -114,6 +116,23 @@ export function createMediaFeedExtension(context) {
         },
       },
       {
+        id: "comfyui-media-feed.batch-dividers",
+        name: "Batch dividers",
+        type: "combo",
+        defaultValue: loadSavedBatchDividers(),
+        options: [
+          { text: "Off", value: "none" },
+          { text: "Line", value: "line" },
+        ],
+        category: ["Media Feed", "Feed", "Batch dividers"],
+        sortOrder: 1,
+        tooltip: "Show a visual separator when adjacent media came from different queued generations.",
+        onChange: (newValue) => {
+          runtime.batchDividersSettingSeen = true;
+          setBatchDividers(newValue);
+        },
+      },
+      {
         id: "comfyui-media-feed.show-prompts",
         name: "Show metadata in viewer",
         type: "boolean",
@@ -193,4 +212,3 @@ export function createMediaFeedExtension(context) {
     },
   };
 }
-

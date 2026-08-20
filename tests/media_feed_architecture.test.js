@@ -99,8 +99,11 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 10);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 10);
+    assert.equal(extension.settings.length, 11);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 11);
+    const batchDividerSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.batch-dividers");
+    assert.equal(batchDividerSetting.defaultValue, "line");
+    assert.deepEqual(batchDividerSetting.options.map((option) => option.value), ["none", "line"]);
 
     const originalQueuePrompt = context.api.queuePrompt;
     await extension.setup();

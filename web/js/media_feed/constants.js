@@ -42,6 +42,7 @@ export const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
 export const DEFAULT_SHOW_FAVORITE_BUTTON = true;
 export const DEFAULT_FEED_STYLE = "default";
 export const DEFAULT_MEDIA_SCOPE = "all";
+export const DEFAULT_BATCH_DIVIDERS = "line";
 export const VIEWER_IMAGE_ZOOM_STEP = 0.25;
 export const VIEWER_IMAGE_WHEEL_ZOOM_FACTOR = 1.1;
 export const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
@@ -54,6 +55,7 @@ export const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);
 export const METADATA_POSITIONS = new Set(["left", "right"]);
 export const FEED_STYLES = new Set(["default", "frameless"]);
 export const MEDIA_SCOPES = new Set(["all", "current-tab"]);
+export const BATCH_DIVIDER_STYLES = new Set(["none", "line"]);
 export const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
   placement: "comfyui-media-feed:placement",
@@ -65,6 +67,7 @@ export const STORAGE_KEYS = {
   showFavoriteButton: "comfyui-media-feed:show-favorite-button",
   feedStyle: "comfyui-media-feed:feed-style",
   mediaScope: "comfyui-media-feed:media-scope",
+  batchDividers: "comfyui-media-feed:batch-dividers",
   favorites: "comfyui-media-feed:favorites",
 };
 export const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
@@ -72,4 +75,3 @@ export const SCALE_VIEWER_MEDIA_SETTING_ID = "comfyui-media-feed.scale-viewer-me
 export const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);
 export const VIDEO_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"]);
 export const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "opus", "wav"]);
-

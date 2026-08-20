@@ -27,6 +27,12 @@ export function installFeedView(context) {
   const discardStagedMedia = (...args) => actions.discardStagedMedia(...args);
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const createCard = (...args) => actions.createCard(...args);
+  function isBatchBoundary(item, nextItem) {
+    const batchId = String(item?.promptId || "");
+    const nextBatchId = String(nextItem?.promptId || "");
+    return Boolean(batchId && nextBatchId && batchId !== nextBatchId);
+  }
+
   function createView(root, kind = "embedded") {
     ensureStyles();
   
@@ -163,6 +169,7 @@ export function installFeedView(context) {
     applyFallbackPlacement(view.root);
     view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
     view.root.dataset.feedStyle = state.feedStyle;
+    view.root.dataset.batchDividers = state.batchDividers;
     view.root.style.setProperty("--cmf-item-width", `${state.itemWidth}px`);
     view.root.style.setProperty("--cmf-item-height", `${state.itemHeight}px`);
     view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
@@ -375,6 +382,7 @@ export function installFeedView(context) {
           view.gaps.set(item.id, gap);
           view.rail.appendChild(gap);
         }
+        gap.dataset.batchBoundary = String(isBatchBoundary(item, items[index + 1]));
         gap.style.width = `${vertical ? state.itemWidth : ITEM_GAP}px`;
         gap.style.height = `${vertical ? ITEM_GAP : state.itemHeight}px`;
         gap.style.transform = vertical
@@ -397,6 +405,7 @@ export function installFeedView(context) {
   
   Object.assign(actions, {
     createView,
+    isBatchBoundary,
     applyFallbackPlacement,
     updateViews,
     saveWorkflowScrollPositions,

@@ -9,6 +9,7 @@ import {
   DEFAULT_SHOW_FAVORITE_BUTTON,
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
+  DEFAULT_BATCH_DIVIDERS,
   STORAGE_KEYS,
 } from "./constants.js";
 
@@ -19,6 +20,7 @@ export function installSettingsStorage(context) {
   const normalizeMetadataPosition = (...args) => actions.normalizeMetadataPosition(...args);
   const normalizeFeedStyle = (...args) => actions.normalizeFeedStyle(...args);
   const normalizeMediaScope = (...args) => actions.normalizeMediaScope(...args);
+  const normalizeBatchDividers = (...args) => actions.normalizeBatchDividers(...args);
   const normalizeBooleanSetting = (...args) => actions.normalizeBooleanSetting(...args);
   const applyThumbnailHeight = (...args) => actions.applyThumbnailHeight(...args);
   const applyPlacement = (...args) => actions.applyPlacement(...args);
@@ -30,6 +32,7 @@ export function installSettingsStorage(context) {
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
   const applyMediaScope = (...args) => actions.applyMediaScope(...args);
+  const applyBatchDividers = (...args) => actions.applyBatchDividers(...args);
   function loadSavedPlacement() {
     try {
       return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -106,6 +109,14 @@ export function installSettingsStorage(context) {
       return DEFAULT_MEDIA_SCOPE;
     }
   }
+
+  function loadSavedBatchDividers() {
+    try {
+      return normalizeBatchDividers(window.localStorage?.getItem(STORAGE_KEYS.batchDividers));
+    } catch {
+      return DEFAULT_BATCH_DIVIDERS;
+    }
+  }
   
   function loadSavedFavoriteFiles() {
     try {
@@ -138,6 +149,7 @@ export function installSettingsStorage(context) {
     if (!runtime.showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
     if (!runtime.feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
     if (!runtime.mediaScopeSettingSeen) applyMediaScope(loadSavedMediaScope());
+    if (!runtime.batchDividersSettingSeen) applyBatchDividers(loadSavedBatchDividers());
     state.favoriteFiles = loadSavedFavoriteFiles();
   }
   
@@ -220,6 +232,14 @@ export function installSettingsStorage(context) {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
   }
+
+  function saveBatchDividers() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.batchDividers, state.batchDividers);
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
   
   function saveFavoriteFiles() {
     try {
@@ -239,6 +259,7 @@ export function installSettingsStorage(context) {
     loadSavedShowFavoriteButton,
     loadSavedFeedStyle,
     loadSavedMediaScope,
+    loadSavedBatchDividers,
     loadSavedFavoriteFiles,
     loadSettings,
     saveThumbnailHeight,
@@ -251,7 +272,7 @@ export function installSettingsStorage(context) {
     saveShowFavoriteButton,
     saveFeedStyle,
     saveMediaScope,
+    saveBatchDividers,
     saveFavoriteFiles,
   });
 }
-

@@ -22,6 +22,7 @@ export function createMediaFeedRuntime() {
     showFavoriteButtonSettingSeen: false,
     feedStyleSettingSeen: false,
     mediaScopeSettingSeen: false,
+    batchDividersSettingSeen: false,
     viewer: null,
     viewerWheelLock: false,
     workflowTabSequence: 0,
