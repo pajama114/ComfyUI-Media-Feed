@@ -1,0 +1,114 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+import { installCards } from "../web/js/media_feed/cards.js";
+import { createMediaFeedExtension } from "../web/js/media_feed/extension.js";
+import { installFavorites } from "../web/js/media_feed/favorites.js";
+import { installFeedView } from "../web/js/media_feed/feed_view.js";
+import { installFloatingPanel } from "../web/js/media_feed/floating_panel.js";
+import { installLayout } from "../web/js/media_feed/layout.js";
+import { installMediaItems } from "../web/js/media_feed/media_items.js";
+import { createMediaFeedRuntime } from "../web/js/media_feed/runtime.js";
+import { installSettings } from "../web/js/media_feed/settings.js";
+import { installSettingsStorage } from "../web/js/media_feed/settings_storage.js";
+import { createMediaFeedState } from "../web/js/media_feed/state.js";
+import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
+import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
+import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
+import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
+import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
+import { installWorkflowTracking } from "../web/js/media_feed/workflow_tracking.js";
+
+const installers = [
+  installMediaItems,
+  installLayout,
+  installSettingsStorage,
+  installSettings,
+  installViewerSupport,
+  installViewerShell,
+  installViewerZoom,
+  installViewerRender,
+  installViewerMetadata,
+  installFavorites,
+  installCards,
+  installFeedView,
+  installFloatingPanel,
+  installWorkflowTracking,
+];
+
+function createContext() {
+  const listeners = new Map();
+  const app = {
+    extensionManager: { workflow: { activeWorkflow: {} } },
+    ui: { settings: { setSettingValue() {} } },
+  };
+  const api = {
+    apiURL: (path) => path,
+    addEventListener: (name, listener) => listeners.set(name, listener),
+    async queuePrompt() { return { prompt_id: "prompt-1" }; },
+  };
+  const context = {
+    app,
+    api,
+    ICONS: new Proxy({}, { get: () => "<svg></svg>" }),
+    state: createMediaFeedState(),
+    runtime: createMediaFeedRuntime(),
+    services: {
+      clearPromptMetadataCache() {},
+      getCachedPromptMetadata() { return null; },
+      async loadPromptMetadata() { return {}; },
+      ensureMediaFeedStyles() {},
+    },
+    actions: {},
+  };
+  for (const install of installers) install(context);
+  return { context, listeners };
+}
+
+test("every action dependency resolves after controller composition", () => {
+  const { context } = createContext();
+  const moduleDirectory = new URL("../web/js/media_feed/", import.meta.url);
+  const moduleFiles = fs.readdirSync(moduleDirectory)
+    .filter((filename) => filename.endsWith(".js") && !["constants.js", "runtime.js", "state.js"].includes(filename));
+
+  const referencedActions = new Set();
+  for (const filename of moduleFiles) {
+    const source = fs.readFileSync(new URL(filename, moduleDirectory), "utf8");
+    for (const match of source.matchAll(/\bactions\.([A-Za-z_$][\w$]*)/g)) {
+      referencedActions.add(match[1]);
+    }
+  }
+
+  const missing = [...referencedActions].filter((name) => typeof context.actions[name] !== "function");
+  assert.deepEqual(missing, []);
+  assert.ok(Object.keys(context.actions).length > 150);
+});
+
+test("the composed extension registers settings and setup integrations once", async () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem() { return null; },
+      setItem() {},
+    },
+    setTimeout() { return 1; },
+  };
+
+  try {
+    const { context, listeners } = createContext();
+    const extension = createMediaFeedExtension(context);
+    assert.equal(extension.name, "comfyui.media_feed");
+    assert.equal(extension.settings.length, 10);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 10);
+
+    const originalQueuePrompt = context.api.queuePrompt;
+    await extension.setup();
+    assert.equal(context.runtime.setupComplete, true);
+    assert.deepEqual([...listeners.keys()].sort(), ["executed", "promptQueued", "promptQueueing"]);
+    assert.notEqual(context.api.queuePrompt, originalQueuePrompt);
+    assert.equal(context.api.queuePrompt.__mediaFeedWrapped, true);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});

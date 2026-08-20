@@ -1,0 +1,161 @@
+import {
+  DEFAULT_ITEM_HEIGHT,
+  MIN_ITEM_HEIGHT,
+  MAX_ITEM_HEIGHT,
+  ITEM_GAP,
+  SCROLLBAR_SPACE,
+  RAIL_PADDING,
+  CARD_TOP_OFFSET,
+  DEFAULT_CARD_TOP_OFFSET,
+  FALLBACK_PANEL_EXTRA_HEIGHT,
+  DEFAULT_PLACEMENT,
+  DEFAULT_METADATA_POSITION,
+  DEFAULT_FEED_STYLE,
+  DEFAULT_MEDIA_SCOPE,
+  SIDE_PLACEMENTS,
+  PLACEMENTS,
+  METADATA_POSITIONS,
+  FEED_STYLES,
+  MEDIA_SCOPES,
+} from "./constants.js";
+
+export function installLayout(context) {
+  const { app, api, ICONS, state, runtime, actions } = context;
+
+  function viewPitch(view) {
+    return (isVerticalView(view) ? state.itemHeight : state.itemWidth) + ITEM_GAP;
+  }
+  
+  function feedRailPadding() {
+    return RAIL_PADDING;
+  }
+  
+  function feedCardTopOffset() {
+    if (state.placement === "top") return DEFAULT_CARD_TOP_OFFSET;
+    return state.feedStyle === "default" ? DEFAULT_CARD_TOP_OFFSET : CARD_TOP_OFFSET;
+  }
+  
+  function viewportHeight() {
+    return state.itemHeight + feedCardTopOffset() + SCROLLBAR_SPACE;
+  }
+  
+  function railHeight() {
+    return state.itemHeight + feedCardTopOffset();
+  }
+  
+  function fallbackPanelHeight() {
+    return state.itemHeight + SCROLLBAR_SPACE + FALLBACK_PANEL_EXTRA_HEIGHT;
+  }
+  
+  function horizontalContentWidth(itemCount) {
+    if (!itemCount) return 0;
+    return feedRailPadding() * 2 + itemCount * state.itemWidth + (itemCount - 1) * ITEM_GAP;
+  }
+  
+  function normalizeThumbnailHeight(nextHeight) {
+    return Math.min(MAX_ITEM_HEIGHT, Math.max(MIN_ITEM_HEIGHT, Number(nextHeight) || DEFAULT_ITEM_HEIGHT));
+  }
+  
+  function normalizePlacement(nextPlacement) {
+    const placement = String(nextPlacement || "").toLowerCase();
+    return PLACEMENTS.has(placement) ? placement : DEFAULT_PLACEMENT;
+  }
+  
+  function normalizeMetadataPosition(nextPosition) {
+    const position = String(nextPosition || "").toLowerCase();
+    return METADATA_POSITIONS.has(position) ? position : DEFAULT_METADATA_POSITION;
+  }
+  
+  function normalizeFeedStyle(nextStyle) {
+    const style = String(nextStyle || "").toLowerCase();
+    return FEED_STYLES.has(style) ? style : DEFAULT_FEED_STYLE;
+  }
+  
+  function normalizeMediaScope(nextScope) {
+    const scope = String(nextScope || "").toLowerCase();
+    return MEDIA_SCOPES.has(scope) ? scope : DEFAULT_MEDIA_SCOPE;
+  }
+  
+  function normalizeBooleanSetting(nextValue) {
+    return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
+  }
+  
+  function isVerticalPlacement(placement = state.placement) {
+    return SIDE_PLACEMENTS.has(placement);
+  }
+  
+  function isVerticalView(view) {
+    return view?.root?.dataset.orientation === "vertical";
+  }
+  
+  function applyThumbnailHeight(nextHeight) {
+    const itemHeight = normalizeThumbnailHeight(nextHeight);
+    state.itemHeight = itemHeight;
+    state.itemWidth = itemHeight;
+  }
+  
+  function applyPlacement(nextPlacement) {
+    state.placement = normalizePlacement(nextPlacement);
+  }
+  
+  function applyShowPrompts(nextValue) {
+    state.showPrompts = normalizeBooleanSetting(nextValue);
+  }
+  
+  function applyScaleViewerMedia(nextValue) {
+    state.scaleViewerMedia = normalizeBooleanSetting(nextValue);
+  }
+  
+  function applyFollowLatest(nextValue) {
+    state.followLatest = normalizeBooleanSetting(nextValue);
+  }
+  
+  function applyMetadataPosition(nextPosition) {
+    state.metadataPosition = normalizeMetadataPosition(nextPosition);
+  }
+  
+  function applyExcludePreviewMedia(nextValue) {
+    state.excludePreviewMedia = normalizeBooleanSetting(nextValue);
+  }
+  
+  function applyShowFavoriteButton(nextValue) {
+    state.showFavoriteButton = normalizeBooleanSetting(nextValue);
+  }
+  
+  function applyFeedStyle(nextStyle) {
+    state.feedStyle = normalizeFeedStyle(nextStyle);
+  }
+  
+  function applyMediaScope(nextScope) {
+    state.mediaScope = normalizeMediaScope(nextScope);
+  }
+  
+  Object.assign(actions, {
+    viewPitch,
+    feedRailPadding,
+    feedCardTopOffset,
+    viewportHeight,
+    railHeight,
+    fallbackPanelHeight,
+    horizontalContentWidth,
+    normalizeThumbnailHeight,
+    normalizePlacement,
+    normalizeMetadataPosition,
+    normalizeFeedStyle,
+    normalizeMediaScope,
+    normalizeBooleanSetting,
+    isVerticalPlacement,
+    isVerticalView,
+    applyThumbnailHeight,
+    applyPlacement,
+    applyShowPrompts,
+    applyScaleViewerMedia,
+    applyFollowLatest,
+    applyMetadataPosition,
+    applyExcludePreviewMedia,
+    applyShowFavoriteButton,
+    applyFeedStyle,
+    applyMediaScope,
+  });
+}
+

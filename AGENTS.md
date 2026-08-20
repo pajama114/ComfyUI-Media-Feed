@@ -10,13 +10,17 @@ Python dependencies.
 
 ## Repository Layout
 
-- `__init__.py` exposes `WEB_DIRECTORY = "./web/js"` for ComfyUI.
-- `web/js/media_feed.js` is the extension entrypoint and contains the feed UI.
+- `__init__.py` exposes `WEB_DIRECTORY = "./web/js"` and the favorites routes.
+- `web/js/media_feed.js` is the small extension composition entrypoint.
+- `web/js/media_feed/` contains feed state, settings, cards, virtualization,
+  viewer controllers, floating placement, and ComfyUI integration.
 - `web/js/icons.js` contains shared inline SVG icons.
-- `web/js/metadata.js` owns embedded metadata loading, Range scans, and
-  metadata extraction.
-- `web/js/metadata_parsers.js` contains the format-specific binary parsers.
-- `web/js/styles.js` contains the extension styles.
+- `web/js/metadata.js` is the public embedded metadata API.
+- `web/js/metadata/` contains bounded loading, extraction, graph inference, and
+  format-specific binary parsers. `web/js/metadata_parsers.js` re-exports the
+  parser API for compatibility.
+- `web/js/styles.js` installs the styles assembled from `web/js/styles/`.
+- `tests/` contains dependency-free Node characterization and unit tests.
 - `pyproject.toml` contains Comfy Registry metadata.
 - `README.md` is the public user-facing documentation.
 - `icon.png` is referenced by `[tool.comfy] Icon`.
@@ -55,6 +59,7 @@ Python dependencies.
 Run these before committing:
 
 ```bash
+node --experimental-default-type=module --test tests/*.test.js
 node --check web/js/media_feed.js
 node --check web/js/icons.js
 node --check web/js/metadata.js

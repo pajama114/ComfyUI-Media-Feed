@@ -1,0 +1,250 @@
+import {
+  MAX_ITEMS,
+  DECODED_IMAGE_CACHE_SIZE,
+} from "./constants.js";
+
+export function installViewerSupport(context) {
+  const { app, api, ICONS, state, runtime, actions } = context;
+
+  const viewerMediaNaturalSize = (...args) => actions.viewerMediaNaturalSize(...args);
+  function rememberDecodedImage(url, image) {
+    if (!url || !image?.complete) return;
+    if (!image.naturalWidth && !image.naturalHeight) return;
+    runtime.decodedImageCache.delete(url);
+    runtime.decodedImageCache.set(url, image);
+  
+    while (runtime.decodedImageCache.size > DECODED_IMAGE_CACHE_SIZE) {
+      const oldestKey = runtime.decodedImageCache.keys().next().value;
+      runtime.decodedImageCache.delete(oldestKey);
+    }
+  }
+  
+  function rememberMediaDimensions(item, element) {
+    if (!item?.key) return;
+  
+    const size = viewerMediaNaturalSize(element);
+    if (!size.width || !size.height) return;
+  
+    runtime.mediaDimensionCache.delete(item.key);
+    runtime.mediaDimensionCache.set(item.key, size);
+  
+    while (runtime.mediaDimensionCache.size > MAX_ITEMS) {
+      const oldestKey = runtime.mediaDimensionCache.keys().next().value;
+      runtime.mediaDimensionCache.delete(oldestKey);
+    }
+  }
+  
+  function discardStagedMedia(element) {
+    if (!(element instanceof HTMLMediaElement)) return;
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+  }
+  
+  function waitForMediaReady(element) {
+    if (element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve();
+  
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        resolve();
+      };
+      const timeoutId = window.setTimeout(settle, 2500);
+  
+      element.addEventListener("loadeddata", settle, { once: true });
+      element.addEventListener("canplay", settle, { once: true });
+      element.addEventListener("error", settle, { once: true });
+    });
+  }
+  
+  function replaceViewerMedia(currentViewer, nextMedia) {
+    const previousMedia = currentViewer.media.querySelector("video, audio");
+    currentViewer.media.replaceChildren(nextMedia);
+    previousMedia?.pause();
+    nextMedia.muted = false;
+    nextMedia.play().catch(() => {});
+  }
+  
+  function waitForImageReady(image) {
+    if (image.complete) return Promise.resolve();
+  
+    return new Promise((resolve) => {
+      const settle = () => resolve();
+      image.addEventListener("load", settle, { once: true });
+      image.addEventListener("error", settle, { once: true });
+    });
+  }
+  
+  async function decodeImageElement(image) {
+    await waitForImageReady(image);
+    try {
+      await image.decode?.();
+    } catch {
+      // The image element should still be shown so the browser can expose errors.
+    }
+  }
+  
+  function isCurrentViewerRender(currentViewer, requestId, item) {
+    return runtime.viewer === currentViewer
+      && currentViewer.root.dataset.open === "true"
+      && currentViewer.renderRequestId === requestId
+      && currentViewer.item?.key === item.key;
+  }
+  
+  function showCopyFeedback(button) {
+    const previousFeedback = runtime.copyFeedbackTimers.get(button);
+    if (previousFeedback) window.clearTimeout(previousFeedback.timeoutId);
+  
+    const title = previousFeedback?.title ?? button.title;
+    const ariaLabel = previousFeedback?.ariaLabel ?? button.getAttribute("aria-label");
+    button.title = "Copied";
+    button.setAttribute("aria-label", "Copied");
+    button.classList.remove("cmf-copy-success");
+    void button.offsetWidth;
+    button.classList.add("cmf-copy-success");
+  
+    const timeoutId = window.setTimeout(() => {
+      button.classList.remove("cmf-copy-success");
+      button.title = title;
+      if (ariaLabel === null) {
+        button.removeAttribute("aria-label");
+      } else {
+        button.setAttribute("aria-label", ariaLabel);
+      }
+      runtime.copyFeedbackTimers.delete(button);
+    }, 1200);
+    runtime.copyFeedbackTimers.set(button, { timeoutId, title, ariaLabel });
+  }
+  
+  async function copyPromptText(event, source) {
+    const button = event.currentTarget;
+    button.blur();
+  
+    const text = typeof source === "string" ? source : String(source?.textContent || "");
+    if (!text.trim()) return;
+  
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        try {
+          document.body.appendChild(textarea);
+          textarea.select();
+          if (!document.execCommand("copy")) throw new Error("Clipboard copy failed");
+        } finally {
+          textarea.remove();
+        }
+      }
+    } catch {
+      return;
+    }
+  
+    showCopyFeedback(button);
+  }
+  
+  function formatAllViewerMetadata(result, details) {
+    const sections = [];
+    const appendSection = (heading, values) => {
+      const lines = values.filter((value) => String(value || "").trim());
+      if (lines.length) sections.push(`${heading}:\n${lines.join("\n")}`);
+    };
+  
+    appendSection(
+      "Resources",
+      (Array.isArray(result?.resources) ? result.resources : [])
+        .map((entry) => `${entry.label}: ${entry.value}`),
+    );
+    appendSection("Prompt", [result?.positive]);
+    appendSection("Negative Prompt", [result?.negative]);
+    appendSection("Seed", [result?.seed]);
+    appendSection(
+      "Other Metadata",
+      (Array.isArray(details) ? details : [])
+        .filter((entry) => String(entry?.label || "").toLowerCase() !== "seed")
+        .map((entry) => `${entry.label}: ${entry.value}`),
+    );
+  
+    return sections.join("\n\n");
+  }
+  
+  function copyAllViewerMetadata(event) {
+    const text = formatAllViewerMetadata(runtime.viewer?.lastPromptMetadata, runtime.viewer?.lastMetadataDetails);
+    return copyPromptText(event, text);
+  }
+  
+  function formatMetadataEntriesForCopy(entries, options = {}) {
+    return (Array.isArray(entries) ? entries : [])
+      .filter((entry) => !options.skipSeed || String(entry?.label || "").toLowerCase() !== "seed")
+      .map((entry) => `${entry?.label || ""}: ${entry?.value || ""}`)
+      .filter((line) => line !== ": ")
+      .join("\n");
+  }
+  
+  function copyViewerResources(event) {
+    return copyPromptText(event, formatMetadataEntriesForCopy(runtime.viewer?.lastPromptMetadata?.resources));
+  }
+  
+  function copyViewerOtherMetadata(event) {
+    return copyPromptText(event, formatMetadataEntriesForCopy(runtime.viewer?.lastMetadataDetails, { skipSeed: true }));
+  }
+  
+  function metadataDownloadFilename(filename) {
+    const basename = String(filename || "metadata")
+      .replace(/\.[^./\\]+$/, "")
+      .replace(/[^\p{L}\p{N}._-]+/gu, "_")
+      .replace(/^_+|_+$/g, "");
+    return `${basename || "metadata"}-metadata.json`;
+  }
+  
+  function downloadViewerEmbeddedJson(event) {
+    const button = event.currentTarget;
+    button.blur();
+  
+    const embeddedJson = runtime.viewer?.lastPromptMetadata?.embeddedJson;
+    if (!embeddedJson || !Object.keys(embeddedJson).length) return;
+  
+    let json;
+    try {
+      json = JSON.stringify(embeddedJson, null, 2);
+    } catch {
+      return;
+    }
+  
+    const url = URL.createObjectURL(new Blob([`${json}\n`], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = metadataDownloadFilename(runtime.viewer?.item?.filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+  
+  Object.assign(actions, {
+    rememberDecodedImage,
+    rememberMediaDimensions,
+    discardStagedMedia,
+    waitForMediaReady,
+    replaceViewerMedia,
+    waitForImageReady,
+    decodeImageElement,
+    isCurrentViewerRender,
+    showCopyFeedback,
+    copyPromptText,
+    formatAllViewerMetadata,
+    copyAllViewerMetadata,
+    formatMetadataEntriesForCopy,
+    copyViewerResources,
+    copyViewerOtherMetadata,
+    metadataDownloadFilename,
+    downloadViewerEmbeddedJson,
+  });
+}
+

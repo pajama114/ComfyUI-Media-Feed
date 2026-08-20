@@ -1,0 +1,36 @@
+import {
+  DEFAULT_EXCLUDE_PREVIEW_MEDIA,
+  DEFAULT_FEED_STYLE,
+  DEFAULT_FOLLOW_LATEST,
+  DEFAULT_ITEM_HEIGHT,
+  DEFAULT_ITEM_WIDTH,
+  DEFAULT_MEDIA_SCOPE,
+  DEFAULT_METADATA_POSITION,
+  DEFAULT_PLACEMENT,
+  DEFAULT_SCALE_VIEWER_MEDIA,
+  DEFAULT_SHOW_FAVORITE_BUTTON,
+  DEFAULT_SHOW_PROMPTS,
+} from "./constants.js";
+
+export function createMediaFeedState() {
+  return {
+    items: [],
+    itemKeys: new Set(),
+    filter: "all",
+    views: new Set(),
+    sequence: 0,
+    itemHeight: DEFAULT_ITEM_HEIGHT,
+    itemWidth: DEFAULT_ITEM_WIDTH,
+    placement: DEFAULT_PLACEMENT,
+    showPrompts: DEFAULT_SHOW_PROMPTS,
+    scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
+    followLatest: DEFAULT_FOLLOW_LATEST,
+    metadataPosition: DEFAULT_METADATA_POSITION,
+    excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
+    showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
+    feedStyle: DEFAULT_FEED_STYLE,
+    mediaScope: DEFAULT_MEDIA_SCOPE,
+    favoriteFiles: new Map(),
+    favoritingKeys: new Set(),
+  };
+}
