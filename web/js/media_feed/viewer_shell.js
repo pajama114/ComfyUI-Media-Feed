@@ -32,6 +32,9 @@ export function installViewerShell(context) {
     if (runtime.viewer) return runtime.viewer;
   
     ensureStyles();
+    const metadataOnLeft = state.metadataPosition === "left";
+    const hideMetadataIcon = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
+    const showMetadataIcon = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
   
     const root = document.createElement("div");
     root.className = "cmf-viewer";
@@ -64,7 +67,7 @@ export function installViewerShell(context) {
         <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
           <div class="cmf-prompt-panel-header">
             <h2 class="cmf-prompt-panel-title">Metadata</h2>
-            <button class="cmf-button cmf-viewer-metadata-toggle cmf-hide-metadata" type="button" title="Hide metadata" aria-label="Hide metadata" aria-pressed="true">${ICONS.eyeOff}<span>Hide</span></button>
+            <button class="cmf-button cmf-icon-button cmf-viewer-metadata-toggle cmf-hide-metadata" type="button" title="Hide metadata" aria-label="Hide metadata" aria-pressed="true">${hideMetadataIcon}</button>
           </div>
           <div class="cmf-metadata-toolbar" role="group" aria-label="Metadata actions">
             <button class="cmf-button cmf-metadata-action cmf-copy-all" type="button" title="Copy all metadata" aria-label="Copy all metadata" disabled>${ICONS.copy}<span>Copy all</span></button>
@@ -108,7 +111,7 @@ export function installViewerShell(context) {
             <div class="cmf-metadata-grid"></div>
           </section>
         </aside>
-        <button class="cmf-button cmf-viewer-metadata-toggle cmf-show-metadata" type="button" title="Show metadata" aria-label="Show metadata" aria-pressed="false">${ICONS.eye}<span>Show metadata</span></button>
+        <button class="cmf-button cmf-icon-button cmf-viewer-metadata-toggle cmf-show-metadata" type="button" title="Show metadata" aria-label="Show metadata" aria-pressed="false">${showMetadataIcon}</button>
       </div>
     `;
   
@@ -214,7 +217,10 @@ export function installViewerShell(context) {
   
   function syncViewerMetadataPosition() {
     if (!runtime.viewer) return;
+    const metadataOnLeft = state.metadataPosition === "left";
     runtime.viewer.body.dataset.metadataPosition = state.metadataPosition;
+    runtime.viewer.hideMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
+    runtime.viewer.showMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
   }
   
   function syncViewerMetadataToggle() {

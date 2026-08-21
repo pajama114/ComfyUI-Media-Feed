@@ -85,6 +85,40 @@ test("every action dependency resolves after controller composition", () => {
   assert.ok(Object.keys(context.actions).length > 150);
 });
 
+test("viewer metadata panel icons follow the configured side", () => {
+  const context = {
+    app: {},
+    api: {},
+    ICONS: {
+      panelLeftClose: "left-close",
+      panelLeftOpen: "left-open",
+      panelRightClose: "right-close",
+      panelRightOpen: "right-open",
+    },
+    state: { metadataPosition: "right" },
+    runtime: {
+      viewer: {
+        body: { dataset: {} },
+        hideMetadataButton: { innerHTML: "" },
+        showMetadataButton: { innerHTML: "" },
+      },
+    },
+    actions: {},
+  };
+  installViewerShell(context);
+
+  context.actions.syncViewerMetadataPosition();
+  assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "right");
+  assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "right-close");
+  assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "right-open");
+
+  context.state.metadataPosition = "left";
+  context.actions.syncViewerMetadataPosition();
+  assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "left");
+  assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "left-close");
+  assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "left-open");
+});
+
 test("the composed extension registers settings and setup integrations once", async () => {
   const originalWindow = globalThis.window;
   globalThis.window = {

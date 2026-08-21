@@ -396,6 +396,12 @@ export function mediaFeedBaseStyles({
       stroke-width: 2;
     }
 
+    .cmf-clear svg,
+    .cmf-collapse svg {
+      width: 18px;
+      height: 18px;
+    }
+
     .cmf-filter {
       display: inline-flex;
       overflow: hidden;
@@ -452,4 +458,3 @@ export function mediaFeedBaseStyles({
 
 `;
 }
-

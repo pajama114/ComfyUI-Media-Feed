@@ -47,12 +47,22 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       background: transparent;
     }
 
+    .cmf-viewer-favorite svg,
+    .cmf-viewer-download svg,
+    .cmf-open-link svg,
+    .cmf-close svg {
+      width: 18px;
+      height: 18px;
+    }
+
     .cmf-viewer-favorite:focus-visible,
     .cmf-viewer-download:focus-visible,
     .cmf-open-link:focus-visible,
     .cmf-close:focus-visible,
     .cmf-metadata-action:focus-visible,
-    .cmf-prompt-copy:focus-visible {
+    .cmf-prompt-copy:focus-visible,
+    .cmf-hide-metadata:focus-visible,
+    .cmf-show-metadata:focus-visible {
       outline: 2px solid var(--cmf-accent);
       outline-offset: 1px;
     }
@@ -305,13 +315,16 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 5px;
-      white-space: nowrap;
+    }
+
+    .cmf-hide-metadata {
+      border-color: transparent;
+      background: transparent;
     }
 
     .cmf-viewer-metadata-toggle svg {
-      width: 15px;
-      height: 15px;
+      width: 17px;
+      height: 17px;
       fill: none;
       stroke: currentColor;
       stroke-linecap: round;
@@ -324,6 +337,16 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       z-index: 2;
       top: 14px;
       right: 14px;
+      border-color: rgba(255, 255, 255, 0.32);
+      background: rgba(124, 127, 134, 0.94);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);
+    }
+
+    .cmf-show-metadata:hover,
+    .cmf-show-metadata:focus-visible {
+      border-color: rgba(255, 255, 255, 0.48);
+      background: rgba(150, 153, 160, 0.98);
     }
 
     .cmf-viewer-body[data-metadata-position="left"] .cmf-show-metadata {
@@ -447,8 +470,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-prompt-copy svg {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
     }
 
     .cmf-prompt-text {

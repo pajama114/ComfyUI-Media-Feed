@@ -50,6 +50,34 @@ export const ICONS = {
       <path d="M6.6 6.6C3.5 8.7 2 12 2 12s3.5 8 10 8a10.5 10.5 0 0 0 4.1-.8"></path>
     </svg>
   `,
+  panelLeftClose: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <path d="M9 3v18"></path>
+      <path d="m16 15-3-3 3-3"></path>
+    </svg>
+  `,
+  panelLeftOpen: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <path d="M9 3v18"></path>
+      <path d="m14 9 3 3-3 3"></path>
+    </svg>
+  `,
+  panelRightClose: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <path d="M15 3v18"></path>
+      <path d="m8 9 3 3-3 3"></path>
+    </svg>
+  `,
+  panelRightOpen: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <path d="M15 3v18"></path>
+      <path d="m10 15-3-3 3-3"></path>
+    </svg>
+  `,
   externalLink: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M15 3h6v6"></path>
