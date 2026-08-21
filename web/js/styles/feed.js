@@ -311,7 +311,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     }
 
     .cmf-viewer-favorite[aria-pressed="true"] {
-      color: #ffd24d;
+      color: #e0a000;
       opacity: 1;
     }
 

@@ -55,6 +55,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       height: 18px;
     }
 
+    .cmf-viewer-favorite[aria-pressed="true"] svg {
+      stroke: currentColor;
+    }
+
     .cmf-viewer-favorite:focus-visible,
     .cmf-viewer-download:focus-visible,
     .cmf-open-link:focus-visible,
