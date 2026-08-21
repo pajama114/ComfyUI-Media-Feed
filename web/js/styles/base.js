@@ -356,7 +356,20 @@ export function mediaFeedBaseStyles({
       font: inherit;
     }
 
+    .cmf-clear,
+    .cmf-collapse {
+      border-color: transparent;
+      background: transparent;
+    }
+
     .cmf-button:hover {
+      background: var(--cmf-button-hover);
+    }
+
+    .cmf-clear:focus-visible,
+    .cmf-collapse:focus-visible {
+      outline: 2px solid var(--cmf-accent);
+      outline-offset: 1px;
       background: var(--cmf-button-hover);
     }
 

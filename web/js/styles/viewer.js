@@ -39,6 +39,30 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       white-space: nowrap;
     }
 
+    .cmf-viewer-favorite,
+    .cmf-viewer-download,
+    .cmf-open-link,
+    .cmf-close {
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .cmf-viewer-favorite:focus-visible,
+    .cmf-viewer-download:focus-visible,
+    .cmf-open-link:focus-visible,
+    .cmf-close:focus-visible,
+    .cmf-metadata-action:focus-visible,
+    .cmf-prompt-copy:focus-visible {
+      outline: 2px solid var(--cmf-accent);
+      outline-offset: 1px;
+    }
+
+    .cmf-close:hover,
+    .cmf-close:focus-visible {
+      background: color-mix(in srgb, #ef5350 18%, transparent);
+      color: #ff7b78;
+    }
+
     .cmf-viewer-zoom-controls {
       position: absolute;
       left: 50%;
@@ -263,6 +287,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       align-items: center;
       justify-content: center;
       gap: 6px;
+      background: transparent;
       white-space: nowrap;
     }
 
@@ -417,6 +442,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       width: 26px;
       min-width: 26px;
       height: 24px;
+      border-color: transparent;
+      background: transparent;
     }
 
     .cmf-prompt-copy svg {
@@ -504,4 +531,3 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       right: 12px;
     }
   `;
-
