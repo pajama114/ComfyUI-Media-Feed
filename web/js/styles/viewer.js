@@ -66,7 +66,9 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-metadata-action:focus-visible,
     .cmf-prompt-copy:focus-visible,
     .cmf-hide-metadata:focus-visible,
-    .cmf-show-metadata:focus-visible {
+    .cmf-show-metadata:focus-visible,
+    .cmf-viewer-zoom-out:focus-visible,
+    .cmf-viewer-zoom-in:focus-visible {
       outline: 2px solid var(--cmf-accent);
       outline-offset: 1px;
     }
@@ -94,6 +96,12 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       width: 30px;
       min-width: 30px;
       height: 30px;
+    }
+
+    .cmf-viewer-zoom-out,
+    .cmf-viewer-zoom-in {
+      border-color: transparent;
+      background: transparent;
     }
 
     .cmf-viewer-zoom-controls .cmf-icon-button svg {
