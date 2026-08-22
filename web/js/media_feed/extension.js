@@ -48,7 +48,7 @@ export function createMediaFeedExtension(context) {
           { text: "Right", value: "right" },
         ],
         category: ["Media Feed", "Panel", "Placement"],
-        sortOrder: 1,
+        sortOrder: 420,
         tooltip: "Choose where the floating Media Feed panel appears.",
         onChange: (newValue) => {
           runtime.placementSettingSeen = true;
@@ -61,7 +61,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: loadSavedFollowLatest(),
         category: ["Media Feed", "Panel", "Follow latest media"],
-        sortOrder: 1,
+        sortOrder: 410,
         tooltip: "Automatically scroll the feed to newly generated media.",
         onChange: (newValue) => {
           runtime.followLatestSettingSeen = true;
@@ -74,7 +74,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: loadSavedExcludePreviewMedia(),
         category: ["Media Feed", "Feed", "Exclude Preview node media"],
-        sortOrder: 1,
+        sortOrder: 320,
         tooltip: "Do not add media emitted by Preview nodes, such as Preview Image, to the feed.",
         onChange: (newValue) => {
           runtime.excludePreviewMediaSettingSeen = true;
@@ -91,7 +91,7 @@ export function createMediaFeedExtension(context) {
           { text: "Frameless", value: "frameless" },
         ],
         category: ["Media Feed", "Feed", "Feed style"],
-        sortOrder: 1,
+        sortOrder: 340,
         tooltip: "Choose the standard feed or a frameless feed that keeps the on-panel size control while hiding other panel chrome.",
         onChange: (newValue) => {
           runtime.feedStyleSettingSeen = true;
@@ -108,7 +108,7 @@ export function createMediaFeedExtension(context) {
           { text: "Current workflow tab", value: "current-tab" },
         ],
         category: ["Media Feed", "Feed", "Media from"],
-        sortOrder: 1,
+        sortOrder: 330,
         tooltip: "Show media from every workflow tab or only media queued from the currently active workflow tab.",
         onChange: (newValue) => {
           runtime.mediaScopeSettingSeen = true;
@@ -125,7 +125,7 @@ export function createMediaFeedExtension(context) {
           { text: "Line", value: "line" },
         ],
         category: ["Media Feed", "Feed", "Batch dividers"],
-        sortOrder: 1,
+        sortOrder: 310,
         tooltip: "Show a visual separator when adjacent media came from different queued generations.",
         onChange: (newValue) => {
           runtime.batchDividersSettingSeen = true;
@@ -138,7 +138,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: loadSavedShowPrompts(),
         category: ["Media Feed", "Viewer", "Show metadata in viewer"],
-        sortOrder: 1,
+        sortOrder: 230,
         tooltip: "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media.",
         onChange: (newValue) => {
           runtime.promptSettingSeen = true;
@@ -155,7 +155,7 @@ export function createMediaFeedExtension(context) {
           { text: "Right", value: "right" },
         ],
         category: ["Media Feed", "Viewer", "Metadata position"],
-        sortOrder: 1,
+        sortOrder: 220,
         tooltip: "Choose which side of the viewer shows prompt and metadata details.",
         onChange: (newValue) => {
           runtime.metadataPositionSettingSeen = true;
@@ -168,7 +168,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: loadSavedScaleViewerMedia(),
         category: ["Media Feed", "Viewer", "Fit media to viewer"],
-        sortOrder: 1,
+        sortOrder: 210,
         tooltip: "Fit images, videos, and audio players to the available viewer area.",
         onChange: (newValue) => {
           runtime.scaleViewerMediaSettingSeen = true;
@@ -181,6 +181,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: loadSavedShowFavoriteButton(),
         category: ["Media Feed", "Favorites", "Show favorite button on hover"],
+        sortOrder: 120,
         tooltip: "Show the favorite star in the upper-right corner of a feed card when you hover over it.",
         onChange: (newValue) => {
           runtime.showFavoriteButtonSettingSeen = true;
@@ -195,6 +196,7 @@ export function createMediaFeedExtension(context) {
         options: [{ text: "output/favorites", value: "output/favorites" }],
         attrs: { disabled: true },
         category: ["Media Feed", "Favorites", "Favorite storage folder"],
+        sortOrder: 110,
         tooltip: "Favorites are always stored in the output/favorites folder and this location cannot be changed.",
       },
     ],

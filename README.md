@@ -55,12 +55,13 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Follow latest media: `On`
 - Feed style: `Default`
 - Media from: `All workflow tabs`
+- Exclude Preview node media: `Off`
 - Batch dividers: `Line`
-- Show favorite button on hover: `On`
-- Show metadata in vieweredia: `Off`
-- Show prompts in viewer: `On`
+- Show metadata in viewer: `On`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
+- Show favorite button on hover: `On`
+- Favorite storage folder: `output/favorites` (fixed)
 
 Saved settings are stored in browser `localStorage` and override these defaults
 after the first change.

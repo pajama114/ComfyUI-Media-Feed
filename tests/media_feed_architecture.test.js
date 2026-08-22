@@ -135,6 +135,32 @@ test("the composed extension registers settings and setup integrations once", as
     assert.equal(extension.name, "comfyui.media_feed");
     assert.equal(extension.settings.length, 11);
     assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 11);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 11);
+
+    const settingsByGroup = new Map();
+    for (const setting of extension.settings) {
+      const group = setting.category[1];
+      settingsByGroup.set(group, [...(settingsByGroup.get(group) ?? []), setting]);
+    }
+    const displayedSettings = [...settingsByGroup]
+      .sort(([groupA, settingsA], [groupB, settingsB]) => {
+        const groupOrderA = Math.max(...settingsA.map((setting) => setting.sortOrder ?? 0));
+        const groupOrderB = Math.max(...settingsB.map((setting) => setting.sortOrder ?? 0));
+        return groupOrderB - groupOrderA || groupA.localeCompare(groupB);
+      })
+      .map(([group, settings]) => [
+        group,
+        [...settings]
+          .sort((a, b) => (b.sortOrder ?? 0) - (a.sortOrder ?? 0))
+          .map((setting) => setting.name),
+      ]);
+    assert.deepEqual(displayedSettings, [
+      ["Panel", ["Placement", "Follow latest media"]],
+      ["Feed", ["Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
+      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer"]],
+      ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
+    ]);
+
     const batchDividerSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.batch-dividers");
     assert.equal(batchDividerSetting.defaultValue, "line");
     assert.deepEqual(batchDividerSetting.options.map((option) => option.value), ["none", "line"]);
