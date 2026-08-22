@@ -458,12 +458,12 @@ export function mediaFeedBaseStyles({
     .cmf-filter-count {
       position: absolute;
       right: 2px;
-      bottom: 1px;
+      bottom: -1.5px;
       color: var(--cmf-text);
-      font-size: 8px;
+      font-size: 9.6px;
       font-variant-numeric: tabular-nums;
       font-weight: 650;
-      line-height: 10px;
+      line-height: 12px;
       pointer-events: none;
     }
 
