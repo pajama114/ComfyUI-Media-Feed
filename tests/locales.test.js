@@ -25,6 +25,7 @@ test("every locale covers all registered Media Feed settings", () => {
   for (const locale of LOCALES) {
     const { settingsCategories } = loadLocaleFile(locale, "main.json");
     const translations = loadLocaleFile(locale, "settings.json");
+    assert.equal(settingsCategories["Media Feed"], "Media Feed", `${locale} must preserve the extension name`);
 
     for (const setting of registeredSettings) {
       const translationKey = setting.id.replaceAll(".", "_");
