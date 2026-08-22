@@ -166,8 +166,28 @@ export function mediaFeedBaseStyles({
       width: 132px;
       height: 44px;
       min-height: 44px;
+      gap: 0;
+      padding: 8px 10px;
       overflow: hidden;
       cursor: pointer;
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-toolbar {
+      width: 100%;
+      gap: 0;
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-collapse {
+      display: flex;
+      width: 100%;
+      gap: 8px;
+      padding: 0 8px;
+    }
+
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-collapse-label {
+      display: inline;
+      font-weight: 500;
+      white-space: nowrap;
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"]:hover {
@@ -176,12 +196,23 @@ export function mediaFeedBaseStyles({
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
       bottom: var(--cmf-safe-bottom);
-      left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
+      right: calc(var(--cmf-safe-right) + 10px);
+      left: auto;
     }
 
-    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="top"],
+    .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="top"] {
+      top: calc(var(--cmf-placement-top) - 28px);
+      right: calc(
+        var(--cmf-edge-right)
+        - var(--cmf-side-outset)
+        + var(--cmf-top-controls-inset)
+        + 10px
+      );
+      left: auto;
+    }
+
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="left"] {
-      top: var(--cmf-placement-top);
+      top: calc(var(--cmf-placement-top) - 28px);
       left: calc(var(--cmf-safe-left) - var(--cmf-side-outset));
     }
 
@@ -194,7 +225,8 @@ export function mediaFeedBaseStyles({
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-feed-frame,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-filter,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-size-control,
-    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-clear {
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-clear,
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-spacer {
       display: none;
     }
 
@@ -400,6 +432,10 @@ export function mediaFeedBaseStyles({
     .cmf-collapse svg {
       width: 18px;
       height: 18px;
+    }
+
+    .cmf-collapse-label {
+      display: none;
     }
 
     .cmf-filter {

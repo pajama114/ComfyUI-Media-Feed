@@ -31,21 +31,24 @@ export function installFloatingPanel(context) {
   
     const collapseButton = root.querySelector(".cmf-collapse");
     collapseButton.hidden = false;
+    function syncCollapseButton(collapsed) {
+      collapseButton.innerHTML = collapsed
+        ? `${ICONS.galleryHorizontal}<span class="cmf-collapse-label">Media Feed</span>`
+        : ICONS.eyeOff;
+      const label = collapsed ? "Show Media Feed" : "Hide Media Feed";
+      collapseButton.title = label;
+      collapseButton.setAttribute("aria-label", label);
+    }
     collapseButton.addEventListener("click", (event) => {
       event.stopPropagation();
       const collapsed = root.dataset.collapsed === "true";
       root.dataset.collapsed = String(!collapsed);
-      const label = collapsed ? "Hide" : "Show";
-      collapseButton.innerHTML = collapsed ? ICONS.eyeOff : ICONS.eye;
-      collapseButton.title = label;
-      collapseButton.setAttribute("aria-label", label);
+      syncCollapseButton(!collapsed);
     });
     root.addEventListener("click", () => {
       if (root.dataset.collapsed !== "true") return;
       root.dataset.collapsed = "false";
-      collapseButton.innerHTML = ICONS.eyeOff;
-      collapseButton.title = "Hide";
-      collapseButton.setAttribute("aria-label", "Hide");
+      syncCollapseButton(false);
     });
   
     return view;
@@ -274,4 +277,3 @@ export function installFloatingPanel(context) {
     syncFloatingPanel,
   });
 }
-

@@ -51,7 +51,7 @@ export function installFeedView(context) {
           <input class="cmf-size-slider" type="range" min="${MIN_ITEM_HEIGHT}" max="${MAX_ITEM_HEIGHT}" value="${state.itemHeight}">
         </label>
         <button class="cmf-button cmf-icon-button cmf-clear" type="button" title="Clear" aria-label="Clear">${ICONS.trash}</button>
-        <button class="cmf-button cmf-icon-button cmf-collapse" type="button" title="Hide" aria-label="Hide" hidden>${ICONS.eyeOff}</button>
+        <button class="cmf-button cmf-icon-button cmf-collapse" type="button" title="Hide Media Feed" aria-label="Hide Media Feed" hidden>${ICONS.eyeOff}</button>
       </div>
       <div class="cmf-feed-frame">
         <div class="cmf-viewport">

@@ -50,6 +50,13 @@ export const ICONS = {
       <path d="M6.6 6.6C3.5 8.7 2 12 2 12s3.5 8 10 8a10.5 10.5 0 0 0 4.1-.8"></path>
     </svg>
   `,
+  galleryHorizontal: `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 3v18"></path>
+      <rect x="6" y="3" width="12" height="18" rx="2"></rect>
+      <path d="M22 3v18"></path>
+    </svg>
+  `,
   panelLeftClose: `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="3" y="3" width="18" height="18" rx="2"></rect>
