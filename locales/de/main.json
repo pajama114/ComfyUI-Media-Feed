@@ -1,0 +1,20 @@
+{
+  "settingsCategories": {
+    "Media Feed": "Medien-Feed",
+    "Panel": "Bedienfeld",
+    "Feed": "Feed",
+    "Viewer": "Betrachter",
+    "Favorites": "Favoriten",
+    "Placement": "Position",
+    "Follow latest media": "Neueste Medien verfolgen",
+    "Exclude Preview node media": "Medien von Preview-Knoten ausschließen",
+    "Feed style": "Feed-Stil",
+    "Media from": "Medienquelle",
+    "Batch dividers": "Stapeltrenner",
+    "Show metadata in viewer": "Metadaten im Betrachter anzeigen",
+    "Metadata position": "Position der Metadaten",
+    "Fit media to viewer": "Medien an den Betrachter anpassen",
+    "Show favorite button on hover": "Favoritenschaltfläche beim Darüberfahren anzeigen",
+    "Favorite storage folder": "Speicherordner für Favoriten"
+  }
+}

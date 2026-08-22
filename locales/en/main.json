@@ -4,9 +4,17 @@
     "Panel": "Panel",
     "Feed": "Feed",
     "Viewer": "Viewer",
+    "Favorites": "Favorites",
     "Placement": "Placement",
+    "Follow latest media": "Follow latest media",
+    "Exclude Preview node media": "Exclude Preview node media",
+    "Feed style": "Feed style",
+    "Media from": "Media from",
+    "Batch dividers": "Batch dividers",
     "Show metadata in viewer": "Show metadata in viewer",
+    "Metadata position": "Metadata position",
     "Fit media to viewer": "Fit media to viewer",
-    "Media from": "Media from"
+    "Show favorite button on hover": "Show favorite button on hover",
+    "Favorite storage folder": "Favorite storage folder"
   }
 }

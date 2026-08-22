@@ -1,0 +1,83 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "위치",
+    "tooltip": "플로팅 Media Feed 패널이 표시될 위치를 선택합니다.",
+    "options": {
+      "Bottom": "아래",
+      "Top": "위",
+      "Left": "왼쪽",
+      "Right": "오른쪽",
+      "bottom": "아래",
+      "top": "위",
+      "left": "왼쪽",
+      "right": "오른쪽"
+    }
+  },
+  "comfyui-media-feed_follow-latest": {
+    "name": "최신 미디어 따라가기",
+    "tooltip": "새로 생성된 미디어로 피드를 자동 스크롤합니다."
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "Preview 노드 미디어 제외",
+    "tooltip": "Preview Image와 같은 Preview 노드에서 출력된 미디어를 피드에 추가하지 않습니다."
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "피드 스타일",
+    "tooltip": "표준 피드 또는 패널의 크기 조절 컨트롤은 유지하면서 다른 패널 요소를 숨기는 프레임리스 피드를 선택합니다.",
+    "options": {
+      "Default": "기본",
+      "Frameless": "프레임리스",
+      "default": "기본",
+      "frameless": "프레임리스"
+    }
+  },
+  "comfyui-media-feed_media-scope": {
+    "name": "미디어 출처",
+    "tooltip": "모든 워크플로 탭의 미디어를 표시하거나 현재 활성 워크플로 탭에서 대기열에 추가한 미디어만 표시합니다.",
+    "options": {
+      "All workflow tabs": "모든 워크플로 탭",
+      "Current workflow tab": "현재 워크플로 탭",
+      "all": "모든 워크플로 탭",
+      "current-tab": "현재 워크플로 탭"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "배치 구분선",
+    "tooltip": "인접한 미디어가 서로 다른 생성 대기열에서 나온 경우 시각적 구분선을 표시합니다.",
+    "options": {
+      "Off": "끄기",
+      "Line": "선",
+      "none": "끄기",
+      "line": "선"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "뷰어에 메타데이터 표시",
+    "tooltip": "PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG 또는 Opus에 포함된 메타데이터를 읽고 미디어를 볼 때 추론된 프롬프트와 시드 정보를 표시합니다."
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "메타데이터 위치",
+    "tooltip": "뷰어의 어느 쪽에 프롬프트와 메타데이터 세부 정보를 표시할지 선택합니다.",
+    "options": {
+      "Left": "왼쪽",
+      "Right": "오른쪽",
+      "left": "왼쪽",
+      "right": "오른쪽"
+    }
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "뷰어에 미디어 맞추기",
+    "tooltip": "이미지, 비디오 및 오디오 플레이어를 뷰어의 사용 가능한 영역에 맞춥니다."
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "마우스를 올리면 즐겨찾기 버튼 표시",
+    "tooltip": "피드 카드에 마우스를 올리면 오른쪽 위에 즐겨찾기 별을 표시합니다."
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "즐겨찾기 저장 폴더",
+    "tooltip": "즐겨찾기는 항상 output/favorites 폴더에 저장되며 이 위치는 변경할 수 없습니다.",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
+  }
+}

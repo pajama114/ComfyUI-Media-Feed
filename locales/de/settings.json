@@ -1,0 +1,83 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "Position",
+    "tooltip": "Wählen Sie aus, wo das schwebende Media-Feed-Bedienfeld angezeigt wird.",
+    "options": {
+      "Bottom": "Unten",
+      "Top": "Oben",
+      "Left": "Links",
+      "Right": "Rechts",
+      "bottom": "Unten",
+      "top": "Oben",
+      "left": "Links",
+      "right": "Rechts"
+    }
+  },
+  "comfyui-media-feed_follow-latest": {
+    "name": "Neueste Medien verfolgen",
+    "tooltip": "Scrollt den Feed automatisch zu neu erzeugten Medien."
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "Medien von Preview-Knoten ausschließen",
+    "tooltip": "Fügt Medien, die von Preview-Knoten wie Preview Image ausgegeben werden, nicht zum Feed hinzu."
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "Feed-Stil",
+    "tooltip": "Wählen Sie den Standard-Feed oder einen rahmenlosen Feed, der die Größensteuerung im Bedienfeld beibehält und andere Bedienfeldelemente ausblendet.",
+    "options": {
+      "Default": "Standard",
+      "Frameless": "Rahmenlos",
+      "default": "Standard",
+      "frameless": "Rahmenlos"
+    }
+  },
+  "comfyui-media-feed_media-scope": {
+    "name": "Medienquelle",
+    "tooltip": "Zeigt Medien aus allen Workflow-Tabs oder nur Medien an, die im derzeit aktiven Workflow-Tab zur Warteschlange hinzugefügt wurden.",
+    "options": {
+      "All workflow tabs": "Alle Workflow-Tabs",
+      "Current workflow tab": "Aktueller Workflow-Tab",
+      "all": "Alle Workflow-Tabs",
+      "current-tab": "Aktueller Workflow-Tab"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "Stapeltrenner",
+    "tooltip": "Zeigt eine visuelle Trennlinie an, wenn benachbarte Medien aus unterschiedlichen Generierungsaufträgen stammen.",
+    "options": {
+      "Off": "Aus",
+      "Line": "Linie",
+      "none": "Aus",
+      "line": "Linie"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "Metadaten im Betrachter anzeigen",
+    "tooltip": "Liest eingebettete Metadaten aus PNG-, GIF-, MP4-, WebM-, M4A-, MP3-, FLAC-, OGG- oder Opus-Dateien und zeigt beim Betrachten der Medien abgeleitete Prompt- und Seed-Informationen an."
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "Position der Metadaten",
+    "tooltip": "Wählen Sie aus, auf welcher Seite des Betrachters Prompt- und Metadatendetails angezeigt werden.",
+    "options": {
+      "Left": "Links",
+      "Right": "Rechts",
+      "left": "Links",
+      "right": "Rechts"
+    }
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "Medien an den Betrachter anpassen",
+    "tooltip": "Passt Bilder, Videos und Audioplayer an den verfügbaren Bereich des Betrachters an."
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "Favoritenschaltfläche beim Darüberfahren anzeigen",
+    "tooltip": "Zeigt den Favoritenstern oben rechts auf einer Feed-Karte an, wenn sich der Mauszeiger darüber befindet."
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "Speicherordner für Favoriten",
+    "tooltip": "Favoriten werden immer im Ordner output/favorites gespeichert; dieser Speicherort kann nicht geändert werden.",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
+  }
+}

@@ -4,9 +4,17 @@
     "Panel": "パネル",
     "Feed": "フィード",
     "Viewer": "ビューア",
+    "Favorites": "お気に入り",
     "Placement": "配置",
+    "Follow latest media": "最新のメディアを追従",
+    "Exclude Preview node media": "Previewノードのメディアを除外",
+    "Feed style": "フィードスタイル",
+    "Media from": "表示するメディア",
+    "Batch dividers": "バッチ区切り",
     "Show metadata in viewer": "ビューアにメタデータを表示",
+    "Metadata position": "メタデータの位置",
     "Fit media to viewer": "メディアをビューアに合わせる",
-    "Media from": "表示するメディア"
+    "Show favorite button on hover": "ホバー時にお気に入りボタンを表示",
+    "Favorite storage folder": "お気に入りの保存先"
   }
 }

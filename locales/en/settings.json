@@ -3,27 +3,71 @@
     "name": "Placement",
     "tooltip": "Choose where the floating Media Feed panel appears.",
     "options": {
+      "Bottom": "Bottom",
+      "Top": "Top",
+      "Left": "Left",
+      "Right": "Right",
       "bottom": "Bottom",
       "top": "Top",
       "left": "Left",
       "right": "Right"
     }
   },
-  "comfyui-media-feed_show-prompts": {
-    "name": "Show metadata in viewer",
-    "tooltip": "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media."
+  "comfyui-media-feed_follow-latest": {
+    "name": "Follow latest media",
+    "tooltip": "Automatically scroll the feed to newly generated media."
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "Exclude Preview node media",
+    "tooltip": "Do not add media emitted by Preview nodes, such as Preview Image, to the feed."
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "Feed style",
+    "tooltip": "Choose the standard feed or a frameless feed that keeps the on-panel size control while hiding other panel chrome.",
+    "options": {
+      "Default": "Default",
+      "Frameless": "Frameless",
+      "default": "Default",
+      "frameless": "Frameless"
+    }
   },
   "comfyui-media-feed_media-scope": {
     "name": "Media from",
     "tooltip": "Show media from every workflow tab or only media queued from the currently active workflow tab.",
     "options": {
+      "All workflow tabs": "All workflow tabs",
+      "Current workflow tab": "Current workflow tab",
       "all": "All workflow tabs",
       "current-tab": "Current workflow tab"
     }
   },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "Batch dividers",
+    "tooltip": "Show a visual separator when adjacent media came from different queued generations.",
+    "options": {
+      "Off": "Off",
+      "Line": "Line",
+      "none": "Off",
+      "line": "Line"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "Show metadata in viewer",
+    "tooltip": "Read embedded PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG, or Opus metadata and show inferred prompt and seed metadata when viewing media."
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "Metadata position",
+    "tooltip": "Choose which side of the viewer shows prompt and metadata details.",
+    "options": {
+      "Left": "Left",
+      "Right": "Right",
+      "left": "Left",
+      "right": "Right"
+    }
+  },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Fit media to viewer",
-    "tooltip": "Upscale small images and videos to the largest size that fits entirely within the viewer while preserving their aspect ratio."
+    "tooltip": "Fit images, videos, and audio players to the available viewer area."
   },
   "comfyui-media-feed_show-favorite-button": {
     "name": "Show favorite button on hover",

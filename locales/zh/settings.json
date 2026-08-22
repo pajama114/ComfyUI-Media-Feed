@@ -1,0 +1,83 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "位置",
+    "tooltip": "选择浮动Media Feed面板的显示位置。",
+    "options": {
+      "Bottom": "底部",
+      "Top": "顶部",
+      "Left": "左侧",
+      "Right": "右侧",
+      "bottom": "底部",
+      "top": "顶部",
+      "left": "左侧",
+      "right": "右侧"
+    }
+  },
+  "comfyui-media-feed_follow-latest": {
+    "name": "跟随最新媒体",
+    "tooltip": "自动将信息流滚动到新生成的媒体。"
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "排除Preview节点媒体",
+    "tooltip": "不将Preview Image等Preview节点输出的媒体添加到信息流。"
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "信息流样式",
+    "tooltip": "选择标准信息流，或选择保留面板内尺寸控件并隐藏其他面板元素的无边框信息流。",
+    "options": {
+      "Default": "默认",
+      "Frameless": "无边框",
+      "default": "默认",
+      "frameless": "无边框"
+    }
+  },
+  "comfyui-media-feed_media-scope": {
+    "name": "媒体来源",
+    "tooltip": "显示所有工作流标签页中的媒体，或仅显示当前活动工作流标签页中加入队列的媒体。",
+    "options": {
+      "All workflow tabs": "所有工作流标签页",
+      "Current workflow tab": "当前工作流标签页",
+      "all": "所有工作流标签页",
+      "current-tab": "当前工作流标签页"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "批次分隔线",
+    "tooltip": "当相邻媒体来自不同的生成队列时显示视觉分隔线。",
+    "options": {
+      "Off": "关闭",
+      "Line": "线条",
+      "none": "关闭",
+      "line": "线条"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "在查看器中显示元数据",
+    "tooltip": "读取PNG、GIF、MP4、WebM、M4A、MP3、FLAC、OGG或Opus中嵌入的元数据，并在查看媒体时显示推断出的提示词和种子信息。"
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "元数据位置",
+    "tooltip": "选择在查看器的哪一侧显示提示词和元数据详情。",
+    "options": {
+      "Left": "左侧",
+      "Right": "右侧",
+      "left": "左侧",
+      "right": "右侧"
+    }
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "使媒体适应查看器",
+    "tooltip": "使图像、视频和音频播放器适应查看器的可用区域。"
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "悬停时显示收藏按钮",
+    "tooltip": "将鼠标悬停在信息流卡片上时，在右上角显示收藏星标。"
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "收藏存储文件夹",
+    "tooltip": "收藏始终存储在output/favorites文件夹中，且无法更改此位置。",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "settingsCategories": {
+    "Media Feed": "媒體動態",
+    "Panel": "面板",
+    "Feed": "動態",
+    "Viewer": "檢視器",
+    "Favorites": "收藏",
+    "Placement": "位置",
+    "Follow latest media": "跟隨最新媒體",
+    "Exclude Preview node media": "排除Preview節點媒體",
+    "Feed style": "動態樣式",
+    "Media from": "媒體來源",
+    "Batch dividers": "批次分隔線",
+    "Show metadata in viewer": "在檢視器中顯示中繼資料",
+    "Metadata position": "中繼資料位置",
+    "Fit media to viewer": "讓媒體符合檢視器",
+    "Show favorite button on hover": "游標停留時顯示收藏按鈕",
+    "Favorite storage folder": "收藏儲存資料夾"
+  }
+}

@@ -1,29 +1,73 @@
 {
   "comfyui-media-feed_placement": {
     "name": "配置",
-    "tooltip": "フローティング表示時の Media Feed パネルの位置を選びます。",
+    "tooltip": "フローティング表示時のMedia Feedパネルの位置を選びます。",
     "options": {
+      "Bottom": "下",
+      "Top": "上",
+      "Left": "左",
+      "Right": "右",
       "bottom": "下",
       "top": "上",
       "left": "左",
       "right": "右"
     }
   },
-  "comfyui-media-feed_show-prompts": {
-    "name": "ビューアにメタデータを表示",
-    "tooltip": "埋め込みメタデータを読み取り、ビューアにプロンプト、ネガティブプロンプト、Seed を表示します。"
+  "comfyui-media-feed_follow-latest": {
+    "name": "最新のメディアを追従",
+    "tooltip": "新しく生成されたメディアまでフィードを自動的にスクロールします。"
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "Previewノードのメディアを除外",
+    "tooltip": "Preview ImageなどのPreviewノードが出力したメディアをフィードに追加しません。"
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "フィードスタイル",
+    "tooltip": "標準フィード、またはパネル上のサイズ調整を残してその他のパネル表示を隠すフレームレスフィードを選びます。",
+    "options": {
+      "Default": "標準",
+      "Frameless": "フレームレス",
+      "default": "標準",
+      "frameless": "フレームレス"
+    }
   },
   "comfyui-media-feed_media-scope": {
     "name": "表示するメディア",
-    "tooltip": "すべてのワークフロータブで生成したメディアを表示するか、現在のタブで生成したメディアだけを表示するかを選びます。",
+    "tooltip": "すべてのワークフロータブで生成したメディアを表示するか、現在のタブでキューに追加したメディアだけを表示するかを選びます。",
     "options": {
-      "all": "すべてのタブ",
-      "current-tab": "現在のタブのみ"
+      "All workflow tabs": "すべてのワークフロータブ",
+      "Current workflow tab": "現在のワークフロータブ",
+      "all": "すべてのワークフロータブ",
+      "current-tab": "現在のワークフロータブ"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "バッチ区切り",
+    "tooltip": "隣り合うメディアが別々の生成キューから出力された場合に区切りを表示します。",
+    "options": {
+      "Off": "オフ",
+      "Line": "ライン",
+      "none": "オフ",
+      "line": "ライン"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "ビューアにメタデータを表示",
+    "tooltip": "PNG、GIF、MP4、WebM、M4A、MP3、FLAC、OGG、Opusに埋め込まれたメタデータを読み取り、推定したプロンプトやSeedをビューアに表示します。"
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "メタデータの位置",
+    "tooltip": "プロンプトとメタデータの詳細をビューアの左右どちらに表示するかを選びます。",
+    "options": {
+      "Left": "左",
+      "Right": "右",
+      "left": "左",
+      "right": "右"
     }
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "メディアをビューアに合わせる",
-    "tooltip": "小さい画像や動画を、全体がビューア内に収まる最大サイズで表示します。"
+    "tooltip": "画像、動画、オーディオプレーヤーをビューア内の表示可能領域に合わせます。"
   },
   "comfyui-media-feed_show-favorite-button": {
     "name": "ホバー時にお気に入りボタンを表示",
@@ -31,7 +75,7 @@
   },
   "comfyui-media-feed_favorite-folder": {
     "name": "お気に入りの保存先",
-    "tooltip": "お気に入りは常に output/favorites に保存されます。この保存先は変更できません。",
+    "tooltip": "お気に入りは常にoutput/favoritesフォルダに保存されます。この保存先は変更できません。",
     "options": {
       "output/favorites": "output/favorites"
     }

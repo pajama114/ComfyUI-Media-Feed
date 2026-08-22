@@ -1,0 +1,20 @@
+{
+  "settingsCategories": {
+    "Media Feed": "Flux multimédia",
+    "Panel": "Panneau",
+    "Feed": "Flux",
+    "Viewer": "Visionneuse",
+    "Favorites": "Favoris",
+    "Placement": "Position",
+    "Follow latest media": "Suivre les médias les plus récents",
+    "Exclude Preview node media": "Exclure les médias des nœuds Preview",
+    "Feed style": "Style du flux",
+    "Media from": "Provenance des médias",
+    "Batch dividers": "Séparateurs de lots",
+    "Show metadata in viewer": "Afficher les métadonnées dans la visionneuse",
+    "Metadata position": "Position des métadonnées",
+    "Fit media to viewer": "Adapter les médias à la visionneuse",
+    "Show favorite button on hover": "Afficher le bouton Favori au survol",
+    "Favorite storage folder": "Dossier de stockage des favoris"
+  }
+}

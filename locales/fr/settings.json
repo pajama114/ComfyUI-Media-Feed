@@ -1,0 +1,83 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "Position",
+    "tooltip": "Choisissez l’emplacement du panneau flottant Media Feed.",
+    "options": {
+      "Bottom": "En bas",
+      "Top": "En haut",
+      "Left": "À gauche",
+      "Right": "À droite",
+      "bottom": "En bas",
+      "top": "En haut",
+      "left": "À gauche",
+      "right": "À droite"
+    }
+  },
+  "comfyui-media-feed_follow-latest": {
+    "name": "Suivre les médias les plus récents",
+    "tooltip": "Fait défiler automatiquement le flux jusqu’aux nouveaux médias générés."
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "Exclure les médias des nœuds Preview",
+    "tooltip": "N’ajoute pas au flux les médias produits par les nœuds Preview, tels que Preview Image."
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "Style du flux",
+    "tooltip": "Choisissez le flux standard ou un flux sans cadre qui conserve le contrôle de taille dans le panneau tout en masquant les autres éléments du panneau.",
+    "options": {
+      "Default": "Par défaut",
+      "Frameless": "Sans cadre",
+      "default": "Par défaut",
+      "frameless": "Sans cadre"
+    }
+  },
+  "comfyui-media-feed_media-scope": {
+    "name": "Provenance des médias",
+    "tooltip": "Affichez les médias de tous les onglets de workflow ou uniquement ceux mis en file d’attente depuis l’onglet de workflow actif.",
+    "options": {
+      "All workflow tabs": "Tous les onglets de workflow",
+      "Current workflow tab": "Onglet de workflow actuel",
+      "all": "Tous les onglets de workflow",
+      "current-tab": "Onglet de workflow actuel"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "Séparateurs de lots",
+    "tooltip": "Affiche un séparateur visuel lorsque des médias adjacents proviennent de générations mises en file d’attente séparément.",
+    "options": {
+      "Off": "Désactivé",
+      "Line": "Ligne",
+      "none": "Désactivé",
+      "line": "Ligne"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "Afficher les métadonnées dans la visionneuse",
+    "tooltip": "Lit les métadonnées intégrées aux fichiers PNG, GIF, MP4, WebM, M4A, MP3, FLAC, OGG ou Opus et affiche les informations déduites sur le prompt et la graine lors de la consultation des médias."
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "Position des métadonnées",
+    "tooltip": "Choisissez le côté de la visionneuse qui affiche le prompt et les détails des métadonnées.",
+    "options": {
+      "Left": "À gauche",
+      "Right": "À droite",
+      "left": "À gauche",
+      "right": "À droite"
+    }
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "Adapter les médias à la visionneuse",
+    "tooltip": "Adapte les images, les vidéos et les lecteurs audio à l’espace disponible dans la visionneuse."
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "Afficher le bouton Favori au survol",
+    "tooltip": "Affiche l’étoile des favoris dans le coin supérieur droit d’une carte du flux lorsque vous la survolez."
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "Dossier de stockage des favoris",
+    "tooltip": "Les favoris sont toujours stockés dans le dossier output/favorites et cet emplacement ne peut pas être modifié.",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
+  }
+}

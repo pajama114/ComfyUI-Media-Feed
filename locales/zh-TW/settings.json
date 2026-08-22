@@ -1,0 +1,83 @@
+{
+  "comfyui-media-feed_placement": {
+    "name": "位置",
+    "tooltip": "選擇浮動Media Feed面板的顯示位置。",
+    "options": {
+      "Bottom": "底部",
+      "Top": "頂部",
+      "Left": "左側",
+      "Right": "右側",
+      "bottom": "底部",
+      "top": "頂部",
+      "left": "左側",
+      "right": "右側"
+    }
+  },
+  "comfyui-media-feed_follow-latest": {
+    "name": "跟隨最新媒體",
+    "tooltip": "自動將動態捲動到新產生的媒體。"
+  },
+  "comfyui-media-feed_exclude-preview-media": {
+    "name": "排除Preview節點媒體",
+    "tooltip": "不將Preview Image等Preview節點輸出的媒體加入動態。"
+  },
+  "comfyui-media-feed_feed-style": {
+    "name": "動態樣式",
+    "tooltip": "選擇標準動態，或選擇保留面板內尺寸控制項並隱藏其他面板元素的無框動態。",
+    "options": {
+      "Default": "預設",
+      "Frameless": "無框",
+      "default": "預設",
+      "frameless": "無框"
+    }
+  },
+  "comfyui-media-feed_media-scope": {
+    "name": "媒體來源",
+    "tooltip": "顯示所有工作流程分頁中的媒體，或僅顯示目前使用中工作流程分頁中加入佇列的媒體。",
+    "options": {
+      "All workflow tabs": "所有工作流程分頁",
+      "Current workflow tab": "目前的工作流程分頁",
+      "all": "所有工作流程分頁",
+      "current-tab": "目前的工作流程分頁"
+    }
+  },
+  "comfyui-media-feed_batch-dividers": {
+    "name": "批次分隔線",
+    "tooltip": "當相鄰媒體來自不同的產生佇列時顯示視覺分隔線。",
+    "options": {
+      "Off": "關閉",
+      "Line": "線條",
+      "none": "關閉",
+      "line": "線條"
+    }
+  },
+  "comfyui-media-feed_show-prompts": {
+    "name": "在檢視器中顯示中繼資料",
+    "tooltip": "讀取PNG、GIF、MP4、WebM、M4A、MP3、FLAC、OGG或Opus中內嵌的中繼資料，並在檢視媒體時顯示推斷出的提示詞與種子資訊。"
+  },
+  "comfyui-media-feed_metadata-position": {
+    "name": "中繼資料位置",
+    "tooltip": "選擇在檢視器的哪一側顯示提示詞與中繼資料詳細資訊。",
+    "options": {
+      "Left": "左側",
+      "Right": "右側",
+      "left": "左側",
+      "right": "右側"
+    }
+  },
+  "comfyui-media-feed_scale-viewer-media": {
+    "name": "讓媒體符合檢視器",
+    "tooltip": "讓影像、影片與音訊播放器符合檢視器的可用區域。"
+  },
+  "comfyui-media-feed_show-favorite-button": {
+    "name": "游標停留時顯示收藏按鈕",
+    "tooltip": "將游標停留在動態卡片上時，在右上角顯示收藏星號。"
+  },
+  "comfyui-media-feed_favorite-folder": {
+    "name": "收藏儲存資料夾",
+    "tooltip": "收藏一律儲存在output/favorites資料夾中，且無法變更此位置。",
+    "options": {
+      "output/favorites": "output/favorites"
+    }
+  }
+}

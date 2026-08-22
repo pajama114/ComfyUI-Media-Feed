@@ -33,6 +33,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   theme-aware divider.
 - Adds ComfyUI settings for placing the feed at the top, right, bottom, or left
   of the canvas.
+- Localizes Media Feed settings in English, Japanese, Simplified and Traditional
+  Chinese, Korean, French, and German, following ComfyUI's selected language
+  when that locale is available in the frontend.
 - Reads embedded metadata in the viewer and displays inferred positive and
   negative prompts, seeds, model resources such as checkpoints and LoRAs, and
   other available generation details.
