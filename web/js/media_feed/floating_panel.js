@@ -4,6 +4,7 @@ import {
   FALLBACK_MIN_LEFT_INSET,
   FALLBACK_MIN_RIGHT_INSET,
   FALLBACK_MIN_BOTTOM_INSET,
+  FALLBACK_BOTTOM_PLACEMENT_GAP,
   FALLBACK_MIN_TOP_INSET,
   FALLBACK_MIN_BOTTOM_RIGHT_INSET,
   FALLBACK_MIN_RIGHT_BOTTOM_INSET,
@@ -186,6 +187,10 @@ export function installFloatingPanel(context) {
     const leftInset = Math.max(FALLBACK_MIN_LEFT_INSET, rect.left + FALLBACK_EDGE_GAP);
     const rightInset = Math.max(FALLBACK_MIN_RIGHT_INSET, window.innerWidth - rect.right + FALLBACK_EDGE_GAP);
     const bottomInset = Math.max(FALLBACK_MIN_BOTTOM_INSET, window.innerHeight - rect.bottom + FALLBACK_EDGE_GAP);
+    const bottomPlacementInset = Math.max(
+      FALLBACK_BOTTOM_PLACEMENT_GAP,
+      window.innerHeight - rect.bottom + FALLBACK_BOTTOM_PLACEMENT_GAP,
+    );
     const controlsBounds = floatingCanvasControlsBounds();
     const bottomFeedRightInset = controlsBounds
       ? Math.max(rightInset, window.innerWidth - controlsBounds.left + FLOATING_CANVAS_CONTROLS_MARGIN)
@@ -198,9 +203,11 @@ export function installFloatingPanel(context) {
     root.style.setProperty("--cmf-edge-right", `${Math.round(rightInset)}px`);
     root.style.setProperty("--cmf-safe-right", `${Math.ceil(bottomFeedRightInset)}px`);
     root.style.setProperty("--cmf-safe-right-bottom", `${Math.ceil(rightFeedBottomInset)}px`);
+    root.style.setProperty("--cmf-placement-bottom", `${Math.round(bottomPlacementInset)}px`);
   
-    // The graph bounds keep placements clear of persistent side and bottom panels.
-    // Bottom and right placements additionally hug the measured canvas controls.
+    // The graph bounds keep side placements clear of persistent panels. The bottom
+    // feed sits just above the graph edge, while bottom and right placements still
+    // use the measured canvas controls to avoid horizontal overlap.
     root.style.setProperty("--cmf-safe-bottom", `${Math.round(bottomInset)}px`);
     root.style.setProperty("--cmf-safe-top", `${FALLBACK_MIN_TOP_INSET}px`);
     updateFloatingTopControlsInset(root);

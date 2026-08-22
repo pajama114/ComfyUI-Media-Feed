@@ -34,6 +34,7 @@ export function mediaFeedBaseStyles({
       --cmf-placement-top: calc(var(--cmf-safe-top) + 13px);
       --cmf-side-outset: 5px;
       --cmf-safe-bottom: 12px;
+      --cmf-placement-bottom: 1px;
       --cmf-top-controls-inset: clamp(160px, 27vw, 480px);
       box-sizing: border-box;
       display: flex;
@@ -63,7 +64,7 @@ export function mediaFeedBaseStyles({
 
     .cmf-root.cmf-fallback[data-placement="bottom"] {
       right: var(--cmf-safe-right);
-      bottom: var(--cmf-safe-bottom);
+      bottom: var(--cmf-placement-bottom);
     }
 
     .cmf-root.cmf-fallback[data-placement="top"] {
@@ -195,7 +196,7 @@ export function mediaFeedBaseStyles({
     }
 
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
-      bottom: var(--cmf-safe-bottom);
+      bottom: var(--cmf-placement-bottom);
       right: calc(var(--cmf-safe-right) + 10px);
       left: auto;
     }
@@ -324,31 +325,25 @@ export function mediaFeedBaseStyles({
       pointer-events: auto;
     }
 
-    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-toolbar {
-      order: 2;
+    .cmf-root.cmf-fallback[data-feed-style="default"][data-placement="bottom"]:not([data-collapsed="true"]) {
+      padding-bottom: 20px;
     }
 
-    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-feed-frame {
-      order: 1;
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-placement="bottom"]:not([data-collapsed="true"]) {
+      padding-bottom: 20px;
     }
 
-    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-placement="bottom"] {
-      bottom: calc(var(--cmf-safe-bottom) - 12px);
-      padding-bottom: 0;
-    }
-
-    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] {
-      gap: 0;
+    /* Keep the bottom toolbar from changing the feed's vertical flex geometry. */
+    .cmf-root.cmf-fallback[data-feed-style="frameless"][data-placement="bottom"]:not([data-collapsed="true"]) .cmf-toolbar {
+      position: absolute;
+      right: 10px;
+      bottom: 0;
+      left: 10px;
     }
 
     .cmf-root[data-feed-style="frameless"][data-placement="top"] .cmf-card,
     .cmf-root[data-feed-style="frameless"][data-placement="top"] .cmf-feed-gap {
       top: 2px;
-    }
-
-    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-card,
-    .cmf-root[data-feed-style="frameless"][data-placement="bottom"] .cmf-feed-gap {
-      top: 17px;
     }
 
     .cmf-toolbar {
