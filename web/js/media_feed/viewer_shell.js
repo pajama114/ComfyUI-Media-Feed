@@ -82,14 +82,14 @@ export function installViewerShell(context) {
             </div>
             <div class="cmf-resource-grid"></div>
           </section>
-          <section class="cmf-prompt-section">
+          <section class="cmf-prompt-section cmf-prompt-body-section">
             <div class="cmf-prompt-section-header">
               <h2 class="cmf-prompt-heading">Prompt</h2>
               <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-positive" type="button" title="Copy prompt" aria-label="Copy prompt">${ICONS.copy}</button>
             </div>
             <pre class="cmf-prompt-text cmf-prompt-positive"></pre>
           </section>
-          <section class="cmf-prompt-section">
+          <section class="cmf-prompt-section cmf-prompt-body-section">
             <div class="cmf-prompt-section-header">
               <h2 class="cmf-prompt-heading">Negative Prompt</h2>
               <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-negative" type="button" title="Copy negative prompt" aria-label="Copy negative prompt">${ICONS.copy}</button>

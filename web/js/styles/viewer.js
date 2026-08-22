@@ -264,9 +264,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       width: 100%;
       min-width: 0;
       min-height: 0;
-      overflow-x: hidden;
-      overflow-y: auto;
-      scrollbar-gutter: stable;
+      overflow: hidden;
       padding: 12px;
       border: 1px solid var(--cmf-border);
       border-radius: 8px;
@@ -276,6 +274,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-prompt-panel[hidden] {
       display: none;
+    }
+
+    .cmf-prompt-panel > * {
+      flex-shrink: 0;
     }
 
     .cmf-prompt-panel[data-loading="true"] .cmf-prompt-status,
@@ -456,6 +458,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       min-height: 0;
     }
 
+    .cmf-prompt-body-section {
+      grid-template-rows: auto minmax(0, 1fr);
+      flex: 1 1 0;
+      max-height: 30vh;
+      overflow: hidden;
+    }
+
     .cmf-prompt-section-header {
       display: flex;
       align-items: center;
@@ -504,7 +513,15 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-seed-text {
       min-height: 0;
-      max-height: 16vh;
+      max-height: none;
+      overflow: visible;
+      scrollbar-gutter: auto;
+    }
+
+    .cmf-prompt-body-section .cmf-prompt-text {
+      height: 100%;
+      min-height: 0;
+      max-height: none;
     }
 
     @media (max-width: 860px) {
