@@ -195,6 +195,10 @@ export function mediaFeedBaseStyles({
       background: var(--cmf-panel);
     }
 
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-collapse:hover {
+      background: transparent;
+    }
+
     .cmf-root.cmf-fallback[data-collapsed="true"][data-placement="bottom"] {
       bottom: var(--cmf-placement-bottom);
       right: calc(var(--cmf-safe-right) + 10px);
