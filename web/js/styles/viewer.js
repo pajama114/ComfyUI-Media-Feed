@@ -570,6 +570,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       transform: translateY(-50%);
       border-radius: 8px;
       background: var(--cmf-panel);
+      opacity: 0.75;
+      transition: opacity 120ms ease;
+    }
+
+    .cmf-nav-button:hover,
+    .cmf-nav-button:focus-visible {
+      opacity: 0.9;
     }
 
     .cmf-nav-button:disabled {
