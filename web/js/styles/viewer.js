@@ -7,6 +7,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
       --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
+      --cmf-metadata-box-bg: var(--cmf-panel);
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -14,6 +15,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       grid-template-rows: auto 1fr;
       background: var(--cmf-viewer-bg);
       color: var(--cmf-text);
+    }
+
+    :root:not(.dark-theme) .cmf-viewer {
+      --cmf-metadata-box-bg: #f5f5f5;
     }
 
     .cmf-viewer[data-open="true"] {
@@ -399,7 +404,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       padding: 9px;
       border: 1px solid var(--cmf-border);
       border-radius: 6px;
-      background: var(--cmf-panel);
+      background: var(--cmf-metadata-box-bg);
     }
 
     .cmf-resource-chip,
@@ -511,7 +516,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       padding: 9px;
       border: 1px solid var(--cmf-border);
       border-radius: 6px;
-      background: var(--cmf-panel);
+      background: var(--cmf-metadata-box-bg);
       color: var(--cmf-text);
       font: 13.2px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
       white-space: pre-wrap;
