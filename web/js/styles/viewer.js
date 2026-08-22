@@ -41,6 +41,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-favorite,
     .cmf-viewer-download,
+    .cmf-viewer-copy-image,
     .cmf-open-link,
     .cmf-close {
       border-color: transparent;
@@ -49,6 +50,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-favorite svg,
     .cmf-viewer-download svg,
+    .cmf-viewer-copy-image svg,
     .cmf-open-link svg,
     .cmf-close svg {
       width: 18px;
@@ -59,8 +61,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       stroke: currentColor;
     }
 
+    .cmf-viewer-copy-image[hidden] {
+      display: none;
+    }
+
     .cmf-viewer-favorite:focus-visible,
     .cmf-viewer-download:focus-visible,
+    .cmf-viewer-copy-image:focus-visible,
     .cmf-open-link:focus-visible,
     .cmf-close:focus-visible,
     .cmf-metadata-action:focus-visible,

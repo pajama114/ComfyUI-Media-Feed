@@ -25,6 +25,7 @@ export function installViewerRender(context) {
     resetViewerImageView();
     currentViewer.title.textContent = item.filename;
     currentViewer.openLink.href = item.url;
+    currentViewer.copyImageButton.hidden = item.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, item);
     syncViewerNav();
   
@@ -131,4 +132,3 @@ export function installViewerRender(context) {
     renderViewerItem,
   });
 }
-

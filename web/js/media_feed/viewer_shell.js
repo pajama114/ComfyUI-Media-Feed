@@ -16,6 +16,7 @@ export function installViewerShell(context) {
   const copyAllViewerMetadata = (...args) => actions.copyAllViewerMetadata(...args);
   const copyViewerResources = (...args) => actions.copyViewerResources(...args);
   const copyViewerOtherMetadata = (...args) => actions.copyViewerOtherMetadata(...args);
+  const copyViewerImage = (...args) => actions.copyViewerImage(...args);
   const downloadViewerMedia = (...args) => actions.downloadViewerMedia(...args);
   const downloadViewerEmbeddedJson = (...args) => actions.downloadViewerEmbeddedJson(...args);
   const getViewerImage = (...args) => actions.getViewerImage(...args);
@@ -55,6 +56,7 @@ export function installViewerShell(context) {
         </div>
         <button class="cmf-button cmf-icon-button cmf-viewer-favorite" type="button" title="Add to favorites" aria-label="Add to favorites" aria-pressed="false">${ICONS.star}</button>
         <button class="cmf-button cmf-icon-button cmf-viewer-download" type="button" title="Download media" aria-label="Download media">${ICONS.download}</button>
+        <button class="cmf-button cmf-icon-button cmf-viewer-copy-image" type="button" title="Copy image" aria-label="Copy image" hidden>${ICONS.copy}</button>
         <a class="cmf-button cmf-icon-button cmf-open-link" target="_blank" rel="noopener noreferrer" title="Open original" aria-label="Open original">${ICONS.externalLink}</a>
         <button class="cmf-button cmf-icon-button cmf-close" type="button" title="Close" aria-label="Close">${ICONS.close}</button>
       </div>
@@ -122,6 +124,7 @@ export function installViewerShell(context) {
     }
     root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => toggleFavorite(runtime.viewer?.item));
     root.querySelector(".cmf-viewer-download").addEventListener("click", downloadViewerMedia);
+    root.querySelector(".cmf-viewer-copy-image").addEventListener("click", copyViewerImage);
     root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptSeed));
     root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptPositive));
     root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptNegative));
@@ -177,6 +180,7 @@ export function installViewerShell(context) {
       showMetadataButton: root.querySelector(".cmf-show-metadata"),
       favoriteButton: root.querySelector(".cmf-viewer-favorite"),
       downloadButton: root.querySelector(".cmf-viewer-download"),
+      copyImageButton: root.querySelector(".cmf-viewer-copy-image"),
       zoomControls: root.querySelector(".cmf-viewer-zoom-controls"),
       fitButton: root.querySelector(".cmf-viewer-fit"),
       nativeButton: root.querySelector(".cmf-viewer-native"),

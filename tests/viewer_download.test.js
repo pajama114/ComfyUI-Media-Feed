@@ -126,3 +126,94 @@ test("cancelling the save picker does not start a fallback download", async () =
     globalThis.document = originalDocument;
   }
 });
+
+test("viewer image copy writes the original PNG to the clipboard", async () => {
+  const originalWindow = globalThis.window;
+  const originalNavigator = globalThis.navigator;
+  const originalClipboardItem = globalThis.ClipboardItem;
+  const originalFetch = globalThis.fetch;
+  const sourceBlob = new Blob(["png-bytes"], { type: "image/png" });
+  let clipboardItems;
+  let fetchedUrl;
+
+  class TestClipboardItem {
+    constructor(items) {
+      this.items = items;
+    }
+  }
+
+  globalThis.window = {
+    setTimeout() { return 1; },
+    clearTimeout() {},
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      clipboard: {
+        async write(items) { clipboardItems = items; },
+      },
+    },
+  });
+  globalThis.ClipboardItem = TestClipboardItem;
+  globalThis.fetch = async (url) => {
+    fetchedUrl = url;
+    return new Response(sourceBlob);
+  };
+
+  try {
+    const { actions } = createContext({
+      kind: "image",
+      filename: "result.png",
+      url: "/view?filename=result.png&type=output",
+    });
+    const classes = new Set();
+    const button = {
+      disabled: false,
+      title: "Copy image",
+      offsetWidth: 30,
+      blur() {},
+      getAttribute(name) { return name === "aria-label" ? "Copy image" : null; },
+      setAttribute() {},
+      removeAttribute() {},
+      classList: {
+        add(name) { classes.add(name); },
+        remove(name) { classes.delete(name); },
+      },
+    };
+
+    await actions.copyViewerImage({ currentTarget: button });
+
+    assert.equal(fetchedUrl, "/view?filename=result.png&type=output");
+    assert.equal(clipboardItems.length, 1);
+    const copiedBlob = await clipboardItems[0].items["image/png"];
+    assert.equal(copiedBlob.type, "image/png");
+    assert.equal(await copiedBlob.text(), "png-bytes");
+    assert.equal(classes.has("cmf-copy-success"), true);
+    assert.equal(button.disabled, false);
+  } finally {
+    globalThis.window = originalWindow;
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: originalNavigator,
+    });
+    globalThis.ClipboardItem = originalClipboardItem;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("viewer image copy ignores non-image media", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetched = false;
+  globalThis.fetch = async () => {
+    fetched = true;
+    return new Response();
+  };
+
+  try {
+    const { actions } = createContext({ kind: "video", filename: "result.mp4", url: "/view?filename=result.mp4" });
+    await actions.copyViewerImage({ currentTarget: { blur() {} } });
+    assert.equal(fetched, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

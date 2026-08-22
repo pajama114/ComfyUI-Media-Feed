@@ -220,6 +220,64 @@ export function installViewerSupport(context) {
     link.remove();
   }
 
+  async function imageBlobAsPng(blob) {
+    if (String(blob?.type || "").toLowerCase() === "image/png") return blob;
+
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const canvasContext = canvas.getContext("2d");
+      if (!canvasContext) throw new Error("Could not create an image canvas");
+      canvasContext.drawImage(bitmap, 0, 0);
+
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((pngBlob) => {
+          if (pngBlob) {
+            resolve(pngBlob);
+          } else {
+            reject(new Error("Could not encode the image as PNG"));
+          }
+        }, "image/png");
+      });
+    } finally {
+      bitmap.close?.();
+    }
+  }
+
+  async function loadViewerImageClipboardBlob(item) {
+    const response = await fetch(item.url);
+    if (!response.ok) throw new Error(`Could not load image (${response.status})`);
+    return imageBlobAsPng(await response.blob());
+  }
+
+  async function copyViewerImage(event) {
+    const button = event.currentTarget;
+    button.blur();
+
+    const item = runtime.viewer?.item;
+    if (item?.kind !== "image" || !item.url) return;
+    if (typeof navigator.clipboard?.write !== "function" || typeof ClipboardItem !== "function") {
+      console.error("[ComfyUI Media Feed] Image clipboard copying is not supported by this browser");
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      // Start the clipboard write while the click's user activation is still available.
+      const pngBlob = loadViewerImageClipboardBlob(item);
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": pngBlob }),
+      ]);
+      showCopyFeedback(button);
+    } catch (error) {
+      console.error("[ComfyUI Media Feed] Could not copy image", error);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function downloadViewerMedia(event) {
     const button = event.currentTarget;
     button.blur();
@@ -304,6 +362,9 @@ export function installViewerSupport(context) {
     metadataDownloadFilename,
     mediaDownloadFilename,
     startBrowserDownload,
+    imageBlobAsPng,
+    loadViewerImageClipboardBlob,
+    copyViewerImage,
     downloadViewerMedia,
     downloadViewerEmbeddedJson,
   });
