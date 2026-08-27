@@ -108,23 +108,31 @@ export function installViewerRender(context) {
       return;
     }
   
-    const audio = document.createElement("audio");
-    audio.classList.add("cmf-zoomable-audio");
-    audio.controls = true;
-    audio.preload = "auto";
-    audio.muted = true;
+    const displayedAudio = currentViewer.media.querySelector("audio.cmf-zoomable-audio");
+    const reusingDisplayedAudio = displayedAudio instanceof HTMLAudioElement;
+    const audio = reusingDisplayedAudio ? displayedAudio : document.createElement("audio");
+    if (!reusingDisplayedAudio) {
+      audio.classList.add("cmf-zoomable-audio");
+      audio.controls = true;
+      audio.preload = "auto";
+      audio.muted = true;
+    }
     audio.dataset.mediaItemKey = item.key;
     audio.src = item.url;
     currentViewer.pendingMedia = audio;
     audio.play().catch(() => {});
     await waitForMediaReady(audio);
     if (!isCurrentViewerRender(currentViewer, requestId, item)) {
-      if (currentViewer.pendingMedia === audio) currentViewer.pendingMedia = null;
-      discardStagedMedia(audio);
+      if (!reusingDisplayedAudio) {
+        if (currentViewer.pendingMedia === audio) currentViewer.pendingMedia = null;
+        discardStagedMedia(audio);
+      }
       return;
     }
     currentViewer.pendingMedia = null;
-    replaceViewerMedia(currentViewer, audio);
+    if (!reusingDisplayedAudio) {
+      replaceViewerMedia(currentViewer, audio);
+    }
     updateViewerImageLayout();
     currentViewer.mediaReadyItemId = item.id;
   }
