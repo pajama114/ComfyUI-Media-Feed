@@ -82,6 +82,7 @@ export function installViewerRender(context) {
       video.controls = true;
       video.playsInline = true;
       video.preload = "auto";
+      video.loop = true;
       video.muted = true;
       video.dataset.mediaItemKey = item.key;
       video.addEventListener("loadedmetadata", () => {
