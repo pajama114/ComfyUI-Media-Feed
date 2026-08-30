@@ -23,7 +23,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   or on a hovered feed card.
 - Supports previous/next navigation with side buttons, arrow keys, and wheel
   scrolling in the viewer.
-- Plays video thumbnails on hover, muted and looped.
+- Plays video thumbnails on hover and lets video and audio looping be configured
+  independently.
+- Toggles video or audio playback with the Space key while the viewer is open.
 - Provides compact audio thumbnail controls with a full-width seek bar.
 - Lets you resize thumbnails, jump to the newest or oldest item, and clear the
   current feed from the toolbar.
@@ -65,6 +67,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Show metadata in viewer: `On`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
+- Loop videos: `On`
+- Loop audio: `Off`
 - Show favorite button on hover: `On`
 - Favorite storage folder: `output/favorites` (fixed)
 

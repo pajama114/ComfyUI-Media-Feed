@@ -82,7 +82,7 @@ export function installViewerRender(context) {
       video.controls = true;
       video.playsInline = true;
       video.preload = "auto";
-      video.loop = true;
+      video.loop = state.loopVideos;
       video.muted = true;
       video.dataset.mediaItemKey = item.key;
       video.addEventListener("loadedmetadata", () => {
@@ -118,6 +118,7 @@ export function installViewerRender(context) {
       audio.muted = true;
     }
     audio.dataset.mediaItemKey = item.key;
+    audio.loop = state.loopAudio;
     audio.src = item.url;
     currentViewer.pendingMedia = audio;
     audio.play().catch(() => {});

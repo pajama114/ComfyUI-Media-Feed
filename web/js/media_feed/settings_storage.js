@@ -10,6 +10,8 @@ import {
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_BATCH_DIVIDERS,
+  DEFAULT_LOOP_AUDIO,
+  DEFAULT_LOOP_VIDEOS,
   MAX_ITEMS,
   SESSION_ITEMS_STORAGE_KEY,
   SESSION_ITEMS_VERSION,
@@ -38,6 +40,8 @@ export function installSettingsStorage(context) {
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
   const applyMediaScope = (...args) => actions.applyMediaScope(...args);
   const applyBatchDividers = (...args) => actions.applyBatchDividers(...args);
+  const applyLoopVideos = (...args) => actions.applyLoopVideos(...args);
+  const applyLoopAudio = (...args) => actions.applyLoopAudio(...args);
   const buildViewUrl = (...args) => actions.buildViewUrl(...args);
   const mediaKey = (...args) => actions.mediaKey(...args);
   function loadSavedPlacement() {
@@ -122,6 +126,24 @@ export function installSettingsStorage(context) {
       return normalizeBatchDividers(window.localStorage?.getItem(STORAGE_KEYS.batchDividers));
     } catch {
       return DEFAULT_BATCH_DIVIDERS;
+    }
+  }
+
+  function loadSavedLoopVideos() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.loopVideos);
+      return savedValue === null ? DEFAULT_LOOP_VIDEOS : normalizeBooleanSetting(savedValue);
+    } catch {
+      return DEFAULT_LOOP_VIDEOS;
+    }
+  }
+
+  function loadSavedLoopAudio() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.loopAudio);
+      return savedValue === null ? DEFAULT_LOOP_AUDIO : normalizeBooleanSetting(savedValue);
+    } catch {
+      return DEFAULT_LOOP_AUDIO;
     }
   }
   
@@ -249,6 +271,8 @@ export function installSettingsStorage(context) {
     if (!runtime.feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
     if (!runtime.mediaScopeSettingSeen) applyMediaScope(loadSavedMediaScope());
     if (!runtime.batchDividersSettingSeen) applyBatchDividers(loadSavedBatchDividers());
+    if (!runtime.loopVideosSettingSeen) applyLoopVideos(loadSavedLoopVideos());
+    if (!runtime.loopAudioSettingSeen) applyLoopAudio(loadSavedLoopAudio());
     state.favoriteFiles = loadSavedFavoriteFiles();
   }
   
@@ -339,6 +363,22 @@ export function installSettingsStorage(context) {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
   }
+
+  function saveLoopVideos() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.loopVideos, String(state.loopVideos));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
+  function saveLoopAudio() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.loopAudio, String(state.loopAudio));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
   
   function saveFavoriteFiles() {
     try {
@@ -359,6 +399,8 @@ export function installSettingsStorage(context) {
     loadSavedFeedStyle,
     loadSavedMediaScope,
     loadSavedBatchDividers,
+    loadSavedLoopVideos,
+    loadSavedLoopAudio,
     loadSavedFavoriteFiles,
     sessionItemRecord,
     saveSessionItems,
@@ -377,6 +419,8 @@ export function installSettingsStorage(context) {
     saveFeedStyle,
     saveMediaScope,
     saveBatchDividers,
+    saveLoopVideos,
+    saveLoopAudio,
     saveFavoriteFiles,
   });
 }

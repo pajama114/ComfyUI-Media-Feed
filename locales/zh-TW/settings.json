@@ -69,6 +69,14 @@
     "name": "讓媒體符合檢視器",
     "tooltip": "讓影像、影片與音訊播放器符合檢視器的可用區域。"
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "循環播放影片",
+    "tooltip": "在動態預覽與檢視器中循環播放影片。"
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "循環播放音訊",
+    "tooltip": "在動態卡片與檢視器中循環播放音訊。"
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "游標停留時顯示收藏按鈕",
     "tooltip": "將游標停留在動態卡片上時，在右上角顯示收藏星號。"

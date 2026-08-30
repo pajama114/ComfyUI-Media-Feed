@@ -23,6 +23,8 @@ export function createMediaFeedRuntime() {
     feedStyleSettingSeen: false,
     mediaScopeSettingSeen: false,
     batchDividersSettingSeen: false,
+    loopVideosSettingSeen: false,
+    loopAudioSettingSeen: false,
     viewer: null,
     viewerWheelLock: false,
     workflowTabSequence: 0,

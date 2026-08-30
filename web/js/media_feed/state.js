@@ -7,6 +7,8 @@ import {
   DEFAULT_BATCH_DIVIDERS,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_METADATA_POSITION,
+  DEFAULT_LOOP_AUDIO,
+  DEFAULT_LOOP_VIDEOS,
   DEFAULT_PLACEMENT,
   DEFAULT_SCALE_VIEWER_MEDIA,
   DEFAULT_SHOW_FAVORITE_BUTTON,
@@ -32,6 +34,8 @@ export function createMediaFeedState() {
     feedStyle: DEFAULT_FEED_STYLE,
     mediaScope: DEFAULT_MEDIA_SCOPE,
     batchDividers: DEFAULT_BATCH_DIVIDERS,
+    loopVideos: DEFAULT_LOOP_VIDEOS,
+    loopAudio: DEFAULT_LOOP_AUDIO,
     favoriteFiles: new Map(),
     favoritingKeys: new Set(),
   };

@@ -223,8 +223,65 @@ test("workflow tab filtering uses persisted workflow ids when available", () => 
   assert.equal(firstId, "workflow-id:saved-workflow");
 });
 
+test("loop settings persist and update mounted feed and viewer players", () => {
+  const originalWindow = globalThis.window;
+  const localStorage = createMemoryStorage();
+  globalThis.window = { localStorage };
+
+  try {
+    const context = createContext();
+    const feedVideo = { loop: true };
+    const feedAudio = { loop: false };
+    const viewerVideo = { loop: true };
+    const pendingAudio = { tagName: "AUDIO", loop: false };
+    const cachedVideo = { loop: true };
+    const cachedAudio = { loop: false };
+    context.state.views.add({
+      root: {
+        querySelectorAll(selector) {
+          return selector === "video" ? [feedVideo] : [feedAudio];
+        },
+      },
+      cardCache: new Map([["cached", {
+        querySelectorAll(selector) {
+          return selector === "video" ? [cachedVideo] : [cachedAudio];
+        },
+      }]]),
+    });
+    context.runtime.viewer = {
+      media: {
+        querySelector(selector) {
+          return selector === "video" ? viewerVideo : null;
+        },
+      },
+      pendingMedia: pendingAudio,
+    };
+
+    context.actions.setLoopVideos(false);
+    context.actions.setLoopAudio(true);
+
+    assert.equal(feedVideo.loop, false);
+    assert.equal(viewerVideo.loop, false);
+    assert.equal(cachedVideo.loop, false);
+    assert.equal(feedAudio.loop, true);
+    assert.equal(cachedAudio.loop, true);
+    assert.equal(pendingAudio.loop, true);
+    assert.equal(localStorage.getItem("comfyui-media-feed:loop-videos"), "false");
+    assert.equal(localStorage.getItem("comfyui-media-feed:loop-audio"), "true");
+
+    const restoredContext = createContext();
+    restoredContext.actions.loadSettings();
+    assert.equal(restoredContext.state.loopVideos, false);
+    assert.equal(restoredContext.state.loopAudio, true);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
 test("settings normalization and feed geometry remain bounded", () => {
   const { actions, state } = createContext();
+  assert.equal(state.loopVideos, true);
+  assert.equal(state.loopAudio, false);
   assert.equal(actions.normalizeThumbnailHeight(1), 96);
   assert.equal(actions.normalizeThumbnailHeight(999), 220);
   assert.equal(actions.normalizePlacement("LEFT"), "left");

@@ -119,6 +119,61 @@ test("viewer metadata panel icons follow the configured side", () => {
   assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "left-open");
 });
 
+test("space toggles viewer media without leaking to the canvas", () => {
+  let playCalls = 0;
+  let pauseCalls = 0;
+  let prevented = 0;
+  let stopped = 0;
+  const media = {
+    paused: true,
+    play() {
+      playCalls++;
+      this.paused = false;
+      return Promise.resolve();
+    },
+    pause() {
+      pauseCalls++;
+      this.paused = true;
+    },
+  };
+  const context = {
+    app: {},
+    api: {},
+    ICONS: {},
+    state: {},
+    runtime: {
+      viewer: {
+        root: { dataset: { open: "true" } },
+        media: { querySelector: () => media },
+      },
+    },
+    actions: { isViewerOpen: () => true },
+  };
+  installViewerShell(context);
+  const event = {
+    key: " ",
+    code: "Space",
+    target: { closest: () => null },
+    preventDefault() { prevented++; },
+    stopImmediatePropagation() { stopped++; },
+  };
+
+  context.actions.handleViewerGlobalKeydown(event);
+  assert.equal(playCalls, 1);
+  assert.equal(prevented, 1);
+  assert.equal(stopped, 1);
+
+  context.actions.handleViewerGlobalKeydown(event);
+  assert.equal(pauseCalls, 1);
+
+  context.actions.handleViewerGlobalKeydown({
+    ...event,
+    target: { closest: () => ({}) },
+  });
+  assert.equal(playCalls, 1);
+  assert.equal(pauseCalls, 1);
+});
+
 test("the composed extension registers settings and setup integrations once", async () => {
   const originalWindow = globalThis.window;
   globalThis.window = {
@@ -133,9 +188,9 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 11);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 11);
-    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 11);
+    assert.equal(extension.settings.length, 13);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 13);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 13);
 
     const settingsByGroup = new Map();
     for (const setting of extension.settings) {
@@ -157,7 +212,7 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
       ["Feed", ["Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
-      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer"]],
+      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Loop videos", "Loop audio"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
 

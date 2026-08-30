@@ -69,6 +69,14 @@
     "name": "Adapter les médias à la visionneuse",
     "tooltip": "Adapte les images, les vidéos et les lecteurs audio à l’espace disponible dans la visionneuse."
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "Lire les vidéos en boucle",
+    "tooltip": "Lit les vidéos en boucle dans les aperçus du flux et la visionneuse."
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "Lire l’audio en boucle",
+    "tooltip": "Lit l’audio en boucle dans les cartes du flux et la visionneuse."
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "Afficher le bouton Favori au survol",
     "tooltip": "Affiche l’étoile des favoris dans le coin supérieur droit d’une carte du flux lorsque vous la survolez."

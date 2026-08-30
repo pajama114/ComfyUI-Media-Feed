@@ -69,6 +69,14 @@
     "name": "뷰어에 미디어 맞추기",
     "tooltip": "이미지, 비디오 및 오디오 플레이어를 뷰어의 사용 가능한 영역에 맞춥니다."
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "비디오 반복 재생",
+    "tooltip": "피드 미리보기와 뷰어에서 비디오를 반복 재생합니다."
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "오디오 반복 재생",
+    "tooltip": "피드 카드와 뷰어에서 오디오를 반복 재생합니다."
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "마우스를 올리면 즐겨찾기 버튼 표시",
     "tooltip": "피드 카드에 마우스를 올리면 오른쪽 위에 즐겨찾기 별을 표시합니다."

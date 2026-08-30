@@ -66,7 +66,7 @@ test("viewer reuses its native audio player when moving between audio items", as
       replaceViewerMedia() { replacements++; },
       updateViewerImageLayout() {},
     };
-    const context = { app: {}, api: {}, ICONS: {}, state: {}, runtime, actions };
+    const context = { app: {}, api: {}, ICONS: {}, state: { loopAudio: true }, runtime, actions };
     installViewerRender(context);
 
     const nextItem = {
@@ -84,6 +84,7 @@ test("viewer reuses its native audio player when moving between audio items", as
     assert.equal(audio.playCalls, 1);
     assert.equal(audio.dataset.mediaItemKey, nextItem.key);
     assert.equal(audio.src, nextItem.url);
+    assert.equal(audio.loop, true);
     assert.equal(viewer.mediaReadyItemId, nextItem.id);
   } finally {
     globalThis.document = originalDocument;

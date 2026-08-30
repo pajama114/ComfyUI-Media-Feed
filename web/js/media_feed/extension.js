@@ -14,6 +14,8 @@ export function createMediaFeedExtension(context) {
   const loadSavedFeedStyle = (...args) => actions.loadSavedFeedStyle(...args);
   const loadSavedMediaScope = (...args) => actions.loadSavedMediaScope(...args);
   const loadSavedBatchDividers = (...args) => actions.loadSavedBatchDividers(...args);
+  const loadSavedLoopVideos = (...args) => actions.loadSavedLoopVideos(...args);
+  const loadSavedLoopAudio = (...args) => actions.loadSavedLoopAudio(...args);
   const loadSettings = (...args) => actions.loadSettings(...args);
   const loadSessionItems = (...args) => actions.loadSessionItems(...args);
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
@@ -25,6 +27,8 @@ export function createMediaFeedExtension(context) {
   const setFeedStyle = (...args) => actions.setFeedStyle(...args);
   const setMediaScope = (...args) => actions.setMediaScope(...args);
   const setBatchDividers = (...args) => actions.setBatchDividers(...args);
+  const setLoopVideos = (...args) => actions.setLoopVideos(...args);
+  const setLoopAudio = (...args) => actions.setLoopAudio(...args);
   const setPlacement = (...args) => actions.setPlacement(...args);
   const ensureStyles = (...args) => actions.ensureStyles(...args);
   const syncFloatingPanel = (...args) => actions.syncFloatingPanel(...args);
@@ -174,6 +178,32 @@ export function createMediaFeedExtension(context) {
         onChange: (newValue) => {
           runtime.scaleViewerMediaSettingSeen = true;
           setScaleViewerMedia(newValue);
+        },
+      },
+      {
+        id: "comfyui-media-feed.loop-videos",
+        name: "Loop videos",
+        type: "boolean",
+        defaultValue: loadSavedLoopVideos(),
+        category: ["Media Feed", "Viewer", "Playback"],
+        sortOrder: 205,
+        tooltip: "Loop video playback in feed previews and the viewer.",
+        onChange: (newValue) => {
+          runtime.loopVideosSettingSeen = true;
+          setLoopVideos(newValue);
+        },
+      },
+      {
+        id: "comfyui-media-feed.loop-audio",
+        name: "Loop audio",
+        type: "boolean",
+        defaultValue: loadSavedLoopAudio(),
+        category: ["Media Feed", "Viewer", "Playback"],
+        sortOrder: 200,
+        tooltip: "Loop audio playback in feed cards and the viewer.",
+        onChange: (newValue) => {
+          runtime.loopAudioSettingSeen = true;
+          setLoopAudio(newValue);
         },
       },
       {

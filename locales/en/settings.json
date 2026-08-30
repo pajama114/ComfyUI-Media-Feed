@@ -69,6 +69,14 @@
     "name": "Fit media to viewer",
     "tooltip": "Fit images, videos, and audio players to the available viewer area."
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "Loop videos",
+    "tooltip": "Loop video playback in feed previews and the viewer."
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "Loop audio",
+    "tooltip": "Loop audio playback in feed cards and the viewer."
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "Show favorite button on hover",
     "tooltip": "Show the favorite star in the upper-right corner of a feed card when you hover over it."

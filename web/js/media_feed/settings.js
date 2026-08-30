@@ -32,6 +32,8 @@ export function installSettings(context) {
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
   const applyMediaScope = (...args) => actions.applyMediaScope(...args);
   const applyBatchDividers = (...args) => actions.applyBatchDividers(...args);
+  const applyLoopVideos = (...args) => actions.applyLoopVideos(...args);
+  const applyLoopAudio = (...args) => actions.applyLoopAudio(...args);
   const saveThumbnailHeight = (...args) => actions.saveThumbnailHeight(...args);
   const savePlacement = (...args) => actions.savePlacement(...args);
   const saveShowPrompts = (...args) => actions.saveShowPrompts(...args);
@@ -43,6 +45,8 @@ export function installSettings(context) {
   const saveFeedStyle = (...args) => actions.saveFeedStyle(...args);
   const saveMediaScope = (...args) => actions.saveMediaScope(...args);
   const saveBatchDividers = (...args) => actions.saveBatchDividers(...args);
+  const saveLoopVideos = (...args) => actions.saveLoopVideos(...args);
+  const saveLoopAudio = (...args) => actions.saveLoopAudio(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const syncViewerScaleMedia = (...args) => actions.syncViewerScaleMedia(...args);
   const syncViewerMetadataPosition = (...args) => actions.syncViewerMetadataPosition(...args);
@@ -137,6 +141,34 @@ export function installSettings(context) {
     saveBatchDividers();
     updateViews(false);
   }
+
+  function syncMediaLoopSettings(kind) {
+    const selector = kind === "video" ? "video" : "audio";
+    const shouldLoop = kind === "video" ? state.loopVideos : state.loopAudio;
+    for (const view of state.views) {
+      for (const media of view.root.querySelectorAll(selector)) media.loop = shouldLoop;
+      for (const card of view.cardCache?.values?.() || []) {
+        for (const media of card.querySelectorAll(selector)) media.loop = shouldLoop;
+      }
+    }
+
+    const viewerMedia = runtime.viewer?.media?.querySelector(selector);
+    if (viewerMedia) viewerMedia.loop = shouldLoop;
+    const pendingMedia = runtime.viewer?.pendingMedia;
+    if (String(pendingMedia?.tagName || "").toLowerCase() === selector) pendingMedia.loop = shouldLoop;
+  }
+
+  function setLoopVideos(nextValue) {
+    applyLoopVideos(nextValue);
+    saveLoopVideos();
+    syncMediaLoopSettings("video");
+  }
+
+  function setLoopAudio(nextValue) {
+    applyLoopAudio(nextValue);
+    saveLoopAudio();
+    syncMediaLoopSettings("audio");
+  }
   
   function setPlacement(nextPlacement) {
     applyPlacement(nextPlacement);
@@ -168,6 +200,9 @@ export function installSettings(context) {
     setFeedStyle,
     setMediaScope,
     setBatchDividers,
+    syncMediaLoopSettings,
+    setLoopVideos,
+    setLoopAudio,
     setPlacement,
     ensureStyles,
   });

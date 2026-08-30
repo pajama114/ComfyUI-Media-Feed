@@ -69,6 +69,14 @@
     "name": "使媒体适应查看器",
     "tooltip": "使图像、视频和音频播放器适应查看器的可用区域。"
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "循环播放视频",
+    "tooltip": "在信息流预览和查看器中循环播放视频。"
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "循环播放音频",
+    "tooltip": "在信息流卡片和查看器中循环播放音频。"
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "悬停时显示收藏按钮",
     "tooltip": "将鼠标悬停在信息流卡片上时，在右上角显示收藏星标。"

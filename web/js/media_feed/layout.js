@@ -13,6 +13,8 @@ import {
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_BATCH_DIVIDERS,
+  DEFAULT_LOOP_AUDIO,
+  DEFAULT_LOOP_VIDEOS,
   SIDE_PLACEMENTS,
   PLACEMENTS,
   METADATA_POSITIONS,
@@ -140,6 +142,18 @@ export function installLayout(context) {
   function applyBatchDividers(nextStyle) {
     state.batchDividers = normalizeBatchDividers(nextStyle);
   }
+
+  function applyLoopVideos(nextValue) {
+    state.loopVideos = nextValue === null || nextValue === undefined
+      ? DEFAULT_LOOP_VIDEOS
+      : normalizeBooleanSetting(nextValue);
+  }
+
+  function applyLoopAudio(nextValue) {
+    state.loopAudio = nextValue === null || nextValue === undefined
+      ? DEFAULT_LOOP_AUDIO
+      : normalizeBooleanSetting(nextValue);
+  }
   
   Object.assign(actions, {
     viewPitch,
@@ -169,5 +183,7 @@ export function installLayout(context) {
     applyFeedStyle,
     applyMediaScope,
     applyBatchDividers,
+    applyLoopVideos,
+    applyLoopAudio,
   });
 }

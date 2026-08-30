@@ -46,7 +46,7 @@ export function installCards(context) {
       video.muted = true;
       video.playsInline = true;
       video.preload = "metadata";
-      video.loop = true;
+      video.loop = state.loopVideos;
       videoBadge.className = "cmf-video-badge";
       videoBadge.title = "Video";
       videoBadge.setAttribute("aria-hidden", "true");
@@ -87,6 +87,7 @@ export function installCards(context) {
       `;
       const audio = document.createElement("audio");
       audio.preload = "none";
+      audio.loop = state.loopAudio;
       audio.src = item.url;
       audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       audioPreview.append(audioMain, controls, audio);

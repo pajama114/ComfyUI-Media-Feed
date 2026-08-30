@@ -69,6 +69,14 @@
     "name": "Medien an den Betrachter anpassen",
     "tooltip": "Passt Bilder, Videos und Audioplayer an den verfügbaren Bereich des Betrachters an."
   },
+  "comfyui-media-feed_loop-videos": {
+    "name": "Videos wiederholen",
+    "tooltip": "Spielt Videos in Feed-Vorschauen und im Betrachter in einer Schleife ab."
+  },
+  "comfyui-media-feed_loop-audio": {
+    "name": "Audio wiederholen",
+    "tooltip": "Spielt Audio in Feed-Karten und im Betrachter in einer Schleife ab."
+  },
   "comfyui-media-feed_show-favorite-button": {
     "name": "Favoritenschaltfläche beim Darüberfahren anzeigen",
     "tooltip": "Zeigt den Favoritenstern oben rechts auf einer Feed-Karte an, wenn sich der Mauszeiger darüber befindet."

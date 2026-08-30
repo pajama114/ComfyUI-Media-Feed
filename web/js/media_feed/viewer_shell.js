@@ -318,6 +318,22 @@ export function installViewerShell(context) {
       document.activeElement.blur();
     }
   }
+
+  function isViewerPlaybackShortcutControl(target) {
+    return Boolean(target?.closest?.("button, a, input, textarea, select, [contenteditable='true'], [role='button']"));
+  }
+
+  function toggleViewerMediaPlayback() {
+    const media = runtime.viewer?.media?.querySelector("video, audio");
+    if (!media) return false;
+
+    if (media.paused) {
+      media.play().catch(() => {});
+    } else {
+      media.pause();
+    }
+    return true;
+  }
   
   function handleViewerGlobalKeydown(event) {
     if (!isViewerOpen()) return;
@@ -330,6 +346,14 @@ export function installViewerShell(context) {
     }
   
     if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    if (event.key === " " || event.key === "Spacebar" || event.code === "Space") {
+      if (isViewerPlaybackShortcutControl(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!event.repeat) toggleViewerMediaPlayback();
+      return;
+    }
   
     if (event.key === "ArrowLeft") {
       event.preventDefault();
@@ -387,6 +411,8 @@ export function installViewerShell(context) {
     syncViewerNav,
     syncViewerItems,
     handleViewerControlKeydown,
+    isViewerPlaybackShortcutControl,
+    toggleViewerMediaPlayback,
     handleViewerGlobalKeydown,
     handleViewerWheel,
   });
