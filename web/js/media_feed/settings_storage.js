@@ -10,8 +10,13 @@ import {
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_BATCH_DIVIDERS,
+  MAX_ITEMS,
+  SESSION_ITEMS_STORAGE_KEY,
+  SESSION_ITEMS_VERSION,
   STORAGE_KEYS,
 } from "./constants.js";
+
+const SESSION_MEDIA_KINDS = new Set(["image", "video", "audio"]);
 
 export function installSettingsStorage(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -33,6 +38,8 @@ export function installSettingsStorage(context) {
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
   const applyMediaScope = (...args) => actions.applyMediaScope(...args);
   const applyBatchDividers = (...args) => actions.applyBatchDividers(...args);
+  const buildViewUrl = (...args) => actions.buildViewUrl(...args);
+  const mediaKey = (...args) => actions.mediaKey(...args);
   function loadSavedPlacement() {
     try {
       return normalizePlacement(window.localStorage?.getItem(STORAGE_KEYS.placement));
@@ -129,6 +136,98 @@ export function installSettingsStorage(context) {
         .slice(0, 2048));
     } catch {
       return new Map();
+    }
+  }
+
+  function sessionItemRecord(item) {
+    return {
+      kind: item.kind,
+      filename: boundedString(item.filename, 4096),
+      subfolder: boundedString(item.subfolder, 4096),
+      type: boundedString(item.type, 64, "output") || "output",
+      promptId: boundedString(item.promptId, 256),
+      nodeId: typeof item.nodeId === "number"
+        ? item.nodeId
+        : boundedString(item.nodeId, 256),
+      workflowTabId: boundedString(item.workflowTabId, 4096),
+      createdAt: Number.isFinite(item.createdAt) ? item.createdAt : Date.now(),
+    };
+  }
+
+  function saveSessionItems() {
+    try {
+      window.sessionStorage?.setItem(SESSION_ITEMS_STORAGE_KEY, JSON.stringify({
+        version: SESSION_ITEMS_VERSION,
+        items: state.items.slice(0, MAX_ITEMS).map(sessionItemRecord),
+      }));
+    } catch {
+      // Ignore storage failures; the feed should keep working in memory.
+    }
+  }
+
+  function clearSessionItems() {
+    try {
+      window.sessionStorage?.removeItem(SESSION_ITEMS_STORAGE_KEY);
+    } catch {
+      // Ignore storage failures; the in-memory feed can still be cleared.
+    }
+  }
+
+  function boundedString(value, maximumLength, fallback = "") {
+    return typeof value === "string" && value.length <= maximumLength ? value : fallback;
+  }
+
+  function restoreSessionItem(savedItem) {
+    if (!savedItem || typeof savedItem !== "object" || Array.isArray(savedItem)) return null;
+    if (!SESSION_MEDIA_KINDS.has(savedItem.kind)) return null;
+
+    const filename = boundedString(savedItem.filename, 4096);
+    if (!filename) return null;
+    const file = {
+      filename,
+      subfolder: boundedString(savedItem.subfolder, 4096),
+      type: boundedString(savedItem.type, 64, "output") || "output",
+    };
+    const key = mediaKey(file, savedItem.kind);
+    return {
+      id: `restored-${Date.now()}-${state.sequence++}`,
+      key,
+      kind: savedItem.kind,
+      filename: file.filename,
+      subfolder: file.subfolder,
+      type: file.type,
+      url: buildViewUrl(file),
+      promptId: boundedString(savedItem.promptId, 256),
+      nodeId: typeof savedItem.nodeId === "number"
+        ? savedItem.nodeId
+        : boundedString(savedItem.nodeId, 256),
+      workflowTabId: boundedString(savedItem.workflowTabId, 4096),
+      createdAt: Number.isFinite(savedItem.createdAt) ? savedItem.createdAt : Date.now(),
+    };
+  }
+
+  function loadSessionItems() {
+    try {
+      const savedValue = window.sessionStorage?.getItem(SESSION_ITEMS_STORAGE_KEY);
+      if (!savedValue) return;
+      const saved = JSON.parse(savedValue);
+      if (saved?.version !== SESSION_ITEMS_VERSION || !Array.isArray(saved.items)) {
+        clearSessionItems();
+        return;
+      }
+
+      const restoredItems = [];
+      const restoredKeys = new Set();
+      for (const savedItem of saved.items.slice(0, MAX_ITEMS)) {
+        const item = restoreSessionItem(savedItem);
+        if (!item || restoredKeys.has(item.key)) continue;
+        restoredKeys.add(item.key);
+        restoredItems.push(item);
+      }
+      state.items = restoredItems;
+      state.itemKeys = restoredKeys;
+    } catch {
+      clearSessionItems();
     }
   }
   
@@ -261,6 +360,11 @@ export function installSettingsStorage(context) {
     loadSavedMediaScope,
     loadSavedBatchDividers,
     loadSavedFavoriteFiles,
+    sessionItemRecord,
+    saveSessionItems,
+    clearSessionItems,
+    restoreSessionItem,
+    loadSessionItems,
     loadSettings,
     saveThumbnailHeight,
     savePlacement,

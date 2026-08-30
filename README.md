@@ -49,6 +49,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   or returns to the selected Fit/actual-size view.
 - Uses ComfyUI theme colors when available.
 - Saves feed and viewer settings in browser `localStorage`.
+- Restores the latest feed after a page reload in the same browser tab.
 - Keeps the feed responsive by limiting retained items and virtualizing visible
   cards.
 
@@ -72,8 +73,11 @@ after the first change.
 
 ## Performance Notes
 
-The feed keeps the latest 256 media entries in memory and only renders visible
-cards plus a small overscan buffer.
+The feed keeps the latest 256 media entries in memory, mirrors only their small
+file descriptors to browser `sessionStorage`, and only renders visible cards
+plus a small overscan buffer. Media files themselves are never copied into
+browser storage. The toolbar trash button clears both the visible feed and its
+saved session entries.
 
 Images, videos, and audio are loaded through ComfyUI's standard `/view` route.
 Image thumbnails and the full-screen image viewer use the same URL so the browser
@@ -174,8 +178,9 @@ The **Favorite storage folder** setting displays the fixed relative path
 
 ## Current Limitations
 
-- The feed only shows media generated while the page is open. It does not scan
-  existing files in the output directory.
+- The feed does not scan existing files in the output directory. It restores
+  media seen in the current browser-tab session after a reload, but closing the
+  tab starts a new feed session.
 - Video and audio support depends on output nodes returning `filename`,
   `subfolder`, and `type` in their execution payload.
 - The extension uses ComfyUI's local `/view` route. Remote or hosted setups may

@@ -71,6 +71,8 @@ export const STORAGE_KEYS = {
   batchDividers: "comfyui-media-feed:batch-dividers",
   favorites: "comfyui-media-feed:favorites",
 };
+export const SESSION_ITEMS_STORAGE_KEY = "comfyui-media-feed:session-items";
+export const SESSION_ITEMS_VERSION = 1;
 export const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
 export const SCALE_VIEWER_MEDIA_SETTING_ID = "comfyui-media-feed.scale-viewer-media";
 export const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);

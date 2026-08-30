@@ -39,6 +39,7 @@ export function installWorkflowTracking(context) {
       updatedItems = true;
     }
     if (updatedItems) {
+      actions.saveSessionItems();
       // A very fast execution can emit output before the /prompt response arrives.
       // Reveal those items once the response supplies the prompt ID mapping.
       updateViews(
@@ -141,4 +142,3 @@ export function installWorkflowTracking(context) {
     handleExecuted,
   });
 }
-

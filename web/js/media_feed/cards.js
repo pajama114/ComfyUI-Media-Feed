@@ -8,6 +8,7 @@ export function installCards(context) {
   const fitThumbnailMedia = (...args) => actions.fitThumbnailMedia(...args);
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const toggleFavorite = (...args) => actions.toggleFavorite(...args);
+  const removeMissingMediaItem = (...args) => actions.removeMissingMediaItem(...args);
   function createCard(item) {
     const card = document.createElement("div");
     card.className = "cmf-card";
@@ -35,6 +36,7 @@ export function installCards(context) {
         rememberMediaDimensions(item, image);
         fitThumbnailMedia(image, preview);
       }, { once: true });
+      image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       preview.appendChild(image);
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
     } else if (item.kind === "video") {
@@ -62,6 +64,7 @@ export function installCards(context) {
         duration.textContent = text;
         duration.hidden = false;
       }, { once: true });
+      video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       video.src = item.url;
       preview.append(video, videoBadge, duration);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -85,6 +88,7 @@ export function installCards(context) {
       const audio = document.createElement("audio");
       audio.preload = "none";
       audio.src = item.url;
+      audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       audioPreview.append(audioMain, controls, audio);
       setupAudioPreview(audioPreview, audio);
       preview.appendChild(audioPreview);
@@ -183,4 +187,3 @@ export function installCards(context) {
     setupAudioPreview,
   });
 }
-

@@ -27,6 +27,7 @@ export function installFeedView(context) {
   const discardStagedMedia = (...args) => actions.discardStagedMedia(...args);
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const createCard = (...args) => actions.createCard(...args);
+  const clearSessionItems = (...args) => actions.clearSessionItems(...args);
   function isBatchBoundary(item, nextItem) {
     const batchId = String(item?.promptId || "");
     const nextBatchId = String(nextItem?.promptId || "");
@@ -116,6 +117,7 @@ export function installFeedView(context) {
       runtime.decodedImageCache.clear();
       runtime.mediaDimensionCache.clear();
       clearPromptMetadataCache();
+      clearSessionItems();
       updateViews(false);
     });
   

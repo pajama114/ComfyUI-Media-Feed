@@ -28,6 +28,15 @@ function createContext() {
   return context;
 }
 
+function createMemoryStorage() {
+  const values = new Map();
+  return {
+    getItem(key) { return values.has(key) ? values.get(key) : null; },
+    setItem(key, value) { values.set(key, String(value)); },
+    removeItem(key) { values.delete(key); },
+  };
+}
+
 test("media type and duration helpers preserve current behavior", () => {
   const { actions } = createContext();
   assert.equal(actions.getMediaKind("result.PNG?preview=1"), "image");
@@ -84,6 +93,103 @@ test("addItems replaces duplicates and keeps the feed bounded at 256 items", () 
   assert.equal(viewerSyncs, 2);
 });
 
+test("the latest feed items survive a reload in the same browser tab", () => {
+  const originalWindow = globalThis.window;
+  const sessionStorage = createMemoryStorage();
+  globalThis.window = { sessionStorage };
+
+  try {
+    const firstContext = createContext();
+    const firstWorkflow = { activeState: { id: "workflow-a" } };
+    firstContext.app.extensionManager.workflow.activeWorkflow = firstWorkflow;
+    firstContext.actions.syncViewerItems = () => {};
+    const [item] = firstContext.actions.collectMedia(
+      { images: [{ filename: "restored image.png", subfolder: "session" }] },
+      "prompt-1",
+      7,
+      firstContext.actions.currentWorkflowTabId(),
+    );
+    firstContext.actions.addItems([item]);
+
+    const secondContext = createContext();
+    secondContext.app.extensionManager.workflow.activeWorkflow = { activeState: { id: "workflow-a" } };
+    secondContext.actions.loadSessionItems();
+
+    assert.equal(secondContext.state.items.length, 1);
+    assert.equal(secondContext.state.itemKeys.size, 1);
+    assert.equal(secondContext.state.items[0].filename, "restored image.png");
+    assert.equal(secondContext.state.items[0].url, "/api/view?filename=restored+image.png&subfolder=session&type=output");
+    secondContext.state.mediaScope = "current-tab";
+    assert.equal(secondContext.actions.filteredItems().length, 1);
+
+    secondContext.actions.clearSessionItems();
+    const thirdContext = createContext();
+    thirdContext.actions.loadSessionItems();
+    assert.equal(thirdContext.state.items.length, 0);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("session restore rejects malformed, duplicate, and unsupported records", () => {
+  const originalWindow = globalThis.window;
+  const sessionStorage = createMemoryStorage();
+  globalThis.window = { sessionStorage };
+
+  try {
+    sessionStorage.setItem("comfyui-media-feed:session-items", JSON.stringify({
+      version: 1,
+      items: [
+        { kind: "image", filename: "valid.png", subfolder: "", type: "output" },
+        { kind: "image", filename: "valid.png", subfolder: "", type: "output" },
+        { kind: "document", filename: "invalid.pdf", subfolder: "", type: "output" },
+        { kind: "video", filename: "" },
+      ],
+    }));
+    const context = createContext();
+    context.actions.loadSessionItems();
+    assert.deepEqual(context.state.items.map((item) => item.filename), ["valid.png"]);
+
+    sessionStorage.setItem("comfyui-media-feed:session-items", "not-json");
+    context.actions.loadSessionItems();
+    assert.equal(sessionStorage.getItem("comfyui-media-feed:session-items"), null);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("missing restored media is pruned only after a definitive response", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const context = createContext();
+    const { actions, state } = context;
+    actions.syncViewerItems = () => {};
+    actions.addItems([{
+      id: "missing-id",
+      key: "image:output::missing.png",
+      kind: "image",
+      filename: "missing.png",
+      subfolder: "",
+      type: "output",
+      url: "/api/view?filename=missing.png&type=output",
+    }]);
+
+    globalThis.fetch = async () => ({ status: 503 });
+    await actions.removeMissingMediaItem(state.items[0]);
+    assert.equal(state.items.length, 1);
+
+    globalThis.fetch = async (_url, options) => {
+      assert.equal(options.method, "HEAD");
+      return { status: 404 };
+    };
+    await actions.removeMissingMediaItem(state.items[0]);
+    assert.equal(state.items.length, 0);
+    assert.equal(state.itemKeys.size, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("workflow tab filtering tracks object identity", () => {
   const context = createContext();
   const { actions, app, state } = context;
@@ -105,6 +211,16 @@ test("workflow tab filtering tracks object identity", () => {
   assert.deepEqual(actions.filteredItems().map((item) => item.id), ["second"]);
   state.filter = "image";
   assert.deepEqual(actions.filteredItems(), []);
+});
+
+test("workflow tab filtering uses persisted workflow ids when available", () => {
+  const context = createContext();
+  const { actions, app } = context;
+  app.extensionManager.workflow.activeWorkflow = { activeState: { id: "saved-workflow" } };
+  const firstId = actions.currentWorkflowTabId();
+  app.extensionManager.workflow.activeWorkflow = { activeState: { id: "saved-workflow" } };
+  assert.equal(actions.currentWorkflowTabId(), firstId);
+  assert.equal(firstId, "workflow-id:saved-workflow");
 });
 
 test("settings normalization and feed geometry remain bounded", () => {

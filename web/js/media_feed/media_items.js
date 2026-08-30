@@ -12,6 +12,7 @@ export function installMediaItems(context) {
   const prefetchPromptMetadata = (...args) => actions.prefetchPromptMetadata(...args);
   const updateViews = (...args) => actions.updateViews(...args);
   const discardCachedCard = (...args) => actions.discardCachedCard(...args);
+  const saveSessionItems = (...args) => actions.saveSessionItems(...args);
   function getExtension(filename) {
     const cleanName = String(filename || "").split(/[?#]/, 1)[0];
     const dot = cleanName.lastIndexOf(".");
@@ -145,6 +146,7 @@ export function installMediaItems(context) {
         for (const view of state.views) discardCachedCard(view, removed.id);
       }
     }
+    saveSessionItems();
   
     const visibleFreshCount = freshItems.filter(itemMatchesFilters).length;
     updateViews(
@@ -161,9 +163,23 @@ export function installMediaItems(context) {
   function currentWorkflow() {
     return app.extensionManager?.workflow?.activeWorkflow || null;
   }
+
+  function persistentWorkflowTabId(workflow) {
+    if (!workflow || (typeof workflow !== "object" && typeof workflow !== "function")) return "";
+
+    const workflowId = workflow.activeState?.id ?? workflow.initialState?.id ?? workflow.id;
+    if ((typeof workflowId === "string" || typeof workflowId === "number") && String(workflowId)) {
+      return `workflow-id:${workflowId}`;
+    }
+    if (typeof workflow.path === "string" && workflow.path) return `workflow-path:${workflow.path}`;
+    return "";
+  }
   
   function workflowTabId(workflow) {
     if (!workflow || (typeof workflow !== "object" && typeof workflow !== "function")) return "";
+
+    const persistentId = persistentWorkflowTabId(workflow);
+    if (persistentId) return persistentId;
   
     let tabId = runtime.workflowTabIds.get(workflow);
     if (!tabId) {
@@ -195,6 +211,35 @@ export function installMediaItems(context) {
   function isViewerOpen() {
     return runtime.viewer?.root?.dataset.open === "true";
   }
+
+  function removeItemById(id) {
+    const index = state.items.findIndex((item) => item.id === id);
+    if (index === -1) return false;
+
+    const [removed] = state.items.splice(index, 1);
+    state.itemKeys.delete(removed.key);
+    runtime.decodedImageCache.delete(removed.url);
+    runtime.mediaDimensionCache.delete(removed.key);
+    for (const view of state.views) discardCachedCard(view, removed.id);
+    saveSessionItems();
+    updateViews(false);
+    syncViewerItems();
+    return true;
+  }
+
+  async function removeMissingMediaItem(item) {
+    if (!item?.id || runtime.missingMediaChecks.has(item.id) || typeof fetch !== "function") return;
+
+    runtime.missingMediaChecks.add(item.id);
+    try {
+      const response = await fetch(item.url, { method: "HEAD" });
+      if (response.status === 404 || response.status === 410) removeItemById(item.id);
+    } catch {
+      // A temporary network failure should not remove an otherwise valid feed item.
+    } finally {
+      runtime.missingMediaChecks.delete(item.id);
+    }
+  }
   
   Object.assign(actions, {
     getExtension,
@@ -206,11 +251,14 @@ export function installMediaItems(context) {
     collectMedia,
     addItems,
     currentWorkflow,
+    persistentWorkflowTabId,
     workflowTabId,
     currentWorkflowTabId,
     itemMatchesMediaScope,
     itemMatchesFilters,
     filteredItems,
     isViewerOpen,
+    removeItemById,
+    removeMissingMediaItem,
   });
 }
