@@ -185,7 +185,7 @@ export function createMediaFeedExtension(context) {
         name: "Loop videos",
         type: "boolean",
         defaultValue: loadSavedLoopVideos(),
-        category: ["Media Feed", "Viewer", "Playback"],
+        category: ["Media Feed", "Viewer", "Loop videos"],
         sortOrder: 205,
         tooltip: "Loop video playback in feed previews and the viewer.",
         onChange: (newValue) => {
@@ -198,7 +198,7 @@ export function createMediaFeedExtension(context) {
         name: "Loop audio",
         type: "boolean",
         defaultValue: loadSavedLoopAudio(),
-        category: ["Media Feed", "Viewer", "Playback"],
+        category: ["Media Feed", "Viewer", "Loop audio"],
         sortOrder: 200,
         tooltip: "Loop audio playback in feed cards and the viewer.",
         onChange: (newValue) => {
