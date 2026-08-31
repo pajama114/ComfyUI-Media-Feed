@@ -106,8 +106,14 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     querySelector: () => path,
   };
   const playhead = { style: { left: "" } };
+  let capturedPointer = null;
   const graph = eventTarget({
     getBoundingClientRect: () => ({ left: 20, width: 200 }),
+    setPointerCapture(pointerId) { capturedPointer = pointerId; },
+    hasPointerCapture(pointerId) { return capturedPointer === pointerId; },
+    releasePointerCapture(pointerId) {
+      if (capturedPointer === pointerId) capturedPointer = null;
+    },
   });
   const playButton = eventTarget({
     innerHTML: "",
@@ -183,9 +189,40 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     frame();
     assert.equal(playhead.style.left, "50%");
 
-    graph.listeners.get("click")({ clientX: 170 });
+    let pointerDownPrevented = false;
+    graph.listeners.get("pointerdown")({
+      button: 0,
+      pointerId: 7,
+      clientX: 170,
+      preventDefault() { pointerDownPrevented = true; },
+    });
     assert.equal(audio.currentTime, 90);
     assert.equal(playhead.style.left, "75%");
+    assert.equal(pointerDownPrevented, true);
+    assert.equal(capturedPointer, 7);
+
+    graph.listeners.get("pointermove")({
+      pointerId: 7,
+      clientX: 220,
+      preventDefault() {},
+    });
+    assert.equal(audio.currentTime, 120);
+    assert.equal(playhead.style.left, "100%");
+
+    graph.listeners.get("pointermove")({
+      pointerId: 8,
+      clientX: 20,
+      preventDefault() {},
+    });
+    assert.equal(audio.currentTime, 120);
+
+    graph.listeners.get("pointerup")({
+      pointerId: 7,
+      clientX: 70,
+      preventDefault() {},
+    });
+    assert.equal(audio.currentTime, 30);
+    assert.equal(capturedPointer, null);
 
     seek.value = "100";
     seek.listeners.get("input")();

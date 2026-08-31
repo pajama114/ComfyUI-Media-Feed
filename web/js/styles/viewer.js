@@ -291,6 +291,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       position: relative;
       width: 100%;
       height: 100%;
+      touch-action: none;
     }
 
     .cmf-viewer-audio-waveform {
@@ -357,7 +358,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-audio-current,
     .cmf-viewer-audio-duration {
       min-width: 42px;
-      color: var(--cmf-muted);
+      color: rgba(255, 255, 255, 0.82);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       text-align: center;
@@ -379,7 +380,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       grid-template-columns: auto 80px;
       align-items: center;
       gap: 6px;
-      color: var(--cmf-muted);
+      color: rgba(255, 255, 255, 0.82);
       font-size: 11px;
     }
 

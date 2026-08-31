@@ -331,10 +331,29 @@ export function installAudioWaveforms(context) {
       updatePlayhead();
       updateControls();
     };
-    const seekFromGraph = (event) => {
+    const seekFromPointer = (event) => {
+      event.preventDefault();
+      if (!Number.isFinite(event.clientX)) return;
       const bounds = track.getBoundingClientRect();
       if (!bounds.width) return;
       seekToProgress((event.clientX - bounds.left) / bounds.width);
+    };
+    let waveformDragPointerId = null;
+    const startWaveformDrag = (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      waveformDragPointerId = event.pointerId;
+      track.setPointerCapture?.(event.pointerId);
+      seekFromPointer(event);
+    };
+    const moveWaveformDrag = (event) => {
+      if (waveformDragPointerId === null || event.pointerId !== waveformDragPointerId) return;
+      seekFromPointer(event);
+    };
+    const finishWaveformDrag = (event) => {
+      if (waveformDragPointerId === null || event.pointerId !== waveformDragPointerId) return;
+      seekFromPointer(event);
+      if (track.hasPointerCapture?.(event.pointerId)) track.releasePointerCapture(event.pointerId);
+      waveformDragPointerId = null;
     };
     const seekFromControl = () => {
       seekToProgress(Number(seek.value) / 1000);
@@ -354,7 +373,10 @@ export function installAudioWaveforms(context) {
     };
 
     const syncEvents = ["loadedmetadata", "durationchange", "timeupdate", "seeking", "seeked", "pause", "ended"];
-    track.addEventListener("click", seekFromGraph);
+    track.addEventListener("pointerdown", startWaveformDrag);
+    track.addEventListener("pointermove", moveWaveformDrag);
+    track.addEventListener("pointerup", finishWaveformDrag);
+    track.addEventListener("pointercancel", finishWaveformDrag);
     playButton.addEventListener("click", togglePlayback);
     seek.addEventListener("input", seekFromControl);
     volume.addEventListener("input", changeVolume);
@@ -368,7 +390,14 @@ export function installAudioWaveforms(context) {
     currentViewer.audioWaveformCleanup = () => {
       stopAnimation();
       unsubscribe();
-      track.removeEventListener("click", seekFromGraph);
+      if (waveformDragPointerId !== null && track.hasPointerCapture?.(waveformDragPointerId)) {
+        track.releasePointerCapture(waveformDragPointerId);
+      }
+      waveformDragPointerId = null;
+      track.removeEventListener("pointerdown", startWaveformDrag);
+      track.removeEventListener("pointermove", moveWaveformDrag);
+      track.removeEventListener("pointerup", finishWaveformDrag);
+      track.removeEventListener("pointercancel", finishWaveformDrag);
       playButton.removeEventListener("click", togglePlayback);
       seek.removeEventListener("input", seekFromControl);
       volume.removeEventListener("input", changeVolume);
