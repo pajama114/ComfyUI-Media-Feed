@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "使媒体适应查看器",
-    "tooltip": "使图像、视频和音频播放器适应查看器的可用区域。"
+    "tooltip": "使图像和视频适应查看器的可用区域。"
   },
   "comfyui-media-feed_loop-videos": {
     "name": "循环播放视频",

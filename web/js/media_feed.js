@@ -2,6 +2,7 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { ICONS } from "./icons.js";
 import { clearPromptMetadataCache, getCachedPromptMetadata, loadPromptMetadata } from "./metadata.js";
+import { installAudioWaveforms } from "./media_feed/audio_waveform.js";
 import { installCards } from "./media_feed/cards.js";
 import { createMediaFeedExtension } from "./media_feed/extension.js";
 import { installFavorites } from "./media_feed/favorites.js";
@@ -38,6 +39,7 @@ const context = {
 
 installMediaItems(context);
 installLayout(context);
+installAudioWaveforms(context);
 installSettingsStorage(context);
 installSettings(context);
 installViewerSupport(context);

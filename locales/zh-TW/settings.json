@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "讓媒體符合檢視器",
-    "tooltip": "讓影像、影片與音訊播放器符合檢視器的可用區域。"
+    "tooltip": "讓影像與影片符合檢視器的可用區域。"
   },
   "comfyui-media-feed_loop-videos": {
     "name": "循環播放影片",

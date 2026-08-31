@@ -27,7 +27,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   independently.
 - Toggles video or audio playback with the Space key while the viewer is open.
 - Shows a compact, single-color waveform on audio thumbnails and provides a
-  full-width seek bar.
+  full-width seek bar. The viewer expands this into a detailed fixed waveform
+  with a playhead that follows the current playback position.
 - Lets you resize thumbnails, jump to the newest or oldest item, and clear the
   current feed from the toolbar.
 - Can automatically follow newly generated media.
@@ -47,8 +48,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   displayed metadata with visual copy confirmation.
 - Downloads all embedded JSON metadata as a formatted `.json` file.
 - Lets you place the metadata panel on either side of the viewer.
-- Provides Fit, actual-size, and zoom controls for images, videos, and audio
-  players. Zoomed images can be panned by dragging, and double-clicking zooms in
+- Provides Fit, actual-size, and zoom controls for images and videos. Zoomed
+  images can be panned by dragging, and double-clicking zooms in
   or returns to the selected Fit/actual-size view.
 - Uses ComfyUI theme colors when available.
 - Saves feed and viewer settings in browser `localStorage`.

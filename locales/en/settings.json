@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Fit media to viewer",
-    "tooltip": "Fit images, videos, and audio players to the available viewer area."
+    "tooltip": "Fit images and videos to the available viewer area."
   },
   "comfyui-media-feed_loop-videos": {
     "name": "Loop videos",

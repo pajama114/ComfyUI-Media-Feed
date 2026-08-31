@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Medien an den Betrachter anpassen",
-    "tooltip": "Passt Bilder, Videos und Audioplayer an den verfügbaren Bereich des Betrachters an."
+    "tooltip": "Passt Bilder und Videos an den verfügbaren Bereich des Betrachters an."
   },
   "comfyui-media-feed_loop-videos": {
     "name": "Videos wiederholen",

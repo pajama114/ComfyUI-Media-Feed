@@ -17,7 +17,7 @@ export function installViewerZoom(context) {
   
   function getViewerScalableMedia() {
     const element = runtime.viewer?.media?.querySelector(
-      "img.cmf-zoomable-image, video.cmf-zoomable-video, audio.cmf-zoomable-audio",
+      "img.cmf-zoomable-image, video.cmf-zoomable-video",
     );
     return element instanceof HTMLElement && element.dataset.mediaItemKey === runtime.viewer?.item?.key ? element : null;
   }
@@ -53,7 +53,7 @@ export function installViewerZoom(context) {
   
   function updateViewerImageControls(media = getViewerScalableMedia()) {
     if (!runtime.viewer) return;
-    const isScalableItem = runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video" || runtime.viewer.item?.kind === "audio";
+    const isScalableItem = runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
     const hasMedia = Boolean(media);
     runtime.viewer.zoomControls.hidden = !isScalableItem;
     if (!isScalableItem) return;
@@ -71,6 +71,19 @@ export function installViewerZoom(context) {
   }
   
   function updateViewerImageLayout() {
+    const audio = runtime.viewer?.media?.querySelector("audio.cmf-zoomable-audio");
+    if (audio instanceof HTMLAudioElement && audio.dataset.mediaItemKey === runtime.viewer?.item?.key) {
+      const frame = runtime.viewer.media.getBoundingClientRect();
+      if (!frame.width || !frame.height) return;
+      const presentation = audio.closest?.(".cmf-viewer-audio");
+      if (presentation) presentation.style.width = `${Math.min(960, frame.width * 0.9)}px`;
+      audio.style.width = "100%";
+      runtime.viewer.media.dataset.pannable = "false";
+      runtime.viewer.media.dataset.dragging = "false";
+      updateViewerImageControls(null);
+      return;
+    }
+
     const media = getViewerScalableMedia();
     if (!media || !runtime.viewer?.media) {
       updateViewerImageControls(null);
@@ -79,17 +92,6 @@ export function installViewerZoom(context) {
   
     const frame = runtime.viewer.media.getBoundingClientRect();
     if (!frame.width || !frame.height) return;
-  
-    if (media instanceof HTMLAudioElement) {
-      const nativeWidth = 300;
-      const fitWidth = Math.min(720, frame.width * 0.9);
-      const baseWidth = runtime.viewer.imageBaseMode === "fit" ? fitWidth : nativeWidth;
-      media.style.width = `${baseWidth * runtime.viewer.imageZoom}px`;
-      runtime.viewer.media.dataset.pannable = "false";
-      runtime.viewer.media.dataset.dragging = "false";
-      updateViewerImageControls(media);
-      return;
-    }
   
     const natural = viewerMediaNaturalSize(media);
     if (!natural.width || !natural.height) return;
@@ -310,4 +312,3 @@ export function installViewerZoom(context) {
     handleViewerBackdropClick,
   });
 }
-

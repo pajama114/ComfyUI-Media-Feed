@@ -265,8 +265,130 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       cursor: grabbing;
     }
 
-    .cmf-viewer-media audio {
-      width: min(720px, 90vw);
+    .cmf-viewer-audio {
+      --cmf-audio-accent: var(--p-primary-color, var(--comfy-accent, #4db6ac));
+      display: grid;
+      gap: 14px;
+      width: min(960px, 90vw);
+      max-width: none;
+      color: var(--cmf-text);
+    }
+
+    .cmf-viewer-audio-graph {
+      box-sizing: border-box;
+      width: 100%;
+      height: clamp(120px, 24vh, 240px);
+      overflow: hidden;
+      padding: 14px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 8px;
+      background: var(--cmf-viewer-bar-bg);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cmf-viewer-audio-track {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .cmf-viewer-audio-waveform {
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      color: var(--cmf-muted);
+      opacity: 0.9;
+    }
+
+    .cmf-viewer-audio-waveform path {
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .cmf-viewer-audio-waveform[data-state="loading"],
+    .cmf-viewer-audio-waveform[data-state="unavailable"] {
+      opacity: 0.28;
+    }
+
+    .cmf-viewer-audio-playhead {
+      position: absolute;
+      z-index: 1;
+      top: 8px;
+      bottom: 8px;
+      left: 0;
+      width: 2px;
+      border-radius: 999px;
+      background: var(--cmf-audio-accent);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--cmf-audio-accent) 70%, transparent);
+      pointer-events: none;
+      transform: translateX(-50%);
+      will-change: left;
+    }
+
+    .cmf-viewer-audio-controls {
+      display: grid;
+      grid-template-columns: 32px auto minmax(80px, 1fr) auto auto;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .cmf-viewer-audio-play {
+      width: 32px;
+      height: 32px;
+      border-color: var(--cmf-border);
+    }
+
+    .cmf-viewer-audio-play svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2;
+    }
+
+    .cmf-viewer-audio-current,
+    .cmf-viewer-audio-duration {
+      min-width: 42px;
+      color: var(--cmf-muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+
+    .cmf-viewer-audio-seek,
+    .cmf-viewer-audio-volume input {
+      min-width: 0;
+      accent-color: var(--cmf-audio-accent);
+      cursor: pointer;
+    }
+
+    .cmf-viewer-audio-seek {
+      width: 100%;
+    }
+
+    .cmf-viewer-audio-volume {
+      display: grid;
+      grid-template-columns: auto 80px;
+      align-items: center;
+      gap: 6px;
+      color: var(--cmf-muted);
+      font-size: 11px;
+    }
+
+    .cmf-viewer-audio-volume input {
+      width: 80px;
+    }
+
+    .cmf-viewer-audio > audio {
+      display: none;
     }
 
     .cmf-prompt-panel {

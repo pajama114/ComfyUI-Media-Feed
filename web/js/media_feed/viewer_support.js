@@ -64,8 +64,12 @@ export function installViewerSupport(context) {
     const previousMedia = currentViewer.media.querySelector("video, audio");
     currentViewer.media.replaceChildren(nextMedia);
     previousMedia?.pause();
-    nextMedia.muted = false;
-    nextMedia.play().catch(() => {});
+    const playbackMedia = nextMedia.matches?.("video, audio")
+      ? nextMedia
+      : nextMedia.querySelector?.("video, audio");
+    if (!playbackMedia) return;
+    playbackMedia.muted = false;
+    playbackMedia.play().catch(() => {});
   }
   
   function waitForImageReady(image) {

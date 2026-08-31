@@ -1,12 +1,7 @@
 import {
   AUDIO_WAVEFORM_BAR_COUNT,
-  audioWaveformPath,
-  calculateAudioWaveformPeaks,
   renderAudioWaveform,
 } from "./audio_waveform.js";
-
-const AUDIO_WAVEFORM_CACHE_SIZE = 32;
-const MAX_CONCURRENT_AUDIO_WAVEFORM_LOADS = 1;
 
 export function installCards(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -19,98 +14,8 @@ export function installCards(context) {
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const toggleFavorite = (...args) => actions.toggleFavorite(...args);
   const removeMissingMediaItem = (...args) => actions.removeMissingMediaItem(...args);
-
-  function rememberAudioWaveform(url, peaks) {
-    runtime.audioWaveformCache.delete(url);
-    runtime.audioWaveformCache.set(url, peaks);
-    while (runtime.audioWaveformCache.size > AUDIO_WAVEFORM_CACHE_SIZE) {
-      runtime.audioWaveformCache.delete(runtime.audioWaveformCache.keys().next().value);
-    }
-  }
-
-  function getAudioWaveformContext() {
-    if (runtime.audioWaveformContext) return runtime.audioWaveformContext;
-    const AudioContext = globalThis.AudioContext || globalThis.webkitAudioContext;
-    if (!AudioContext) throw new Error("Web Audio is unavailable");
-    runtime.audioWaveformContext = new AudioContext();
-    return runtime.audioWaveformContext;
-  }
-
-  async function decodeAudioWaveform(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Unable to load audio waveform (${response.status})`);
-    const encodedAudio = await response.arrayBuffer();
-    const audioBuffer = await getAudioWaveformContext().decodeAudioData(encodedAudio);
-    return calculateAudioWaveformPeaks(audioBuffer);
-  }
-
-  function runNextAudioWaveformJob() {
-    while (
-      runtime.activeAudioWaveformLoads < MAX_CONCURRENT_AUDIO_WAVEFORM_LOADS
-      && runtime.audioWaveformQueue.length
-    ) {
-      const job = runtime.audioWaveformQueue.shift();
-      if (!job.consumers.size) {
-        runtime.audioWaveformJobs.delete(job.url);
-        job.reject(new Error("Audio waveform is no longer visible"));
-        continue;
-      }
-
-      job.status = "loading";
-      runtime.activeAudioWaveformLoads++;
-      decodeAudioWaveform(job.url)
-        .then((peaks) => {
-          rememberAudioWaveform(job.url, peaks);
-          job.resolve(peaks);
-        })
-        .catch(job.reject)
-        .finally(() => {
-          runtime.activeAudioWaveformLoads--;
-          runtime.audioWaveformJobs.delete(job.url);
-          runNextAudioWaveformJob();
-        });
-    }
-  }
-
-  function subscribeAudioWaveform(url, consumer) {
-    const cachedPeaks = runtime.audioWaveformCache.get(url);
-    if (cachedPeaks) {
-      runtime.audioWaveformCache.delete(url);
-      runtime.audioWaveformCache.set(url, cachedPeaks);
-      consumer.render(cachedPeaks);
-      return () => {};
-    }
-
-    let job = runtime.audioWaveformJobs.get(url);
-    if (!job) {
-      job = { url, consumers: new Set(), status: "queued" };
-      job.promise = new Promise((resolve, reject) => {
-        job.resolve = resolve;
-        job.reject = reject;
-      });
-      runtime.audioWaveformJobs.set(url, job);
-      runtime.audioWaveformQueue.push(job);
-    }
-
-    job.consumers.add(consumer);
-    job.promise.then(consumer.render).catch(consumer.fail);
-    runNextAudioWaveformJob();
-    return () => {
-      job.consumers.delete(consumer);
-    };
-  }
-
-  function createAudioWaveform() {
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    svg.classList.add("cmf-audio-waveform");
-    svg.dataset.state = "loading";
-    svg.setAttribute("aria-hidden", "true");
-    svg.setAttribute("preserveAspectRatio", "none");
-    path.setAttribute("d", audioWaveformPath(new Float32Array(AUDIO_WAVEFORM_BAR_COUNT)));
-    svg.appendChild(path);
-    return svg;
-  }
+  const subscribeAudioWaveform = (...args) => actions.subscribeAudioWaveform(...args);
+  const createAudioWaveform = (...args) => actions.createAudioWaveform(...args);
 
   function setupAudioWaveform(card, svg, url) {
     let unsubscribe = null;
@@ -130,7 +35,7 @@ export function installCards(context) {
           if (active && activation === currentActivation) svg.dataset.state = "unavailable";
         },
       };
-      unsubscribe = subscribeAudioWaveform(url, consumer);
+      unsubscribe = subscribeAudioWaveform(url, AUDIO_WAVEFORM_BAR_COUNT, consumer);
     };
     card.deactivateAudioWaveform = () => {
       active = false;
@@ -206,7 +111,7 @@ export function installCards(context) {
       audioPreview.className = "cmf-audio-preview";
       const audioMain = document.createElement("div");
       audioMain.className = "cmf-audio-main";
-      const waveform = createAudioWaveform();
+      const waveform = createAudioWaveform("cmf-audio-waveform", AUDIO_WAVEFORM_BAR_COUNT);
       audioMain.appendChild(waveform);
       const controls = document.createElement("div");
       controls.className = "cmf-audio-controls";
@@ -316,7 +221,6 @@ export function installCards(context) {
   Object.assign(actions, {
     createCard,
     setupAudioPreview,
-    createAudioWaveform,
     setupAudioWaveform,
   });
 }

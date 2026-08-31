@@ -15,9 +15,13 @@ export function installViewerRender(context) {
   const resetViewerImageView = (...args) => actions.resetViewerImageView(...args);
   const prepareViewerImage = (...args) => actions.prepareViewerImage(...args);
   const refreshViewerPromptPanelDetails = (...args) => actions.refreshViewerPromptPanelDetails(...args);
+  const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
+  const createViewerAudioPresentation = (...args) => actions.createViewerAudioPresentation(...args);
+  const setupViewerAudioWaveform = (...args) => actions.setupViewerAudioWaveform(...args);
   async function renderViewerItem(item, thumbnail) {
     const currentViewer = ensureViewer();
     const requestId = ++currentViewer.renderRequestId;
+    clearViewerAudioWaveform(currentViewer);
     discardStagedMedia(currentViewer.pendingMedia);
     currentViewer.pendingMedia = null;
     currentViewer.item = item;
@@ -111,9 +115,12 @@ export function installViewerRender(context) {
     const displayedAudio = currentViewer.media.querySelector("audio.cmf-zoomable-audio");
     const reusingDisplayedAudio = displayedAudio instanceof HTMLAudioElement;
     const audio = reusingDisplayedAudio ? displayedAudio : document.createElement("audio");
+    const presentation = reusingDisplayedAudio
+      ? audio.closest?.(".cmf-viewer-audio") || audio.parentElement || audio
+      : createViewerAudioPresentation(audio);
     if (!reusingDisplayedAudio) {
       audio.classList.add("cmf-zoomable-audio");
-      audio.controls = true;
+      audio.controls = false;
       audio.preload = "auto";
       audio.muted = true;
     }
@@ -132,8 +139,9 @@ export function installViewerRender(context) {
     }
     currentViewer.pendingMedia = null;
     if (!reusingDisplayedAudio) {
-      replaceViewerMedia(currentViewer, audio);
+      replaceViewerMedia(currentViewer, presentation);
     }
+    setupViewerAudioWaveform(currentViewer, audio, item.url);
     updateViewerImageLayout();
     currentViewer.mediaReadyItemId = item.id;
   }

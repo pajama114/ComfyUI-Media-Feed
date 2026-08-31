@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "メディアをビューアに合わせる",
-    "tooltip": "画像、動画、オーディオプレーヤーをビューア内の表示可能領域に合わせます。"
+    "tooltip": "画像と動画をビューア内の表示可能領域に合わせます。"
   },
   "comfyui-media-feed_loop-videos": {
     "name": "動画をループ再生",

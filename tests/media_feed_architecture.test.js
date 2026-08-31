@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+import { installAudioWaveforms } from "../web/js/media_feed/audio_waveform.js";
 import { installCards } from "../web/js/media_feed/cards.js";
 import { createMediaFeedExtension } from "../web/js/media_feed/extension.js";
 import { installFavorites } from "../web/js/media_feed/favorites.js";
@@ -23,6 +24,7 @@ import { installWorkflowTracking } from "../web/js/media_feed/workflow_tracking.
 const installers = [
   installMediaItems,
   installLayout,
+  installAudioWaveforms,
   installSettingsStorage,
   installSettings,
   installViewerSupport,

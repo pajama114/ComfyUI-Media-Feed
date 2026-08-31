@@ -174,7 +174,7 @@ export function createMediaFeedExtension(context) {
         defaultValue: loadSavedScaleViewerMedia(),
         category: ["Media Feed", "Viewer", "Fit media to viewer"],
         sortOrder: 210,
-        tooltip: "Fit images, videos, and audio players to the available viewer area.",
+        tooltip: "Fit images and videos to the available viewer area.",
         onChange: (newValue) => {
           runtime.scaleViewerMediaSettingSeen = true;
           setScaleViewerMedia(newValue);

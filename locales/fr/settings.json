@@ -67,7 +67,7 @@
   },
   "comfyui-media-feed_scale-viewer-media": {
     "name": "Adapter les médias à la visionneuse",
-    "tooltip": "Adapte les images, les vidéos et les lecteurs audio à l’espace disponible dans la visionneuse."
+    "tooltip": "Adapte les images et les vidéos à l’espace disponible dans la visionneuse."
   },
   "comfyui-media-feed_loop-videos": {
     "name": "Lire les vidéos en boucle",

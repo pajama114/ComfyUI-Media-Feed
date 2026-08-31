@@ -29,6 +29,7 @@ export function installViewerShell(context) {
   const clearViewerPromptLoadingTimer = (...args) => actions.clearViewerPromptLoadingTimer(...args);
   const scanFullViewerMetadata = (...args) => actions.scanFullViewerMetadata(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
+  const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
   function ensureViewer() {
     if (runtime.viewer) return runtime.viewer;
   
@@ -206,6 +207,7 @@ export function installViewerShell(context) {
       imagePanY: 0,
       imageDrag: null,
       suppressImageClick: false,
+      audioWaveformCleanup: null,
     };
     runtime.viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
     runtime.viewer.resizeObserver.observe(runtime.viewer.media);
@@ -239,6 +241,7 @@ export function installViewerShell(context) {
   
   function closeViewer() {
     if (!runtime.viewer) return;
+    clearViewerAudioWaveform(runtime.viewer);
     runtime.viewer.root.dataset.open = "false";
     runtime.viewer.promptRequestId++;
     runtime.viewer.renderRequestId++;
