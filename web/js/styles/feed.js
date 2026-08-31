@@ -373,7 +373,32 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     .cmf-audio-main {
       display: grid;
       place-items: center;
+      width: 100%;
       min-height: 0;
+    }
+
+    .cmf-audio-waveform {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 28px;
+      max-height: 72px;
+      overflow: visible;
+      color: var(--cmf-accent);
+      opacity: 0.82;
+    }
+
+    .cmf-audio-waveform path {
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .cmf-audio-waveform[data-state="loading"],
+    .cmf-audio-waveform[data-state="unavailable"] {
+      opacity: 0.28;
     }
 
     .cmf-audio-controls {
@@ -393,19 +418,6 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
 
     .cmf-audio-preview audio {
       display: none;
-    }
-
-    .cmf-kind {
-      display: grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--cmf-panel);
-      background: color-mix(in srgb, var(--cmf-accent) 24%, var(--cmf-panel));
-      color: var(--cmf-text);
-      font-size: 11px;
-      text-transform: uppercase;
     }
 
 `;

@@ -2,6 +2,11 @@ export function createMediaFeedRuntime() {
   return {
     decodedImageCache: new Map(),
     mediaDimensionCache: new Map(),
+    audioWaveformCache: new Map(),
+    audioWaveformJobs: new Map(),
+    audioWaveformQueue: [],
+    activeAudioWaveformLoads: 0,
+    audioWaveformContext: null,
     floatingView: null,
     floatingWorkspaceResizeObserver: null,
     floatingWorkspaceMutationObserver: null,

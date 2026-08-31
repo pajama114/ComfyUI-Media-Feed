@@ -26,7 +26,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Plays video thumbnails on hover and lets video and audio looping be configured
   independently.
 - Toggles video or audio playback with the Space key while the viewer is open.
-- Provides compact audio thumbnail controls with a full-width seek bar.
+- Shows a compact, single-color waveform on audio thumbnails and provides a
+  full-width seek bar.
 - Lets you resize thumbnails, jump to the newest or oldest item, and clear the
   current feed from the toolbar.
 - Can automatically follow newly generated media.
@@ -88,8 +89,10 @@ Image thumbnails and the full-screen image viewer use the same URL so the browse
 can reuse cache. Recently decoded images are also kept in a small in-memory LRU
 cache.
 
-Video thumbnails use `preload="metadata"`. Audio thumbnails use `preload="none"`
-until the user presses play.
+Video thumbnails use `preload="metadata"`. The native audio element uses
+`preload="none"` until playback, while visible audio cards load the same `/view`
+URL one at a time to derive a small waveform. Only the reduced waveform levels
+are cached after decoding.
 
 ## Install
 
