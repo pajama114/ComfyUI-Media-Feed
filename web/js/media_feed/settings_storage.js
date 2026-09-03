@@ -4,6 +4,7 @@ import {
   DEFAULT_SHOW_PROMPTS,
   DEFAULT_SCALE_VIEWER_MEDIA,
   DEFAULT_FOLLOW_LATEST,
+  DEFAULT_HISTORY_LIMIT,
   DEFAULT_METADATA_POSITION,
   DEFAULT_EXCLUDE_PREVIEW_MEDIA,
   DEFAULT_SHOW_FAVORITE_BUTTON,
@@ -12,7 +13,6 @@ import {
   DEFAULT_BATCH_DIVIDERS,
   DEFAULT_LOOP_AUDIO,
   DEFAULT_LOOP_VIDEOS,
-  MAX_ITEMS,
   SESSION_ITEMS_STORAGE_KEY,
   SESSION_ITEMS_VERSION,
   STORAGE_KEYS,
@@ -29,11 +29,13 @@ export function installSettingsStorage(context) {
   const normalizeMediaScope = (...args) => actions.normalizeMediaScope(...args);
   const normalizeBatchDividers = (...args) => actions.normalizeBatchDividers(...args);
   const normalizeBooleanSetting = (...args) => actions.normalizeBooleanSetting(...args);
+  const normalizeHistoryLimit = (...args) => actions.normalizeHistoryLimit(...args);
   const applyThumbnailHeight = (...args) => actions.applyThumbnailHeight(...args);
   const applyPlacement = (...args) => actions.applyPlacement(...args);
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
+  const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
   const applyExcludePreviewMedia = (...args) => actions.applyExcludePreviewMedia(...args);
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
@@ -76,6 +78,15 @@ export function installSettingsStorage(context) {
       return savedValue === null ? DEFAULT_FOLLOW_LATEST : normalizeBooleanSetting(savedValue);
     } catch {
       return DEFAULT_FOLLOW_LATEST;
+    }
+  }
+
+  function loadSavedHistoryLimit() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.historyLimit);
+      return savedValue === null ? DEFAULT_HISTORY_LIMIT : normalizeHistoryLimit(savedValue);
+    } catch {
+      return DEFAULT_HISTORY_LIMIT;
     }
   }
   
@@ -180,7 +191,7 @@ export function installSettingsStorage(context) {
     try {
       window.sessionStorage?.setItem(SESSION_ITEMS_STORAGE_KEY, JSON.stringify({
         version: SESSION_ITEMS_VERSION,
-        items: state.items.slice(0, MAX_ITEMS).map(sessionItemRecord),
+        items: state.items.slice(0, state.historyLimit).map(sessionItemRecord),
       }));
     } catch {
       // Ignore storage failures; the feed should keep working in memory.
@@ -240,7 +251,7 @@ export function installSettingsStorage(context) {
 
       const restoredItems = [];
       const restoredKeys = new Set();
-      for (const savedItem of saved.items.slice(0, MAX_ITEMS)) {
+      for (const savedItem of saved.items.slice(0, state.historyLimit)) {
         const item = restoreSessionItem(savedItem);
         if (!item || restoredKeys.has(item.key)) continue;
         restoredKeys.add(item.key);
@@ -265,6 +276,7 @@ export function installSettingsStorage(context) {
     if (!runtime.promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
     if (!runtime.scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
     if (!runtime.followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
+    if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
     if (!runtime.metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
     if (!runtime.excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
     if (!runtime.showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
@@ -311,6 +323,14 @@ export function installSettingsStorage(context) {
   function saveFollowLatest() {
     try {
       window.localStorage?.setItem(STORAGE_KEYS.followLatest, String(state.followLatest));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
+  function saveHistoryLimit() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.historyLimit, String(state.historyLimit));
     } catch {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
@@ -393,6 +413,7 @@ export function installSettingsStorage(context) {
     loadSavedShowPrompts,
     loadSavedScaleViewerMedia,
     loadSavedFollowLatest,
+    loadSavedHistoryLimit,
     loadSavedMetadataPosition,
     loadSavedExcludePreviewMedia,
     loadSavedShowFavoriteButton,
@@ -413,6 +434,7 @@ export function installSettingsStorage(context) {
     saveShowPrompts,
     saveScaleViewerMedia,
     saveFollowLatest,
+    saveHistoryLimit,
     saveMetadataPosition,
     saveExcludePreviewMedia,
     saveShowFavoriteButton,

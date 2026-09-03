@@ -1,5 +1,7 @@
 import {
   EXTENSION_NAME,
+  DEFAULT_HISTORY_LIMIT,
+  HISTORY_LIMIT_OPTIONS,
 } from "./constants.js";
 
 export function createMediaFeedExtension(context) {
@@ -8,6 +10,7 @@ export function createMediaFeedExtension(context) {
   const loadSavedShowPrompts = (...args) => actions.loadSavedShowPrompts(...args);
   const loadSavedScaleViewerMedia = (...args) => actions.loadSavedScaleViewerMedia(...args);
   const loadSavedFollowLatest = (...args) => actions.loadSavedFollowLatest(...args);
+  const loadSavedHistoryLimit = (...args) => actions.loadSavedHistoryLimit(...args);
   const loadSavedMetadataPosition = (...args) => actions.loadSavedMetadataPosition(...args);
   const loadSavedExcludePreviewMedia = (...args) => actions.loadSavedExcludePreviewMedia(...args);
   const loadSavedShowFavoriteButton = (...args) => actions.loadSavedShowFavoriteButton(...args);
@@ -21,6 +24,7 @@ export function createMediaFeedExtension(context) {
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
   const setFollowLatest = (...args) => actions.setFollowLatest(...args);
+  const setHistoryLimit = (...args) => actions.setHistoryLimit(...args);
   const setMetadataPosition = (...args) => actions.setMetadataPosition(...args);
   const setExcludePreviewMedia = (...args) => actions.setExcludePreviewMedia(...args);
   const setShowFavoriteButton = (...args) => actions.setShowFavoriteButton(...args);
@@ -71,6 +75,23 @@ export function createMediaFeedExtension(context) {
         onChange: (newValue) => {
           runtime.followLatestSettingSeen = true;
           setFollowLatest(newValue);
+        },
+      },
+      {
+        id: "comfyui-media-feed.history-limit",
+        name: "Feed history limit",
+        type: "combo",
+        defaultValue: loadSavedHistoryLimit(),
+        options: HISTORY_LIMIT_OPTIONS.map((limit) => ({
+          text: limit === DEFAULT_HISTORY_LIMIT ? `${limit} (Default)` : String(limit),
+          value: limit,
+        })),
+        category: ["Media Feed", "Feed", "Feed history limit"],
+        sortOrder: 350,
+        tooltip: "Choose the maximum number of image, video, and audio entries retained in the feed.",
+        onChange: (newValue) => {
+          runtime.historyLimitSettingSeen = true;
+          setHistoryLimit(newValue);
         },
       },
       {

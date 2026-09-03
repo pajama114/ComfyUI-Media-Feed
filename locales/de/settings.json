@@ -17,6 +17,18 @@
     "name": "Neueste Medien verfolgen",
     "tooltip": "Scrollt den Feed automatisch zu neu erzeugten Medien."
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "Limit des Feed-Verlaufs",
+    "tooltip": "Wählen Sie die maximale Anzahl von Bild-, Video- und Audioeinträgen, die im Feed gespeichert werden.",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256 (Standard)",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "Medien von Preview-Knoten ausschließen",
     "tooltip": "Fügt Medien, die von Preview-Knoten wie Preview Image ausgegeben werden, nicht zum Feed hinzu."

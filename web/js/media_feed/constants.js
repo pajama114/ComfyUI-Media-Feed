@@ -1,5 +1,7 @@
 export const EXTENSION_NAME = "comfyui.media_feed";
-export const MAX_ITEMS = 256;
+export const DEFAULT_HISTORY_LIMIT = 256;
+export const HISTORY_LIMIT_OPTIONS = [64, 128, 256, 512, 1024];
+export const MEDIA_DIMENSION_CACHE_SIZE = 256;
 export const DECODED_IMAGE_CACHE_SIZE = 32;
 export const THUMBNAIL_CARD_CACHE_SIZE = 32;
 export const WORKFLOW_SCROLL_POSITION_CACHE_SIZE = 64;
@@ -61,6 +63,7 @@ export const MEDIA_SCOPES = new Set(["all", "current-tab"]);
 export const BATCH_DIVIDER_STYLES = new Set(["none", "line"]);
 export const STORAGE_KEYS = {
   itemHeight: "comfyui-media-feed:item-height",
+  historyLimit: "comfyui-media-feed:history-limit",
   placement: "comfyui-media-feed:placement",
   showPrompts: "comfyui-media-feed:show-prompts",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",

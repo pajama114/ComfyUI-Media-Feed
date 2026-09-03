@@ -190,9 +190,9 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 13);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 13);
-    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 13);
+    assert.equal(extension.settings.length, 14);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 14);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 14);
 
     const settingsByGroup = new Map();
     for (const setting of extension.settings) {
@@ -213,7 +213,7 @@ test("the composed extension registers settings and setup integrations once", as
       ]);
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
-      ["Feed", ["Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
+      ["Feed", ["Feed history limit", "Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
       ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Loop videos", "Loop audio"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
@@ -221,6 +221,11 @@ test("the composed extension registers settings and setup integrations once", as
     const batchDividerSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.batch-dividers");
     assert.equal(batchDividerSetting.defaultValue, "line");
     assert.deepEqual(batchDividerSetting.options.map((option) => option.value), ["none", "line"]);
+
+    const historyLimitSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.history-limit");
+    assert.equal(historyLimitSetting.defaultValue, 256);
+    assert.deepEqual(historyLimitSetting.options.map((option) => option.value), [64, 128, 256, 512, 1024]);
+    assert.equal(historyLimitSetting.options.find((option) => option.value === 256).text, "256 (Default)");
 
     const originalQueuePrompt = context.api.queuePrompt;
     await extension.setup();

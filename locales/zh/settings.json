@@ -17,6 +17,18 @@
     "name": "跟随最新媒体",
     "tooltip": "自动将信息流滚动到新生成的媒体。"
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "信息流历史记录上限",
+    "tooltip": "选择信息流中保留的图像、视频和音频条目的最大数量。",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256（默认）",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "排除Preview节点媒体",
     "tooltip": "不将Preview Image等Preview节点输出的媒体添加到信息流。"

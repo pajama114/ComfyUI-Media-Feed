@@ -17,6 +17,18 @@
     "name": "最新のメディアを追従",
     "tooltip": "新しく生成されたメディアまでフィードを自動的にスクロールします。"
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "フィード履歴の上限",
+    "tooltip": "フィードに保持する画像、動画、音声の最大件数を選びます。",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256（デフォルト）",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "Previewノードのメディアを除外",
     "tooltip": "Preview ImageなどのPreviewノードが出力したメディアをフィードに追加しません。"

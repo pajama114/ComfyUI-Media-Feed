@@ -26,6 +26,7 @@ export function installSettings(context) {
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
+  const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
   const applyExcludePreviewMedia = (...args) => actions.applyExcludePreviewMedia(...args);
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
@@ -39,6 +40,7 @@ export function installSettings(context) {
   const saveShowPrompts = (...args) => actions.saveShowPrompts(...args);
   const saveScaleViewerMedia = (...args) => actions.saveScaleViewerMedia(...args);
   const saveFollowLatest = (...args) => actions.saveFollowLatest(...args);
+  const saveHistoryLimit = (...args) => actions.saveHistoryLimit(...args);
   const saveMetadataPosition = (...args) => actions.saveMetadataPosition(...args);
   const saveExcludePreviewMedia = (...args) => actions.saveExcludePreviewMedia(...args);
   const saveShowFavoriteButton = (...args) => actions.saveShowFavoriteButton(...args);
@@ -53,6 +55,8 @@ export function installSettings(context) {
   const syncViewerMetadataToggle = (...args) => actions.syncViewerMetadataToggle(...args);
   const closeViewer = (...args) => actions.closeViewer(...args);
   const syncViewerItems = (...args) => actions.syncViewerItems(...args);
+  const trimItemsToHistoryLimit = (...args) => actions.trimItemsToHistoryLimit(...args);
+  const saveSessionItems = (...args) => actions.saveSessionItems(...args);
   function setThumbnailHeight(nextHeight) {
     applyThumbnailHeight(nextHeight);
     saveThumbnailHeight();
@@ -91,6 +95,18 @@ export function installSettings(context) {
   function setFollowLatest(nextValue) {
     applyFollowLatest(nextValue);
     saveFollowLatest();
+  }
+
+  function setHistoryLimit(nextValue) {
+    const previousLimit = state.historyLimit;
+    applyHistoryLimit(nextValue);
+    if (state.historyLimit === previousLimit) return;
+
+    saveHistoryLimit();
+    const removedCount = trimItemsToHistoryLimit();
+    saveSessionItems();
+    if (removedCount > 0) updateViews(false);
+    syncViewerItems();
   }
   
   function setMetadataPosition(nextPosition) {
@@ -194,6 +210,7 @@ export function installSettings(context) {
     setShowPrompts,
     setScaleViewerMedia,
     setFollowLatest,
+    setHistoryLimit,
     setMetadataPosition,
     setExcludePreviewMedia,
     setShowFavoriteButton,

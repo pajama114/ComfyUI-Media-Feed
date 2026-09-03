@@ -17,6 +17,18 @@
     "name": "최신 미디어 따라가기",
     "tooltip": "새로 생성된 미디어로 피드를 자동 스크롤합니다."
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "피드 기록 한도",
+    "tooltip": "피드에 유지할 이미지, 비디오 및 오디오 항목의 최대 개수를 선택합니다.",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256 (기본값)",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "Preview 노드 미디어 제외",
     "tooltip": "Preview Image와 같은 Preview 노드에서 출력된 미디어를 피드에 추가하지 않습니다."

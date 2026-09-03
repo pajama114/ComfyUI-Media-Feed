@@ -17,6 +17,18 @@
     "name": "Suivre les médias les plus récents",
     "tooltip": "Fait défiler automatiquement le flux jusqu’aux nouveaux médias générés."
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "Limite de l’historique du flux",
+    "tooltip": "Choisissez le nombre maximal d’images, de vidéos et de fichiers audio conservés dans le flux.",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256 (par défaut)",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "Exclure les médias des nœuds Preview",
     "tooltip": "N’ajoute pas au flux les médias produits par les nœuds Preview, tels que Preview Image."

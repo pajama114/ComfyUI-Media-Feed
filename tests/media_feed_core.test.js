@@ -63,7 +63,7 @@ test("collectMedia walks nested outputs, deduplicates files, and reuses the view
   assert.doesNotMatch(items[0].url, /[?&](?:v|t|cache)=/i);
 });
 
-test("addItems replaces duplicates and keeps the feed bounded at 256 items", () => {
+test("addItems replaces duplicates and keeps the feed bounded at the default 256 items", () => {
   const context = createContext();
   const { actions, state } = context;
   const discarded = [];
@@ -91,6 +91,62 @@ test("addItems replaces duplicates and keeps the feed bounded at 256 items", () 
   assert.equal(state.items.filter((item) => item.key === replacement.key).length, 1);
   assert.ok(discarded.includes(items[100].id));
   assert.equal(viewerSyncs, 2);
+});
+
+test("changing the history limit trims old items immediately and persists the choice", () => {
+  const originalWindow = globalThis.window;
+  const localStorage = createMemoryStorage();
+  const sessionStorage = createMemoryStorage();
+  globalThis.window = { localStorage, sessionStorage };
+
+  try {
+    const context = createContext();
+    const { actions, state } = context;
+    actions.discardCachedCard = () => {};
+    actions.updateViews = () => {};
+    actions.syncViewerItems = () => {};
+    state.items = Array.from({ length: 70 }, (_, index) => ({
+      id: `id-${index}`,
+      key: `image:output::file-${index}.png`,
+      kind: "image",
+      filename: `file-${index}.png`,
+    }));
+    state.itemKeys = new Set(state.items.map((item) => item.key));
+
+    actions.setHistoryLimit("64");
+
+    assert.equal(state.historyLimit, 64);
+    assert.equal(state.items.length, 64);
+    assert.equal(state.itemKeys.size, 64);
+    assert.equal(localStorage.getItem("comfyui-media-feed:history-limit"), "64");
+    assert.equal(JSON.parse(sessionStorage.getItem("comfyui-media-feed:session-items")).items.length, 64);
+
+    const restoredContext = createContext();
+    restoredContext.actions.loadSettings();
+    restoredContext.actions.loadSessionItems();
+    assert.equal(restoredContext.state.historyLimit, 64);
+    assert.equal(restoredContext.state.items.length, 64);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("raising the history limit retains more than the default item count", () => {
+  const context = createContext();
+  const { actions, state } = context;
+  actions.updateViews = () => {};
+  actions.prefetchPromptMetadata = () => {};
+  actions.syncViewerItems = () => {};
+  actions.applyHistoryLimit(512);
+
+  actions.addItems(Array.from({ length: 300 }, (_, index) => ({
+    id: `id-${index}`,
+    key: `image:output::file-${index}.png`,
+    kind: "image",
+  })));
+
+  assert.equal(state.items.length, 300);
+  assert.equal(state.itemKeys.size, 300);
 });
 
 test("the latest feed items survive a reload in the same browser tab", () => {
@@ -288,6 +344,8 @@ test("settings normalization and feed geometry remain bounded", () => {
   assert.equal(actions.normalizePlacement("diagonal"), "bottom");
   assert.equal(actions.normalizeBooleanSetting("True"), true);
   assert.equal(actions.normalizeBooleanSetting("false"), false);
+  assert.equal(actions.normalizeHistoryLimit("512"), 512);
+  assert.equal(actions.normalizeHistoryLimit(999), 256);
   assert.equal(actions.normalizeBatchDividers("LINE"), "line");
   assert.equal(actions.normalizeBatchDividers("invalid"), "line");
   assert.equal(actions.normalizeBatchDividers("labeled"), "line");

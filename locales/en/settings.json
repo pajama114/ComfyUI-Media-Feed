@@ -17,6 +17,18 @@
     "name": "Follow latest media",
     "tooltip": "Automatically scroll the feed to newly generated media."
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "Feed history limit",
+    "tooltip": "Choose the maximum number of image, video, and audio entries retained in the feed.",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256 (Default)",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "Exclude Preview node media",
     "tooltip": "Do not add media emitted by Preview nodes, such as Preview Image, to the feed."

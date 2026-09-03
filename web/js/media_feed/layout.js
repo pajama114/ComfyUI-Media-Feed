@@ -15,6 +15,8 @@ import {
   DEFAULT_BATCH_DIVIDERS,
   DEFAULT_LOOP_AUDIO,
   DEFAULT_LOOP_VIDEOS,
+  DEFAULT_HISTORY_LIMIT,
+  HISTORY_LIMIT_OPTIONS,
   SIDE_PLACEMENTS,
   PLACEMENTS,
   METADATA_POSITIONS,
@@ -88,6 +90,11 @@ export function installLayout(context) {
   function normalizeBooleanSetting(nextValue) {
     return nextValue === true || nextValue === "true" || nextValue === "True" || nextValue === "1";
   }
+
+  function normalizeHistoryLimit(nextValue) {
+    const limit = Number(nextValue);
+    return HISTORY_LIMIT_OPTIONS.includes(limit) ? limit : DEFAULT_HISTORY_LIMIT;
+  }
   
   function isVerticalPlacement(placement = state.placement) {
     return SIDE_PLACEMENTS.has(placement);
@@ -117,6 +124,10 @@ export function installLayout(context) {
   
   function applyFollowLatest(nextValue) {
     state.followLatest = normalizeBooleanSetting(nextValue);
+  }
+
+  function applyHistoryLimit(nextValue) {
+    state.historyLimit = normalizeHistoryLimit(nextValue);
   }
   
   function applyMetadataPosition(nextPosition) {
@@ -170,6 +181,7 @@ export function installLayout(context) {
     normalizeMediaScope,
     normalizeBatchDividers,
     normalizeBooleanSetting,
+    normalizeHistoryLimit,
     isVerticalPlacement,
     isVerticalView,
     applyThumbnailHeight,
@@ -177,6 +189,7 @@ export function installLayout(context) {
     applyShowPrompts,
     applyScaleViewerMedia,
     applyFollowLatest,
+    applyHistoryLimit,
     applyMetadataPosition,
     applyExcludePreviewMedia,
     applyShowFavoriteButton,

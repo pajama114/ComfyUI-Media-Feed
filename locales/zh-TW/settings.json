@@ -17,6 +17,18 @@
     "name": "跟隨最新媒體",
     "tooltip": "自動將動態捲動到新產生的媒體。"
   },
+  "comfyui-media-feed_history-limit": {
+    "name": "動態歷史記錄上限",
+    "tooltip": "選擇動態中保留的影像、影片和音訊項目數量上限。",
+    "options": {
+      "64": "64",
+      "128": "128",
+      "256": "256",
+      "256 (Default)": "256（預設）",
+      "512": "512",
+      "1024": "1024"
+    }
+  },
   "comfyui-media-feed_exclude-preview-media": {
     "name": "排除Preview節點媒體",
     "tooltip": "不將Preview Image等Preview節點輸出的媒體加入動態。"

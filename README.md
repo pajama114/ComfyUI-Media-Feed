@@ -62,6 +62,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Placement: `Bottom`
 - Thumbnail size: `143px` high
 - Follow latest media: `On`
+- Feed history limit: `256`
 - Feed style: `Default`
 - Media from: `All workflow tabs`
 - Exclude Preview node media: `Off`
@@ -79,11 +80,11 @@ after the first change.
 
 ## Performance Notes
 
-The feed keeps the latest 256 media entries in memory, mirrors only their small
-file descriptors to browser `sessionStorage`, and only renders visible cards
-plus a small overscan buffer. Media files themselves are never copied into
-browser storage. The toolbar trash button clears both the visible feed and its
-saved session entries.
+The feed keeps the configured number of latest media entries in memory (256 by
+default, selectable from 64 to 1024), mirrors only their small file descriptors
+to browser `sessionStorage`, and only renders visible cards plus a small overscan
+buffer. Media files themselves are never copied into browser storage. The
+toolbar trash button clears both the visible feed and its saved session entries.
 
 Images, videos, and audio are loaded through ComfyUI's standard `/view` route.
 Image thumbnails and the full-screen image viewer use the same URL so the browser

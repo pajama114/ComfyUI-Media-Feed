@@ -1,5 +1,4 @@
 import {
-  MAX_ITEMS,
   IMAGE_EXTENSIONS,
   VIDEO_EXTENSIONS,
   AUDIO_EXTENSIONS,
@@ -13,6 +12,18 @@ export function installMediaItems(context) {
   const updateViews = (...args) => actions.updateViews(...args);
   const discardCachedCard = (...args) => actions.discardCachedCard(...args);
   const saveSessionItems = (...args) => actions.saveSessionItems(...args);
+  function trimItemsToHistoryLimit() {
+    let removedCount = 0;
+    while (state.items.length > state.historyLimit) {
+      const removed = state.items.pop();
+      if (!removed) continue;
+      removedCount++;
+      state.itemKeys.delete(removed.key);
+      for (const view of state.views) discardCachedCard(view, removed.id);
+    }
+    return removedCount;
+  }
+
   function getExtension(filename) {
     const cleanName = String(filename || "").split(/[?#]/, 1)[0];
     const dot = cleanName.lastIndexOf(".");
@@ -139,13 +150,7 @@ export function installMediaItems(context) {
     if (!freshItems.length) return;
   
     state.items.unshift(...freshItems.reverse());
-    while (state.items.length > MAX_ITEMS) {
-      const removed = state.items.pop();
-      if (removed) {
-        state.itemKeys.delete(removed.key);
-        for (const view of state.views) discardCachedCard(view, removed.id);
-      }
-    }
+    trimItemsToHistoryLimit();
     saveSessionItems();
   
     const visibleFreshCount = freshItems.filter(itemMatchesFilters).length;
@@ -249,6 +254,7 @@ export function installMediaItems(context) {
     buildViewUrl,
     mediaKey,
     collectMedia,
+    trimItemsToHistoryLimit,
     addItems,
     currentWorkflow,
     persistentWorkflowTabId,

@@ -1,5 +1,5 @@
 import {
-  MAX_ITEMS,
+  MEDIA_DIMENSION_CACHE_SIZE,
   DECODED_IMAGE_CACHE_SIZE,
 } from "./constants.js";
 
@@ -28,7 +28,7 @@ export function installViewerSupport(context) {
     runtime.mediaDimensionCache.delete(item.key);
     runtime.mediaDimensionCache.set(item.key, size);
   
-    while (runtime.mediaDimensionCache.size > MAX_ITEMS) {
+    while (runtime.mediaDimensionCache.size > MEDIA_DIMENSION_CACHE_SIZE) {
       const oldestKey = runtime.mediaDimensionCache.keys().next().value;
       runtime.mediaDimensionCache.delete(oldestKey);
     }
