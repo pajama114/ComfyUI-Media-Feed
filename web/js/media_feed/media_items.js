@@ -159,8 +159,8 @@ export function installMediaItems(context) {
       state.followLatest ? 0 : visibleFreshCount,
     );
     if (isViewerOpen() && state.showPrompts) {
-      const newestImage = freshItems.find((item) => item.kind === "image");
-      if (newestImage) prefetchPromptMetadata(newestImage);
+      const newestItem = freshItems[0];
+      if (newestItem) prefetchPromptMetadata(newestItem);
     }
     syncViewerItems();
   }

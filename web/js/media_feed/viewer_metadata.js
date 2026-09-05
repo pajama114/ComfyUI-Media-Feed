@@ -2,6 +2,8 @@ import {
   VIEWER_METADATA_LOADING_DELAY_MS,
 } from "./constants.js";
 
+const VIEWER_METADATA_KINDS = new Set(["image", "video", "audio"]);
+
 export function installViewerMetadata(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
   const { getCachedPromptMetadata, loadPromptMetadata } = context.services;
@@ -72,7 +74,7 @@ export function installViewerMetadata(context) {
   }
   
   function prefetchPromptMetadata(item) {
-    if (!item || item.kind !== "image" || getCachedPromptMetadata(item)) return;
+    if (!item || !VIEWER_METADATA_KINDS.has(item.kind) || getCachedPromptMetadata(item)) return;
     loadPromptMetadata(item).catch(() => {});
   }
   
@@ -307,4 +309,3 @@ export function installViewerMetadata(context) {
     updateViewerPromptPanel,
   });
 }
-

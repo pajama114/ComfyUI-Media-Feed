@@ -123,6 +123,36 @@ test("viewer metadata panel icons follow the configured side", () => {
   assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "left-open");
 });
 
+test("viewer metadata prefetch includes video and audio items", () => {
+  const loaded = [];
+  const context = {
+    app: {},
+    api: {},
+    ICONS: {},
+    state: {},
+    runtime: {},
+    services: {
+      getCachedPromptMetadata: () => null,
+      loadPromptMetadata(item) {
+        loaded.push(item);
+        return Promise.resolve({});
+      },
+    },
+    actions: {},
+  };
+  installViewerMetadata(context);
+
+  const items = [
+    { id: "image", kind: "image" },
+    { id: "video", kind: "video" },
+    { id: "audio", kind: "audio" },
+  ];
+  for (const item of items) context.actions.prefetchPromptMetadata(item);
+  context.actions.prefetchPromptMetadata({ id: "other", kind: "document" });
+
+  assert.deepEqual(loaded, items);
+});
+
 test("space toggles viewer media without leaking to the canvas", () => {
   let playCalls = 0;
   let pauseCalls = 0;

@@ -93,6 +93,27 @@ test("addItems replaces duplicates and keeps the feed bounded at the default 256
   assert.equal(viewerSyncs, 2);
 });
 
+test("addItems prefetches metadata for a new video while the viewer is open", () => {
+  const context = createContext();
+  const { actions, runtime, state } = context;
+  const prefetched = [];
+  actions.updateViews = () => {};
+  actions.prefetchPromptMetadata = (item) => prefetched.push(item);
+  actions.syncViewerItems = () => {};
+  runtime.viewer = { root: { dataset: { open: "true" } } };
+  state.showPrompts = true;
+
+  const video = {
+    id: "video-id",
+    key: "video:output::new.mp4",
+    kind: "video",
+    filename: "new.mp4",
+  };
+  actions.addItems([video]);
+
+  assert.deepEqual(prefetched, [video]);
+});
+
 test("changing the history limit trims old items immediately and persists the choice", () => {
   const originalWindow = globalThis.window;
   const localStorage = createMemoryStorage();
