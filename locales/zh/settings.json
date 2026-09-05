@@ -1,4 +1,8 @@
 {
+  "comfyui-media-feed_show-comfy-progress": {
+    "name": "在查看器前方显示ComfyUI进度面板",
+    "tooltip": "在媒体查看器前方显示ComfyUI现有的进度面板。需要在前端启用标准进度面板。"
+  },
   "comfyui-media-feed_placement": {
     "name": "位置",
     "tooltip": "选择浮动Media Feed面板的显示位置。",

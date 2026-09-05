@@ -1,5 +1,6 @@
 {
   "settingsCategories": {
+    "Show ComfyUI progress panel over viewer": "ビューアの前面にComfyUIの進捗パネルを表示",
     "Media Feed": "Media Feed",
     "Panel": "パネル",
     "Feed": "フィード",

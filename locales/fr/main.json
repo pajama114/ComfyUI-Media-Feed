@@ -1,5 +1,6 @@
 {
   "settingsCategories": {
+    "Show ComfyUI progress panel over viewer": "Afficher le panneau de progression ComfyUI au-dessus de la visionneuse",
     "Media Feed": "Media Feed",
     "Panel": "Panneau",
     "Feed": "Flux",

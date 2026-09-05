@@ -1,5 +1,6 @@
 {
   "settingsCategories": {
+    "Show ComfyUI progress panel over viewer": "ComfyUI-Fortschrittsanzeige über dem Betrachter anzeigen",
     "Media Feed": "Media Feed",
     "Panel": "Bedienfeld",
     "Feed": "Feed",

@@ -2,6 +2,7 @@ import {
   DEFAULT_ITEM_HEIGHT,
   DEFAULT_PLACEMENT,
   DEFAULT_SHOW_PROMPTS,
+  DEFAULT_SHOW_COMFY_PROGRESS,
   DEFAULT_SCALE_VIEWER_MEDIA,
   DEFAULT_FOLLOW_LATEST,
   DEFAULT_HISTORY_LIMIT,
@@ -33,6 +34,7 @@ export function installSettingsStorage(context) {
   const applyThumbnailHeight = (...args) => actions.applyThumbnailHeight(...args);
   const applyPlacement = (...args) => actions.applyPlacement(...args);
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
+  const applyShowComfyProgress = (...args) => actions.applyShowComfyProgress(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
@@ -60,6 +62,15 @@ export function installSettingsStorage(context) {
       return savedValue === null ? DEFAULT_SHOW_PROMPTS : normalizeBooleanSetting(savedValue);
     } catch {
       return DEFAULT_SHOW_PROMPTS;
+    }
+  }
+
+  function loadSavedShowComfyProgress() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.showComfyProgress);
+      return savedValue == null ? DEFAULT_SHOW_COMFY_PROGRESS : normalizeBooleanSetting(savedValue);
+    } catch {
+      return DEFAULT_SHOW_COMFY_PROGRESS;
     }
   }
   
@@ -274,6 +285,7 @@ export function installSettingsStorage(context) {
   
     if (!runtime.placementSettingSeen) applyPlacement(loadSavedPlacement());
     if (!runtime.promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
+    if (!runtime.showComfyProgressSettingSeen) applyShowComfyProgress(loadSavedShowComfyProgress());
     if (!runtime.scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
     if (!runtime.followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
     if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
@@ -307,6 +319,14 @@ export function installSettingsStorage(context) {
   function saveShowPrompts() {
     try {
       window.localStorage?.setItem(STORAGE_KEYS.showPrompts, String(state.showPrompts));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
+  function saveShowComfyProgress() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.showComfyProgress, String(state.showComfyProgress));
     } catch {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
@@ -411,6 +431,7 @@ export function installSettingsStorage(context) {
   Object.assign(actions, {
     loadSavedPlacement,
     loadSavedShowPrompts,
+    loadSavedShowComfyProgress,
     loadSavedScaleViewerMedia,
     loadSavedFollowLatest,
     loadSavedHistoryLimit,
@@ -432,6 +453,7 @@ export function installSettingsStorage(context) {
     saveThumbnailHeight,
     savePlacement,
     saveShowPrompts,
+    saveShowComfyProgress,
     saveScaleViewerMedia,
     saveFollowLatest,
     saveHistoryLimit,

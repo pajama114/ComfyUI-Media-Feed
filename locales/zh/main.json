@@ -1,5 +1,6 @@
 {
   "settingsCategories": {
+    "Show ComfyUI progress panel over viewer": "在查看器前方显示ComfyUI进度面板",
     "Media Feed": "Media Feed",
     "Panel": "面板",
     "Feed": "信息流",

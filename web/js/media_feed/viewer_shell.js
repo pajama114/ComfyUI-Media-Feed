@@ -42,6 +42,7 @@ export function installViewerShell(context) {
     root.className = "cmf-viewer";
     root.tabIndex = -1;
     root.dataset.scaleMedia = String(state.scaleViewerMedia);
+    root.dataset.showComfyProgress = String(state.showComfyProgress);
     root.innerHTML = `
       <div class="cmf-viewer-bar">
         <div class="cmf-viewer-title"></div>
@@ -220,6 +221,11 @@ export function installViewerShell(context) {
     if (!runtime.viewer) return;
     resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
   }
+
+  function syncViewerComfyProgress() {
+    if (!runtime.viewer) return;
+    runtime.viewer.root.dataset.showComfyProgress = String(state.showComfyProgress);
+  }
   
   function syncViewerMetadataPosition() {
     if (!runtime.viewer) return;
@@ -315,7 +321,7 @@ export function installViewerShell(context) {
   function handleViewerControlKeydown(event) {
     if (!event.ctrlKey && !event.metaKey && !event.altKey) return;
     if (event.key !== "Enter" && event.key !== " ") return;
-    if (!event.target.closest?.(".cmf-viewer")) return;
+    if (!event.target.closest?.(".cmf-viewer, [data-testid='queue-progress-overlay']")) return;
   
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -340,6 +346,10 @@ export function installViewerShell(context) {
   
   function handleViewerGlobalKeydown(event) {
     if (!isViewerOpen()) return;
+
+    const inProgressPanel = state.showComfyProgress
+      && event.target?.closest?.("[data-testid='queue-progress-overlay']");
+    if (inProgressPanel) handleViewerControlKeydown(event);
   
     if (event.key === "Escape") {
       event.preventDefault();
@@ -349,6 +359,14 @@ export function installViewerShell(context) {
     }
   
     if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    // Arrow keys on native queue controls must neither navigate viewer media
+    // nor reach the background canvas.
+    if (inProgressPanel && event.key.startsWith("Arrow")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
 
     if (event.key === " " || event.key === "Spacebar" || event.code === "Space") {
       if (isViewerPlaybackShortcutControl(event.target)) return;
@@ -406,6 +424,7 @@ export function installViewerShell(context) {
   Object.assign(actions, {
     ensureViewer,
     syncViewerScaleMedia,
+    syncViewerComfyProgress,
     syncViewerMetadataPosition,
     syncViewerMetadataToggle,
     closeViewer,

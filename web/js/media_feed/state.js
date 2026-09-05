@@ -14,6 +14,7 @@ import {
   DEFAULT_SCALE_VIEWER_MEDIA,
   DEFAULT_SHOW_FAVORITE_BUTTON,
   DEFAULT_SHOW_PROMPTS,
+  DEFAULT_SHOW_COMFY_PROGRESS,
 } from "./constants.js";
 
 export function createMediaFeedState() {
@@ -27,6 +28,7 @@ export function createMediaFeedState() {
     itemWidth: DEFAULT_ITEM_WIDTH,
     placement: DEFAULT_PLACEMENT,
     showPrompts: DEFAULT_SHOW_PROMPTS,
+    showComfyProgress: DEFAULT_SHOW_COMFY_PROGRESS,
     scaleViewerMedia: DEFAULT_SCALE_VIEWER_MEDIA,
     followLatest: DEFAULT_FOLLOW_LATEST,
     historyLimit: DEFAULT_HISTORY_LIMIT,

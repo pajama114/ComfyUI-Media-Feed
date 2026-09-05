@@ -38,6 +38,7 @@ export const FLOATING_TOP_PROGRESS_SELECTOR = [
 ].join(", ");
 export const DEFAULT_PLACEMENT = "bottom";
 export const DEFAULT_SHOW_PROMPTS = true;
+export const DEFAULT_SHOW_COMFY_PROGRESS = false;
 export const DEFAULT_SCALE_VIEWER_MEDIA = false;
 export const DEFAULT_FOLLOW_LATEST = true;
 export const DEFAULT_METADATA_POSITION = "left";
@@ -66,6 +67,7 @@ export const STORAGE_KEYS = {
   historyLimit: "comfyui-media-feed:history-limit",
   placement: "comfyui-media-feed:placement",
   showPrompts: "comfyui-media-feed:show-prompts",
+  showComfyProgress: "comfyui-media-feed:show-comfy-progress",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",

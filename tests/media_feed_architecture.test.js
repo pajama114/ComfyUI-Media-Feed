@@ -190,9 +190,9 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 14);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 14);
-    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 14);
+    assert.equal(extension.settings.length, 15);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 15);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 15);
 
     const settingsByGroup = new Map();
     for (const setting of extension.settings) {
@@ -214,7 +214,7 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
       ["Feed", ["Feed history limit", "Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
-      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Loop videos", "Loop audio"]],
+      ["Viewer", ["Show ComfyUI progress panel over viewer", "Show metadata in viewer", "Metadata position", "Fit media to viewer", "Loop videos", "Loop audio"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
 
@@ -233,6 +233,41 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual([...listeners.keys()].sort(), ["executed", "promptQueued", "promptQueueing"]);
     assert.notEqual(context.api.queuePrompt, originalQueuePrompt);
     assert.equal(context.api.queuePrompt.__mediaFeedWrapped, true);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("native progress setting persists and updates an existing viewer without opening it", () => {
+  const originalWindow = globalThis.window;
+  const saved = new Map();
+  globalThis.window = {
+    localStorage: {
+      getItem: (key) => saved.get(key) ?? null,
+      setItem: (key, value) => saved.set(key, value),
+    },
+  };
+  try {
+    const { context } = createContext();
+    const extension = createMediaFeedExtension(context);
+    const setting = extension.settings.find((entry) => entry.id === "comfyui-media-feed.show-comfy-progress");
+    assert.equal(setting.defaultValue, false);
+    context.runtime.viewer = { root: { dataset: { open: "false" } } };
+    setting.onChange(true);
+    assert.equal(context.runtime.viewer.root.dataset.showComfyProgress, "true");
+    assert.equal(context.runtime.viewer.root.dataset.open, "false");
+    assert.equal(saved.get("comfyui-media-feed:show-comfy-progress"), "true");
+    const restored = createContext().context;
+    restored.actions.loadSettings();
+    assert.equal(restored.state.showComfyProgress, true);
+
+    setting.onChange(false);
+    assert.equal(context.runtime.viewer.root.dataset.showComfyProgress, "false");
+    assert.equal(saved.get("comfyui-media-feed:show-comfy-progress"), "false");
+    // A value supplied by ComfyUI takes precedence over local fallback storage.
+    saved.set("comfyui-media-feed:show-comfy-progress", "true");
+    context.actions.loadSettings();
+    assert.equal(context.state.showComfyProgress, false);
   } finally {
     globalThis.window = originalWindow;
   }

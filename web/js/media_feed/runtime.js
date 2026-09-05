@@ -20,6 +20,7 @@ export function createMediaFeedRuntime() {
     setupComplete: false,
     placementSettingSeen: false,
     promptSettingSeen: false,
+    showComfyProgressSettingSeen: false,
     scaleViewerMediaSettingSeen: false,
     followLatestSettingSeen: false,
     metadataPositionSettingSeen: false,

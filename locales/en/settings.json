@@ -1,4 +1,8 @@
 {
+  "comfyui-media-feed_show-comfy-progress": {
+    "name": "Show ComfyUI progress panel over viewer",
+    "tooltip": "Keep ComfyUI's existing progress panel visible above the media viewer. Requires a frontend with the standard progress overlay enabled."
+  },
   "comfyui-media-feed_placement": {
     "name": "Placement",
     "tooltip": "Choose where the floating Media Feed panel appears.",

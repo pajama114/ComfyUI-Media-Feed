@@ -25,6 +25,23 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       display: grid;
     }
 
+    /* The native panel lives inside ComfyUI's z-indexed canvas overlay.
+       Release only its ancestors' z-index/isolation while this option is active,
+       so the rest of ComfyUI stays behind the viewer. No DOM reparenting or
+       inline style changes: closing the viewer restores the original layers.
+       :has also covers panels mounted after the viewer opens. */
+    body:has(> .cmf-viewer[data-open="true"][data-show-comfy-progress="true"])
+      :has([data-testid="queue-progress-overlay"]) {
+      z-index: auto !important;
+      isolation: auto !important;
+    }
+
+    body:has(> .cmf-viewer[data-open="true"][data-show-comfy-progress="true"])
+      [data-testid="queue-progress-overlay"] {
+      position: relative;
+      z-index: 10000 !important;
+    }
+
     .cmf-viewer-bar {
       position: relative;
       display: flex;

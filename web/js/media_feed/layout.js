@@ -117,6 +117,10 @@ export function installLayout(context) {
   function applyShowPrompts(nextValue) {
     state.showPrompts = normalizeBooleanSetting(nextValue);
   }
+
+  function applyShowComfyProgress(nextValue) {
+    state.showComfyProgress = normalizeBooleanSetting(nextValue);
+  }
   
   function applyScaleViewerMedia(nextValue) {
     state.scaleViewerMedia = normalizeBooleanSetting(nextValue);
@@ -187,6 +191,7 @@ export function installLayout(context) {
     applyThumbnailHeight,
     applyPlacement,
     applyShowPrompts,
+    applyShowComfyProgress,
     applyScaleViewerMedia,
     applyFollowLatest,
     applyHistoryLimit,

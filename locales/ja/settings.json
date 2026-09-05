@@ -1,4 +1,8 @@
 {
+  "comfyui-media-feed_show-comfy-progress": {
+    "name": "ビューアの前面にComfyUIの進捗パネルを表示",
+    "tooltip": "メディアビューアの前面にComfyUI標準の進捗パネルを表示します。標準の進捗パネルが有効なフロントエンドで利用できます。"
+  },
   "comfyui-media-feed_placement": {
     "name": "配置",
     "tooltip": "フローティング表示時のMedia Feedパネルの位置を選びます。",

@@ -68,6 +68,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Exclude Preview node media: `Off`
 - Batch dividers: `Line`
 - Show metadata in viewer: `On`
+- Show ComfyUI progress panel over viewer: `Off`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
 - Loop videos: `On`
@@ -77,6 +78,13 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 Saved settings are stored in browser `localStorage` and override these defaults
 after the first change.
+
+Enable **Show ComfyUI progress panel over viewer** to keep ComfyUI's standard
+progress panel visible and usable while viewing media. Its position and
+expanded/collapsed state follow ComfyUI. Closing the viewer or disabling the
+option restores the usual layering. This option requires a frontend with the
+standard progress overlay enabled; it does not create a panel on versions that
+do not provide one.
 
 ## Performance Notes
 

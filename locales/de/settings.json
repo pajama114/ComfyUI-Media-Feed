@@ -1,4 +1,8 @@
 {
+  "comfyui-media-feed_show-comfy-progress": {
+    "name": "ComfyUI-Fortschrittsanzeige über dem Betrachter anzeigen",
+    "tooltip": "Zeigt die vorhandene Fortschrittsanzeige von ComfyUI über dem Medienbetrachter an. Erfordert ein Frontend mit aktivierter Standard-Fortschrittsanzeige."
+  },
   "comfyui-media-feed_placement": {
     "name": "Position",
     "tooltip": "Wählen Sie aus, wo das schwebende Media-Feed-Bedienfeld angezeigt wird.",

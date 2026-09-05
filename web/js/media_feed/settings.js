@@ -97,6 +97,12 @@ export function installSettings(context) {
     saveFollowLatest();
   }
 
+  function setShowComfyProgress(nextValue) {
+    actions.applyShowComfyProgress(nextValue);
+    actions.saveShowComfyProgress();
+    actions.syncViewerComfyProgress();
+  }
+
   function setHistoryLimit(nextValue) {
     const previousLimit = state.historyLimit;
     applyHistoryLimit(nextValue);
@@ -208,6 +214,7 @@ export function installSettings(context) {
     setThumbnailHeight,
     syncComfySettingValue,
     setShowPrompts,
+    setShowComfyProgress,
     setScaleViewerMedia,
     setFollowLatest,
     setHistoryLimit,

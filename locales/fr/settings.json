@@ -1,4 +1,8 @@
 {
+  "comfyui-media-feed_show-comfy-progress": {
+    "name": "Afficher le panneau de progression ComfyUI au-dessus de la visionneuse",
+    "tooltip": "Affiche le panneau de progression existant de ComfyUI au-dessus de la visionneuse. Nécessite une interface avec le panneau de progression standard activé."
+  },
   "comfyui-media-feed_placement": {
     "name": "Position",
     "tooltip": "Choisissez l’emplacement du panneau flottant Media Feed.",
