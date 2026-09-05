@@ -502,7 +502,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-show-metadata {
       position: absolute;
       z-index: 2;
-      top: 14px;
+      top: 27px;
       right: 14px;
       border-color: rgba(255, 255, 255, 0.32);
       background: rgba(124, 127, 134, 0.94);
