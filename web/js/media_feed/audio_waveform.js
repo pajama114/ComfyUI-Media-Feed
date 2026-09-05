@@ -242,7 +242,7 @@ export function installAudioWaveforms(context) {
     playhead.setAttribute("aria-hidden", "true");
     controls.className = "cmf-viewer-audio-controls";
     controls.innerHTML = `
-      <button class="cmf-button cmf-icon-button cmf-viewer-audio-play" type="button" title="Play" aria-label="Play">${ICONS.play}</button>
+      <button class="cmf-button cmf-icon-button cmf-viewer-audio-play" type="button" aria-label="Play">${ICONS.play}</button>
       <output class="cmf-viewer-audio-current">0:00</output>
       <input class="cmf-viewer-audio-seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
       <output class="cmf-viewer-audio-duration">0:00</output>
@@ -295,8 +295,7 @@ export function installAudioWaveforms(context) {
     const updatePlayButton = () => {
       const paused = audio.paused || audio.ended;
       playButton.innerHTML = paused ? ICONS.play : ICONS.pause;
-      playButton.title = paused ? "Play" : "Pause";
-      playButton.setAttribute("aria-label", playButton.title);
+      playButton.setAttribute("aria-label", paused ? "Play" : "Pause");
     };
     const updateVolume = () => {
       volume.value = String(audio.muted ? 0 : audio.volume);

@@ -117,7 +117,6 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
   });
   const playButton = eventTarget({
     innerHTML: "",
-    title: "",
     setAttribute(name, value) { this[name] = value; },
   });
   const seek = eventTarget({ value: "0", disabled: false });
@@ -178,6 +177,8 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     assert.equal(seek.value, "250");
     assert.equal(currentTime.textContent, "0:30");
     assert.equal(duration.textContent, "2:00");
+    assert.equal(playButton.title, undefined);
+    assert.equal(playButton["aria-label"], "Play");
     assert.equal(animationFrames.size, 0);
 
     audio.paused = false;
