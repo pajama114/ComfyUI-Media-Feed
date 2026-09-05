@@ -182,7 +182,7 @@ export function createMediaFeedExtension(context) {
         type: "boolean",
         defaultValue: actions.loadSavedShowComfyProgress(),
         category: ["Media Feed", "Viewer", "Show ComfyUI progress panel over viewer"],
-        sortOrder: 240,
+        sortOrder: 195,
         tooltip: "Keep ComfyUI's existing progress panel visible above the media viewer. Requires a frontend with the standard progress overlay enabled.",
         onChange: (newValue) => {
           runtime.showComfyProgressSettingSeen = true;

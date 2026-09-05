@@ -72,12 +72,12 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Exclude Preview node media: `Off`
 - Batch dividers: `Line`
 - Show metadata in viewer: `On`
-- Show ComfyUI progress panel over viewer: `Off`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
 - Fit scale: `100%`
 - Loop videos: `On`
 - Loop audio: `Off`
+- Show ComfyUI progress panel over viewer: `Off`
 - Show favorite button on hover: `On`
 - Favorite storage folder: `output/favorites` (fixed)
 

@@ -246,7 +246,7 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
       ["Feed", ["Feed history limit", "Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
-      ["Viewer", ["Show ComfyUI progress panel over viewer", "Show metadata in viewer", "Metadata position", "Fit media to viewer", "Fit scale", "Loop videos", "Loop audio"]],
+      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Fit scale", "Loop videos", "Loop audio", "Show ComfyUI progress panel over viewer"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
 
