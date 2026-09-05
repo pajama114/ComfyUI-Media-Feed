@@ -54,7 +54,13 @@ export function installViewerZoom(context) {
   function updateViewerImageControls(media = getViewerScalableMedia()) {
     if (!runtime.viewer) return;
     const isScalableItem = runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
-    const hasMedia = Boolean(media);
+    // Keep the controls visually stable while the next image or video is
+    // decoding. The previous scalable element remains mounted until the new
+    // one is ready, even though its item key no longer matches the viewer.
+    const displayedScalableMedia = runtime.viewer.media?.querySelector(
+      "img.cmf-zoomable-image, video.cmf-zoomable-video",
+    );
+    const hasMedia = Boolean(media || displayedScalableMedia);
     runtime.viewer.zoomControls.hidden = !isScalableItem;
     if (!isScalableItem) return;
   

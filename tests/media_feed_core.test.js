@@ -493,6 +493,42 @@ test("Fit scale is applied to fitted media dimensions", () => {
   }
 });
 
+test("viewer zoom controls stay enabled while the next scalable item loads", () => {
+  const previousImage = { dataset: { mediaItemKey: "image-old" } };
+  const button = () => ({ disabled: true, setAttribute() {} });
+  const context = {
+    app: {},
+    api: {},
+    ICONS: {},
+    state: { viewerFitScale: 100 },
+    runtime: {
+      viewer: {
+        item: { key: "image-new", kind: "image" },
+        media: {
+          querySelector: () => previousImage,
+        },
+        imageBaseMode: "fit",
+        imageZoom: 1,
+        fitButton: button(),
+        nativeButton: button(),
+        zoomOutButton: button(),
+        zoomInButton: button(),
+        zoomControls: { hidden: true },
+        zoomLevel: { textContent: "" },
+      },
+    },
+    actions: { setScaleViewerMedia() {}, closeViewer() {} },
+  };
+  installViewerZoom(context);
+
+  context.actions.updateViewerImageControls(null);
+
+  assert.equal(context.runtime.viewer.zoomControls.hidden, false);
+  assert.equal(context.runtime.viewer.fitButton.disabled, false);
+  assert.equal(context.runtime.viewer.nativeButton.disabled, false);
+  assert.equal(context.runtime.viewer.zoomInButton.disabled, false);
+});
+
 test("virtualization bounds include overscan without escaping the item list", () => {
   assert.deepEqual(visibleItemRange({
     itemCount: 100,
