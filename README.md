@@ -84,7 +84,9 @@ progress panel visible and usable while viewing media. Its position and
 expanded/collapsed state follow ComfyUI. Closing the viewer or disabling the
 option restores the usual layering. This option requires a frontend with the
 standard progress overlay enabled; it does not create a panel on versions that
-do not provide one.
+do not provide one. With metadata on the right, the viewer keeps a stable space
+between the Metadata heading and its action buttons, using a slightly smaller
+Negative Prompt area so generation start and completion do not shift controls.
 
 ## Performance Notes
 

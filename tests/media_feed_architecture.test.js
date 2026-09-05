@@ -17,6 +17,7 @@ import { createMediaFeedState } from "../web/js/media_feed/state.js";
 import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
+import { installViewerProgress } from "../web/js/media_feed/viewer_progress.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
 import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 import { installWorkflowTracking } from "../web/js/media_feed/workflow_tracking.js";
@@ -29,6 +30,7 @@ const installers = [
   installSettings,
   installViewerSupport,
   installViewerShell,
+  installViewerProgress,
   installViewerZoom,
   installViewerRender,
   installViewerMetadata,
@@ -105,7 +107,7 @@ test("viewer metadata panel icons follow the configured side", () => {
         showMetadataButton: { innerHTML: "" },
       },
     },
-    actions: {},
+    actions: { syncViewerProgressSpace() {} },
   };
   installViewerShell(context);
 

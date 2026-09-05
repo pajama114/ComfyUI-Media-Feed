@@ -39,6 +39,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     body:has(> .cmf-viewer[data-open="true"][data-show-comfy-progress="true"])
       [data-testid="queue-progress-overlay"] {
       position: relative;
+      top: var(--cmf-viewer-progress-offset, 0px);
       z-index: 10000 !important;
     }
 
@@ -674,6 +675,19 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       height: 100%;
       min-height: 0;
       max-height: none;
+    }
+
+    @media (min-width: 861px) {
+      .cmf-viewer[data-show-comfy-progress="true"][data-progress-space="true"]
+        .cmf-viewer-body[data-metadata-position="right"] .cmf-metadata-toolbar {
+        margin-top: 80px;
+      }
+
+      .cmf-viewer[data-show-comfy-progress="true"][data-progress-space="true"]
+        .cmf-viewer-body[data-metadata-position="right"] .cmf-prompt-body-section:has(.cmf-prompt-negative) {
+        flex-grow: 0.65;
+        max-height: 24vh;
+      }
     }
 
     @media (max-width: 860px) {

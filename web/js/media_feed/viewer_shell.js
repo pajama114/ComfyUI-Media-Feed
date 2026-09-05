@@ -30,6 +30,7 @@ export function installViewerShell(context) {
   const scanFullViewerMetadata = (...args) => actions.scanFullViewerMetadata(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
+  const syncViewerProgressSpace = (...args) => actions.syncViewerProgressSpace(...args);
   function ensureViewer() {
     if (runtime.viewer) return runtime.viewer;
   
@@ -225,6 +226,7 @@ export function installViewerShell(context) {
   function syncViewerComfyProgress() {
     if (!runtime.viewer) return;
     runtime.viewer.root.dataset.showComfyProgress = String(state.showComfyProgress);
+    syncViewerProgressSpace();
   }
   
   function syncViewerMetadataPosition() {
@@ -233,6 +235,7 @@ export function installViewerShell(context) {
     runtime.viewer.body.dataset.metadataPosition = state.metadataPosition;
     runtime.viewer.hideMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
     runtime.viewer.showMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
+    syncViewerProgressSpace();
   }
   
   function syncViewerMetadataToggle() {
@@ -243,12 +246,14 @@ export function installViewerShell(context) {
     runtime.viewer.showMetadataButton.hidden = showing;
     runtime.viewer.hideMetadataButton.setAttribute("aria-pressed", String(showing));
     runtime.viewer.showMetadataButton.setAttribute("aria-pressed", String(showing));
+    syncViewerProgressSpace();
   }
   
   function closeViewer() {
     if (!runtime.viewer) return;
     clearViewerAudioWaveform(runtime.viewer);
     runtime.viewer.root.dataset.open = "false";
+    syncViewerProgressSpace();
     runtime.viewer.promptRequestId++;
     runtime.viewer.renderRequestId++;
     clearViewerPromptLoadingTimer();
@@ -276,6 +281,7 @@ export function installViewerShell(context) {
     currentViewer.root.focus({ preventScroll: true });
     renderViewerItem(item, thumbnail);
     updateViewerPromptPanel();
+    syncViewerProgressSpace();
   }
   
   function showViewerRelative(direction) {
