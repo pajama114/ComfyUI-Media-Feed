@@ -74,7 +74,7 @@ export function isPromptConditioningZeroNode(node) {
 
 export function isPromptTextGenerationNode(node) {
   const nodeClass = promptNodeClass(node);
-  return /textgenerate|text.*generation|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeClass)
+  return /text.*generat|generat.*text|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeClass)
     && !isTextEncodeNode(node);
 }
 
@@ -132,11 +132,17 @@ export function promptNodeInputValue(node, name) {
 }
 
 export function isPromptStringCombinerNode(node) {
-  return /string.*(function|concat|join|combine)|(concat|join|combine).*string|text.*(concat|join|combine)|(concat|join|combine).*text/i
+  return /string.*(function|concat|join|combine|format)|(concat|join|combine|format).*string|text.*(concat|join|combine|format)|(concat|join|combine|format).*text/i
     .test(promptNodeClass(node));
 }
 
 export function promptInputIsText(node, name, value) {
+  if (
+    isPromptStringCombinerNode(node)
+    && /^(f_string|format|template|pattern)$/i.test(String(name || ""))
+  ) {
+    return false;
+  }
   if (/text|string|prompt|caption|input|message|^value$/i.test(String(name || ""))) return true;
   if (!isPromptStringCombinerNode(node)) return false;
   if (/action|operation|function|separator|delimiter|tidy|mode/i.test(String(name || ""))) return false;
@@ -197,7 +203,7 @@ export function collectPromptUserInputTexts(prompt, reference, visited = new Set
 
 export function collectPromptTextGenerationInputTexts(prompt, node, visited) {
   const inputs = node?.inputs || {};
-  const promptReference = inputs.prompt || inputs.text || inputs.input || inputs.message || inputs.messages;
+  const promptReference = inputs.user_prompt || inputs.prompt || inputs.text || inputs.input || inputs.message || inputs.messages;
   return collectPromptUserInputTexts(prompt, promptReference, new Set(visited));
 }
 
@@ -481,4 +487,3 @@ export function extractFromPromptGraph(prompt) {
     source: seedEntries.length || positives.length || negatives.length || resources.length || details.length ? "prompt" : "",
   };
 }
-

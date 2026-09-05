@@ -76,7 +76,7 @@ export function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forc
   for (const input of node.inputs || []) {
     if (selectedSwitchInputName && input.name !== selectedSwitchInputName) continue;
 
-    const isTextInput = workflowInputIsText(input);
+    const isTextInput = workflowInputIsText(input, node);
     if (input?.link === undefined || input?.link === null) {
       if ((forceText || textCarrier) && isTextInput) {
         texts.push(...collectWidgetStringValues(workflowInputValue(node, input)));
@@ -223,4 +223,3 @@ export function extractFromWorkflowDefinitions(workflow, context = null, availab
     source: collected.seeds.length || collected.positives.length || collected.negatives.length || collected.resources.length || collected.details.length ? "workflow" : "",
   };
 }
-

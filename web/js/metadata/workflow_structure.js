@@ -18,9 +18,24 @@ export function workflowNodeType(node) {
   return String(node?.type || node?.class_type || "");
 }
 
-export function workflowInputIsText(input) {
+export function isWorkflowStringCombinerNode(node) {
+  return /string.*(function|concat|join|combine|format)|(concat|join|combine|format).*string|text.*(concat|join|combine|format)|(concat|join|combine|format).*text/i
+    .test(workflowNodeType(node));
+}
+
+export function workflowInputIsText(input, node = null) {
+  const inputName = String(input?.name || "");
+  if (
+    isWorkflowStringCombinerNode(node)
+    && /^(f_string|format|template|pattern)$/i.test(inputName)
+  ) {
+    return false;
+  }
+
   const description = `${input?.name || ""} ${input?.type || ""}`;
-  return /text|string|prompt|caption|input|message/i.test(description);
+  if (/text|string|prompt|caption|input|message/i.test(description)) return true;
+  if (!isWorkflowStringCombinerNode(node)) return false;
+  return !/action|operation|function|separator|delimiter|tidy|mode/i.test(inputName);
 }
 
 export function isWorkflowTextCarrierNode(node) {
@@ -28,7 +43,7 @@ export function isWorkflowTextCarrierNode(node) {
   const title = String(node?.title || node?.properties?.["Node name for S&R"] || "");
   const outputTypes = (node?.outputs || []).map((output) => `${output?.name || ""} ${output?.type || ""}`).join(" ");
   if (isTextEncodeNode({ class_type: nodeType })) return true;
-  if ((node?.inputs || []).some((input) => workflowInputIsText(input))) return true;
+  if ((node?.inputs || []).some((input) => workflowInputIsText(input, node))) return true;
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeType} ${title} ${outputTypes}`);
 }
 
@@ -125,13 +140,21 @@ export function isWorkflowConditioningZeroNode(node) {
 
 export function isWorkflowTextGenerationNode(node) {
   const nodeType = workflowNodeType(node);
-  return /textgenerate|text.*generation|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeType)
+  return /text.*generat|generat.*text|llm|gemini|openai|chat|prompt.*enhance|enhance.*prompt/i.test(nodeType)
     && !isTextEncodeNode({ class_type: nodeType });
+}
+
+export function workflowNodeHasOpaquePresetWidgets(node) {
+  return /^SimplePreset$/i.test(workflowNodeType(node))
+    && (
+      node?.properties?.simple_preset_profile_id !== undefined
+      || node?.widgets_values_named?.selected_presets !== undefined
+    );
 }
 
 export function workflowNodeHasLinkedTextInput(node) {
   for (const input of node?.inputs || []) {
-    if (!workflowInputIsText(input)) continue;
+    if (!workflowInputIsText(input, node)) continue;
     if (input?.link !== undefined && input?.link !== null) return true;
   }
   return false;
@@ -196,7 +219,7 @@ export function workflowSwitchSelectedInputName(maps, node) {
 
 export function workflowTextInputs(node) {
   return (node?.inputs || [])
-    .filter((input) => workflowInputIsText(input));
+    .filter((input) => workflowInputIsText(input, node));
 }
 
 export function isWorkflowSubgraphInputOrigin(origin) {
@@ -275,13 +298,14 @@ export function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(),
   const inputTexts = uniqueNonEmpty(texts);
   if (inputTexts.length) return inputTexts;
 
-  return isWorkflowTextCarrierNode(node)
+  return isWorkflowTextCarrierNode(node) && !workflowNodeHasOpaquePresetWidgets(node)
     ? uniqueNonEmpty(collectWidgetStringValues(node.widgets_values || []))
     : [];
 }
 
 export function collectWorkflowTextGenerationInputTexts(node, maps, visited, context) {
-  const promptInput = workflowInputByName(node, "prompt")
+  const promptInput = workflowInputByName(node, "user_prompt")
+    || workflowInputByName(node, "prompt")
     || workflowInputByName(node, "text")
     || workflowInputByName(node, "input")
     || workflowInputByName(node, "message")
