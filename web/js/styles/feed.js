@@ -324,50 +324,55 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       display: none;
     }
 
-    .cmf-video-badge,
-    .cmf-video-duration {
-      position: absolute;
+    .cmf-media-controls {
       z-index: 1;
-      color: #fff;
-      background: rgba(0, 0, 0, 0.72);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
       pointer-events: none;
     }
 
-    .cmf-video-badge {
-      top: 6px;
+    .cmf-video-controls {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
       left: 6px;
-      display: grid;
-      place-items: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
+      width: auto;
     }
 
-    .cmf-video-badge svg {
-      width: 15px;
-      height: 15px;
+    .cmf-media-play,
+    .cmf-media-duration {
+      color: #fff;
+      background: rgba(0, 0, 0, 0.72);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+    }
+
+    .cmf-media-play {
+      pointer-events: auto;
+    }
+
+    .cmf-media-play svg {
       fill: currentColor;
       stroke: none;
     }
 
-    .cmf-video-duration {
-      right: 6px;
-      bottom: 6px;
+    .cmf-media-duration {
       padding: 2px 5px;
       border-radius: 4px;
       font-size: 11px;
       font-variant-numeric: tabular-nums;
       line-height: 1.2;
+      pointer-events: none;
     }
 
     .cmf-audio-preview {
       display: grid;
       grid-template-rows: 1fr auto;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
       height: 100%;
-      padding: 8px;
+      padding: 6px;
     }
 
     .cmf-audio-main {
@@ -402,18 +407,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     }
 
     .cmf-audio-controls {
-      display: grid;
-      grid-template-columns: 30px 1fr;
-      align-items: center;
-      gap: 8px;
       width: 100%;
-    }
-
-    .cmf-audio-seek {
-      width: 100%;
-      min-width: 0;
-      accent-color: var(--cmf-accent);
-      cursor: pointer;
     }
 
     .cmf-audio-preview audio {

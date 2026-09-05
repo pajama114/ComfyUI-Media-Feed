@@ -17,6 +17,17 @@ export function installCards(context) {
   const subscribeAudioWaveform = (...args) => actions.subscribeAudioWaveform(...args);
   const createAudioWaveform = (...args) => actions.createAudioWaveform(...args);
 
+  function updateThumbnailRemainingTime(media, label) {
+    const duration = Number(media.duration);
+    const currentTime = Number.isFinite(media.currentTime) ? Math.max(0, media.currentTime) : 0;
+    const remainingTime = Number.isFinite(duration) && duration >= 0
+      ? Math.max(0, duration - currentTime)
+      : Number.NaN;
+    const text = formatMediaDuration(remainingTime);
+    label.textContent = text;
+    label.hidden = !text;
+  }
+
   function setupAudioWaveform(card, svg, url) {
     let unsubscribe = null;
     let active = false;
@@ -77,17 +88,19 @@ export function installCards(context) {
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
     } else if (item.kind === "video") {
       const video = document.createElement("video");
-      const videoBadge = document.createElement("span");
+      const controls = document.createElement("div");
+      const playButton = document.createElement("button");
       const duration = document.createElement("span");
       video.muted = true;
       video.playsInline = true;
       video.preload = "metadata";
       video.loop = state.loopVideos;
-      videoBadge.className = "cmf-video-badge";
-      videoBadge.title = "Video";
-      videoBadge.setAttribute("aria-hidden", "true");
-      videoBadge.innerHTML = ICONS.play;
-      duration.className = "cmf-video-duration";
+      controls.className = "cmf-media-controls cmf-video-controls";
+      playButton.className = "cmf-button cmf-icon-button cmf-media-play cmf-video-play";
+      playButton.type = "button";
+      playButton.setAttribute("aria-label", "Play video preview");
+      playButton.innerHTML = ICONS.play;
+      duration.className = "cmf-media-duration cmf-video-duration";
       duration.hidden = true;
       const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(video, preview));
       thumbnailResizeObserver.observe(preview);
@@ -95,14 +108,12 @@ export function installCards(context) {
       video.addEventListener("loadedmetadata", () => {
         rememberMediaDimensions(item, video);
         fitThumbnailMedia(video, preview);
-        const text = formatMediaDuration(video.duration);
-        if (!text) return;
-        duration.textContent = text;
-        duration.hidden = false;
       }, { once: true });
       video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       video.src = item.url;
-      preview.append(video, videoBadge, duration);
+      controls.append(playButton, duration);
+      preview.append(video, controls);
+      setupVideoPreview(card, video, playButton, duration);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
         window.requestAnimationFrame(() => fitThumbnailMedia(video, preview));
       }
@@ -114,18 +125,18 @@ export function installCards(context) {
       const waveform = createAudioWaveform("cmf-audio-waveform", AUDIO_WAVEFORM_BAR_COUNT);
       audioMain.appendChild(waveform);
       const controls = document.createElement("div");
-      controls.className = "cmf-audio-controls";
+      controls.className = "cmf-media-controls cmf-audio-controls";
       controls.innerHTML = `
-        <button class="cmf-button cmf-icon-button cmf-audio-play" type="button" title="Play" aria-label="Play">${ICONS.play}</button>
-        <input class="cmf-audio-seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+        <button class="cmf-button cmf-icon-button cmf-media-play cmf-audio-play" type="button" aria-label="Play audio preview">${ICONS.play}</button>
+        <span class="cmf-media-duration cmf-audio-duration" hidden></span>
       `;
       const audio = document.createElement("audio");
-      audio.preload = "none";
+      audio.preload = "metadata";
       audio.loop = state.loopAudio;
       audio.src = item.url;
       audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       audioPreview.append(audioMain, controls, audio);
-      setupAudioPreview(audioPreview, audio);
+      setupAudioPreview(audioPreview, audio, card);
       setupAudioWaveform(card, waveform, item.url);
       preview.appendChild(audioPreview);
     }
@@ -143,30 +154,12 @@ export function installCards(context) {
     card.thumbnailPreview = preview;
     syncFavoriteButton(favoriteButton, item);
     card.append(preview, favoriteButton);
-    const previewVideo = card.querySelector("video");
-    if (previewVideo && item.kind === "video") {
-      const playPreview = () => {
-        previewVideo.play().catch(() => {});
-      };
-      const pausePreview = () => {
-        previewVideo.pause();
-        try {
-          previewVideo.currentTime = 0;
-        } catch {
-          // Some browsers reject seeking before metadata is ready.
-        }
-      };
-      card.addEventListener("mouseenter", playPreview);
-      card.addEventListener("mouseleave", pausePreview);
-      card.addEventListener("focus", playPreview);
-      card.addEventListener("blur", pausePreview);
-    }
     card.addEventListener("click", (event) => {
-      if (event.target.closest(".cmf-audio-controls, .cmf-card-favorite")) return;
+      if (event.target.closest(".cmf-media-controls, .cmf-card-favorite")) return;
       openViewer(item, card.querySelector("img"));
     });
     card.addEventListener("keydown", (event) => {
-      if (event.target.closest(".cmf-audio-controls, .cmf-card-favorite")) return;
+      if (event.target.closest(".cmf-media-controls, .cmf-card-favorite")) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
@@ -175,52 +168,141 @@ export function installCards(context) {
   
     return card;
   }
+
+  function setupVideoPreview(card, video, playButton, durationLabel) {
+    let audiblePlayback = false;
+
+    const updatePlayButton = () => {
+      const playingAudibly = audiblePlayback && !video.paused && !video.ended;
+      playButton.innerHTML = playingAudibly ? ICONS.pause : ICONS.play;
+      const action = playingAudibly ? "Pause" : "Play";
+      playButton.setAttribute("aria-label", `${action} video preview`);
+    };
+
+    const playMutedPreview = () => {
+      if (audiblePlayback) return;
+      audiblePlayback = false;
+      video.muted = true;
+      video.play().catch(() => {});
+    };
+
+    const playHoverPreview = () => {
+      const canHover = typeof window === "undefined"
+        || typeof window.matchMedia !== "function"
+        || window.matchMedia("(hover: hover)").matches;
+      if (canHover) playMutedPreview();
+    };
+
+    const resetPreview = () => {
+      audiblePlayback = false;
+      video.muted = true;
+      video.pause();
+      try {
+        video.currentTime = 0;
+      } catch {
+        // Some browsers reject seeking before metadata is ready.
+      }
+      updatePlayButton();
+      updateThumbnailRemainingTime(video, durationLabel);
+    };
+
+    playButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (audiblePlayback && !video.paused && !video.ended) {
+        audiblePlayback = false;
+        video.pause();
+        return;
+      }
+
+      audiblePlayback = true;
+      video.muted = false;
+      try {
+        video.currentTime = 0;
+      } catch {
+        // Some browsers reject seeking before metadata is ready.
+      }
+      updateThumbnailRemainingTime(video, durationLabel);
+      if (video.paused || video.ended) video.play().catch(() => {});
+      updatePlayButton();
+    });
+
+    video.addEventListener("play", updatePlayButton);
+    video.addEventListener("pause", updatePlayButton);
+    video.addEventListener("ended", () => {
+      audiblePlayback = false;
+      video.muted = true;
+      updatePlayButton();
+      updateThumbnailRemainingTime(video, durationLabel);
+    });
+    video.addEventListener("loadedmetadata", () => updateThumbnailRemainingTime(video, durationLabel));
+    video.addEventListener("durationchange", () => updateThumbnailRemainingTime(video, durationLabel));
+    video.addEventListener("timeupdate", () => updateThumbnailRemainingTime(video, durationLabel));
+    card.addEventListener("mouseenter", playHoverPreview);
+    card.addEventListener("mouseleave", resetPreview);
+    card.addEventListener("focus", playMutedPreview);
+    card.addEventListener("blur", resetPreview);
+    updatePlayButton();
+    updateThumbnailRemainingTime(video, durationLabel);
+  }
   
-  function setupAudioPreview(audioPreview, audio) {
+  function setupAudioPreview(audioPreview, audio, card = audioPreview) {
     const playButton = audioPreview.querySelector(".cmf-audio-play");
-    const seek = audioPreview.querySelector(".cmf-audio-seek");
+    const durationLabel = audioPreview.querySelector(".cmf-audio-duration");
   
     const updatePlayButton = () => {
-      playButton.innerHTML = audio.paused ? ICONS.play : ICONS.pause;
-      playButton.title = audio.paused ? "Play" : "Pause";
-      playButton.setAttribute("aria-label", playButton.title);
+      const paused = audio.paused || audio.ended;
+      playButton.innerHTML = paused ? ICONS.play : ICONS.pause;
+      const action = paused ? "Play" : "Pause";
+      playButton.setAttribute("aria-label", `${action} audio preview`);
     };
   
-    const updateSeek = () => {
-      const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
-      seek.value = duration ? String(Math.round(audio.currentTime / duration * 1000)) : "0";
+    const updateDuration = () => {
+      updateThumbnailRemainingTime(audio, durationLabel);
+    };
+
+    const resetPreview = () => {
+      audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Some browsers reject seeking before metadata is ready.
+      }
+      updatePlayButton();
+      updateDuration();
     };
   
     playButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (audio.paused) {
+      if (audio.paused || audio.ended) {
+        try {
+          audio.currentTime = 0;
+        } catch {
+          // Some browsers reject seeking before metadata is ready.
+        }
+        updateDuration();
         audio.play().catch(() => {});
       } else {
         audio.pause();
       }
     });
   
-    seek.addEventListener("click", (event) => {
-      event.stopPropagation();
-    });
-    seek.addEventListener("input", (event) => {
-      event.stopPropagation();
-      const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
-      if (!duration) return;
-      audio.currentTime = Number(seek.value) / 1000 * duration;
-    });
-  
     audio.addEventListener("play", updatePlayButton);
     audio.addEventListener("pause", updatePlayButton);
-    audio.addEventListener("loadedmetadata", updateSeek);
-    audio.addEventListener("timeupdate", updateSeek);
+    audio.addEventListener("ended", updatePlayButton);
+    audio.addEventListener("loadedmetadata", updateDuration);
+    audio.addEventListener("durationchange", updateDuration);
+    audio.addEventListener("timeupdate", updateDuration);
+    card.addEventListener("mouseleave", resetPreview);
     updatePlayButton();
+    updateDuration();
   }
   
   Object.assign(actions, {
     createCard,
     setupAudioPreview,
     setupAudioWaveform,
+    setupVideoPreview,
   });
 }

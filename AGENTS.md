@@ -90,12 +90,16 @@ After browser reload in ComfyUI:
   to another media item.
 - New media generated while the viewer is open becomes reachable without closing
   the viewer.
-- Video thumbnails play muted on hover and stop when hover leaves.
+- Video thumbnails play muted on hover, switch to audible playback from their
+  bottom-left play button from the beginning, count down the remaining time,
+  and stop and re-mute when hover leaves.
 - Large video metadata is read with `/view` Range requests when the server
   supports them.
 - When an initial metadata scan is inconclusive, `Read full file metadata`
   appears and completes a full scan when selected.
-- Audio thumbnails show a two-row layout with a full-width seek bar.
+- Audio thumbnails show a two-row layout with a bottom-left play/pause button
+  and bottom-right duration that counts down during playback. Audio stops and
+  returns to the beginning when hover leaves the card.
 - Thumbnail size changes with the slider and persists after reload.
 - Switching between Default and Frameless does not move the media cards in any
   placement.

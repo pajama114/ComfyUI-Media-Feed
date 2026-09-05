@@ -23,12 +23,15 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   or on a hovered feed card.
 - Supports previous/next navigation with side buttons, arrow keys, and wheel
   scrolling in the viewer.
-- Plays video thumbnails on hover and lets video and audio looping be configured
-  independently.
+- Plays video thumbnails muted on hover, enables their audio from the thumbnail
+  play button, and lets video and audio looping be configured independently.
 - Toggles video or audio playback with the Space key while the viewer is open.
-- Shows a compact, single-color waveform on audio thumbnails and provides a
-  full-width seek bar. The viewer expands this into a detailed fixed waveform
-  with a playhead that follows the current playback position.
+- Shows a compact, single-color waveform and duration/remaining time on audio
+  thumbnails. The viewer expands this into a detailed waveform with seeking and
+  a playhead that follows the current playback position.
+- Counts down the remaining time on playing video and audio thumbnails.
+- Stops thumbnail audio and returns it to the beginning when the pointer leaves
+  its card.
 - Lets you resize thumbnails, jump to the newest or oldest item, and clear the
   current feed from the toolbar.
 - Can automatically follow newly generated media.
