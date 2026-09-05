@@ -18,6 +18,7 @@
     "Show metadata in viewer": "在查看器中显示元数据",
     "Metadata position": "元数据位置",
     "Fit media to viewer": "使媒体适应查看器",
+    "Fit scale": "适应缩放比例",
     "Show favorite button on hover": "悬停时显示收藏按钮",
     "Favorite storage folder": "收藏存储文件夹"
   }

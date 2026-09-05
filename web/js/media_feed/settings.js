@@ -25,6 +25,7 @@ export function installSettings(context) {
   const applyPlacement = (...args) => actions.applyPlacement(...args);
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
+  const applyViewerFitScale = (...args) => actions.applyViewerFitScale(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
@@ -39,6 +40,7 @@ export function installSettings(context) {
   const savePlacement = (...args) => actions.savePlacement(...args);
   const saveShowPrompts = (...args) => actions.saveShowPrompts(...args);
   const saveScaleViewerMedia = (...args) => actions.saveScaleViewerMedia(...args);
+  const saveViewerFitScale = (...args) => actions.saveViewerFitScale(...args);
   const saveFollowLatest = (...args) => actions.saveFollowLatest(...args);
   const saveHistoryLimit = (...args) => actions.saveHistoryLimit(...args);
   const saveMetadataPosition = (...args) => actions.saveMetadataPosition(...args);
@@ -90,6 +92,14 @@ export function installSettings(context) {
       syncViewerScaleMedia();
     }
     if (syncSettings) syncComfySettingValue(SCALE_VIEWER_MEDIA_SETTING_ID, state.scaleViewerMedia);
+  }
+
+  function setViewerFitScale(nextValue) {
+    const previousScale = state.viewerFitScale;
+    applyViewerFitScale(nextValue);
+    if (state.viewerFitScale === previousScale) return;
+    saveViewerFitScale();
+    actions.updateViewerImageLayout();
   }
   
   function setFollowLatest(nextValue) {
@@ -216,6 +226,7 @@ export function installSettings(context) {
     setShowPrompts,
     setShowComfyProgress,
     setScaleViewerMedia,
+    setViewerFitScale,
     setFollowLatest,
     setHistoryLimit,
     setMetadataPosition,

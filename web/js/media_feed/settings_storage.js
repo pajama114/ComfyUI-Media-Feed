@@ -4,6 +4,7 @@ import {
   DEFAULT_SHOW_PROMPTS,
   DEFAULT_SHOW_COMFY_PROGRESS,
   DEFAULT_SCALE_VIEWER_MEDIA,
+  DEFAULT_VIEWER_FIT_SCALE,
   DEFAULT_FOLLOW_LATEST,
   DEFAULT_HISTORY_LIMIT,
   DEFAULT_METADATA_POSITION,
@@ -31,11 +32,13 @@ export function installSettingsStorage(context) {
   const normalizeBatchDividers = (...args) => actions.normalizeBatchDividers(...args);
   const normalizeBooleanSetting = (...args) => actions.normalizeBooleanSetting(...args);
   const normalizeHistoryLimit = (...args) => actions.normalizeHistoryLimit(...args);
+  const normalizeViewerFitScale = (...args) => actions.normalizeViewerFitScale(...args);
   const applyThumbnailHeight = (...args) => actions.applyThumbnailHeight(...args);
   const applyPlacement = (...args) => actions.applyPlacement(...args);
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
   const applyShowComfyProgress = (...args) => actions.applyShowComfyProgress(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
+  const applyViewerFitScale = (...args) => actions.applyViewerFitScale(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
@@ -80,6 +83,15 @@ export function installSettingsStorage(context) {
       return savedValue === null ? DEFAULT_SCALE_VIEWER_MEDIA : normalizeBooleanSetting(savedValue);
     } catch {
       return DEFAULT_SCALE_VIEWER_MEDIA;
+    }
+  }
+
+  function loadSavedViewerFitScale() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.viewerFitScale);
+      return savedValue === null ? DEFAULT_VIEWER_FIT_SCALE : normalizeViewerFitScale(savedValue);
+    } catch {
+      return DEFAULT_VIEWER_FIT_SCALE;
     }
   }
   
@@ -287,6 +299,7 @@ export function installSettingsStorage(context) {
     if (!runtime.promptSettingSeen) applyShowPrompts(loadSavedShowPrompts());
     if (!runtime.showComfyProgressSettingSeen) applyShowComfyProgress(loadSavedShowComfyProgress());
     if (!runtime.scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
+    if (!runtime.viewerFitScaleSettingSeen) applyViewerFitScale(loadSavedViewerFitScale());
     if (!runtime.followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
     if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
     if (!runtime.metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
@@ -335,6 +348,14 @@ export function installSettingsStorage(context) {
   function saveScaleViewerMedia() {
     try {
       window.localStorage?.setItem(STORAGE_KEYS.scaleViewerMedia, String(state.scaleViewerMedia));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
+  function saveViewerFitScale() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.viewerFitScale, String(state.viewerFitScale));
     } catch {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
@@ -433,6 +454,7 @@ export function installSettingsStorage(context) {
     loadSavedShowPrompts,
     loadSavedShowComfyProgress,
     loadSavedScaleViewerMedia,
+    loadSavedViewerFitScale,
     loadSavedFollowLatest,
     loadSavedHistoryLimit,
     loadSavedMetadataPosition,
@@ -455,6 +477,7 @@ export function installSettingsStorage(context) {
     saveShowPrompts,
     saveShowComfyProgress,
     saveScaleViewerMedia,
+    saveViewerFitScale,
     saveFollowLatest,
     saveHistoryLimit,
     saveMetadataPosition,

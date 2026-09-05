@@ -85,6 +85,10 @@
     "name": "Fit media to viewer",
     "tooltip": "Fit images and videos to the available viewer area."
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "Fit scale",
+    "tooltip": "Scale Fit media from 25% to 100% of the largest size that fits in the viewer."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "Loop videos",
     "tooltip": "Loop video playback in feed previews and the viewer."

@@ -8,6 +8,7 @@ import { createMediaFeedRuntime } from "../web/js/media_feed/runtime.js";
 import { installSettings } from "../web/js/media_feed/settings.js";
 import { installSettingsStorage } from "../web/js/media_feed/settings_storage.js";
 import { createMediaFeedState } from "../web/js/media_feed/state.js";
+import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 import { visibleItemRange } from "../web/js/media_feed/virtualization.js";
 
 function createContext() {
@@ -367,6 +368,11 @@ test("settings normalization and feed geometry remain bounded", () => {
   assert.equal(actions.normalizeBooleanSetting("false"), false);
   assert.equal(actions.normalizeHistoryLimit("512"), 512);
   assert.equal(actions.normalizeHistoryLimit(999), 256);
+  assert.equal(actions.normalizeViewerFitScale("80"), 80);
+  assert.equal(actions.normalizeViewerFitScale(83), 85);
+  assert.equal(actions.normalizeViewerFitScale(1), 25);
+  assert.equal(actions.normalizeViewerFitScale(999), 100);
+  assert.equal(actions.normalizeViewerFitScale("invalid"), 100);
   assert.equal(actions.normalizeBatchDividers("LINE"), "line");
   assert.equal(actions.normalizeBatchDividers("invalid"), "line");
   assert.equal(actions.normalizeBatchDividers("labeled"), "line");
@@ -396,6 +402,95 @@ test("settings normalization and feed geometry remain bounded", () => {
   assert.equal(actions.feedCardTopOffset(), 10);
   state.placement = "top";
   assert.equal(actions.feedCardTopOffset(), 2);
+});
+
+test("Fit scale persists and updates an open viewer layout", () => {
+  const originalWindow = globalThis.window;
+  const localStorage = createMemoryStorage();
+  globalThis.window = { localStorage };
+
+  try {
+    const context = createContext();
+    let layoutUpdates = 0;
+    context.actions.updateViewerImageLayout = () => { layoutUpdates++; };
+    context.actions.setViewerFitScale(80);
+
+    assert.equal(context.state.viewerFitScale, 80);
+    assert.equal(localStorage.getItem("comfyui-media-feed:viewer-fit-scale"), "80");
+    assert.equal(layoutUpdates, 1);
+
+    const restoredContext = createContext();
+    restoredContext.actions.loadSettings();
+    assert.equal(restoredContext.state.viewerFitScale, 80);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("Fit scale is applied to fitted media dimensions", () => {
+  const originalHTMLElement = globalThis.HTMLElement;
+  const originalHTMLImageElement = globalThis.HTMLImageElement;
+  const originalHTMLVideoElement = globalThis.HTMLVideoElement;
+  const originalHTMLAudioElement = globalThis.HTMLAudioElement;
+
+  class MockHTMLElement {}
+  class MockImageElement extends MockHTMLElement {}
+  class MockVideoElement extends MockHTMLElement {}
+  class MockAudioElement extends MockHTMLElement {}
+  globalThis.HTMLElement = MockHTMLElement;
+  globalThis.HTMLImageElement = MockImageElement;
+  globalThis.HTMLVideoElement = MockVideoElement;
+  globalThis.HTMLAudioElement = MockAudioElement;
+
+  try {
+    const video = new MockVideoElement();
+    video.dataset = { mediaItemKey: "video-1" };
+    video.videoWidth = 1000;
+    video.videoHeight = 500;
+    video.style = {};
+    const media = {
+      dataset: {},
+      getBoundingClientRect: () => ({ width: 800, height: 600 }),
+      querySelector: (selector) => selector.startsWith("audio") ? null : video,
+    };
+    const button = () => ({ disabled: false, setAttribute() {} });
+    const context = {
+      app: {},
+      api: {},
+      ICONS: {},
+      state: { viewerFitScale: 75 },
+      runtime: {
+        viewer: {
+          item: { key: "video-1", kind: "video" },
+          media,
+          imageBaseMode: "fit",
+          imageZoom: 1,
+          fitButton: button(),
+          nativeButton: button(),
+          zoomOutButton: button(),
+          zoomInButton: button(),
+          zoomControls: { hidden: true },
+          zoomLevel: { textContent: "" },
+        },
+      },
+      actions: { setScaleViewerMedia() {}, closeViewer() {} },
+    };
+    installViewerZoom(context);
+    context.actions.updateViewerImageLayout();
+
+    assert.equal(video.style.width, "600px");
+    assert.equal(video.style.height, "300px");
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "Fit (75%)");
+  } finally {
+    if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
+    else globalThis.HTMLElement = originalHTMLElement;
+    if (originalHTMLImageElement === undefined) delete globalThis.HTMLImageElement;
+    else globalThis.HTMLImageElement = originalHTMLImageElement;
+    if (originalHTMLVideoElement === undefined) delete globalThis.HTMLVideoElement;
+    else globalThis.HTMLVideoElement = originalHTMLVideoElement;
+    if (originalHTMLAudioElement === undefined) delete globalThis.HTMLAudioElement;
+    else globalThis.HTMLAudioElement = originalHTMLAudioElement;
+  }
 });
 
 test("virtualization bounds include overscan without escaping the item list", () => {

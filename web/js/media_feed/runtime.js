@@ -22,6 +22,7 @@ export function createMediaFeedRuntime() {
     promptSettingSeen: false,
     showComfyProgressSettingSeen: false,
     scaleViewerMediaSettingSeen: false,
+    viewerFitScaleSettingSeen: false,
     followLatestSettingSeen: false,
     metadataPositionSettingSeen: false,
     excludePreviewMediaSettingSeen: false,

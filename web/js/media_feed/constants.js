@@ -40,6 +40,10 @@ export const DEFAULT_PLACEMENT = "bottom";
 export const DEFAULT_SHOW_PROMPTS = true;
 export const DEFAULT_SHOW_COMFY_PROGRESS = false;
 export const DEFAULT_SCALE_VIEWER_MEDIA = false;
+export const DEFAULT_VIEWER_FIT_SCALE = 100;
+export const VIEWER_FIT_SCALE_MIN = 25;
+export const VIEWER_FIT_SCALE_MAX = 100;
+export const VIEWER_FIT_SCALE_STEP = 5;
 export const DEFAULT_FOLLOW_LATEST = true;
 export const DEFAULT_METADATA_POSITION = "left";
 export const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
@@ -69,6 +73,7 @@ export const STORAGE_KEYS = {
   showPrompts: "comfyui-media-feed:show-prompts",
   showComfyProgress: "comfyui-media-feed:show-comfy-progress",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
+  viewerFitScale: "comfyui-media-feed:viewer-fit-scale",
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",

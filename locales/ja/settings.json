@@ -85,6 +85,10 @@
     "name": "メディアをビューアに合わせる",
     "tooltip": "画像と動画をビューア内の表示可能領域に合わせます。"
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "FIT時の倍率",
+    "tooltip": "FIT表示の画像と動画を、ビューアに収まる最大サイズの25%から100%で拡大縮小します。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "動画をループ再生",
     "tooltip": "フィードのプレビューとビューアで動画をループ再生します。"

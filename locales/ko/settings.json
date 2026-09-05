@@ -85,6 +85,10 @@
     "name": "뷰어에 미디어 맞추기",
     "tooltip": "이미지와 비디오를 뷰어의 사용 가능한 영역에 맞춥니다."
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "맞춤 배율",
+    "tooltip": "맞춤 표시된 이미지와 비디오를 뷰어에 들어가는 최대 크기의 25%에서 100%로 조절합니다."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "비디오 반복 재생",
     "tooltip": "피드 미리보기와 뷰어에서 비디오를 반복 재생합니다."

@@ -85,6 +85,10 @@
     "name": "使媒体适应查看器",
     "tooltip": "使图像和视频适应查看器的可用区域。"
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "适应缩放比例",
+    "tooltip": "将适应显示的图像和视频缩放为查看器内最大适应尺寸的25%至100%。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "循环播放视频",
     "tooltip": "在信息流预览和查看器中循环播放视频。"

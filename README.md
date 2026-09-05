@@ -53,7 +53,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Lets you place the metadata panel on either side of the viewer.
 - Provides Fit, actual-size, and zoom controls for images and videos. Zoomed
   images can be panned by dragging, and double-clicking zooms in
-  or returns to the selected Fit/actual-size view.
+  or returns to the selected Fit/actual-size view. The Fit scale can be adjusted
+  from 25% to 100% of the available viewer area.
 - Uses ComfyUI theme colors when available.
 - Saves feed and viewer settings in browser `localStorage`.
 - Restores the latest feed after a page reload in the same browser tab.
@@ -74,6 +75,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Show ComfyUI progress panel over viewer: `Off`
 - Metadata position: `Left`
 - Fit media to viewer: `Off`
+- Fit scale: `100%`
 - Loop videos: `On`
 - Loop audio: `Off`
 - Show favorite button on hover: `On`

@@ -85,6 +85,10 @@
     "name": "Adapter les médias à la visionneuse",
     "tooltip": "Adapte les images et les vidéos à l’espace disponible dans la visionneuse."
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "Échelle d’adaptation",
+    "tooltip": "Redimensionne les médias adaptés de 25 % à 100 % de la plus grande taille tenant dans la visionneuse."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "Lire les vidéos en boucle",
     "tooltip": "Lit les vidéos en boucle dans les aperçus du flux et la visionneuse."

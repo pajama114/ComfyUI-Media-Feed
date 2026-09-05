@@ -2,6 +2,9 @@ import {
   EXTENSION_NAME,
   DEFAULT_HISTORY_LIMIT,
   HISTORY_LIMIT_OPTIONS,
+  VIEWER_FIT_SCALE_MIN,
+  VIEWER_FIT_SCALE_MAX,
+  VIEWER_FIT_SCALE_STEP,
 } from "./constants.js";
 
 export function createMediaFeedExtension(context) {
@@ -9,6 +12,7 @@ export function createMediaFeedExtension(context) {
   const loadSavedPlacement = (...args) => actions.loadSavedPlacement(...args);
   const loadSavedShowPrompts = (...args) => actions.loadSavedShowPrompts(...args);
   const loadSavedScaleViewerMedia = (...args) => actions.loadSavedScaleViewerMedia(...args);
+  const loadSavedViewerFitScale = (...args) => actions.loadSavedViewerFitScale(...args);
   const loadSavedFollowLatest = (...args) => actions.loadSavedFollowLatest(...args);
   const loadSavedHistoryLimit = (...args) => actions.loadSavedHistoryLimit(...args);
   const loadSavedMetadataPosition = (...args) => actions.loadSavedMetadataPosition(...args);
@@ -23,6 +27,7 @@ export function createMediaFeedExtension(context) {
   const loadSessionItems = (...args) => actions.loadSessionItems(...args);
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
+  const setViewerFitScale = (...args) => actions.setViewerFitScale(...args);
   const setFollowLatest = (...args) => actions.setFollowLatest(...args);
   const setHistoryLimit = (...args) => actions.setHistoryLimit(...args);
   const setMetadataPosition = (...args) => actions.setMetadataPosition(...args);
@@ -212,6 +217,24 @@ export function createMediaFeedExtension(context) {
         onChange: (newValue) => {
           runtime.scaleViewerMediaSettingSeen = true;
           setScaleViewerMedia(newValue);
+        },
+      },
+      {
+        id: "comfyui-media-feed.viewer-fit-scale",
+        name: "Fit scale",
+        type: "slider",
+        defaultValue: loadSavedViewerFitScale(),
+        attrs: {
+          min: VIEWER_FIT_SCALE_MIN,
+          max: VIEWER_FIT_SCALE_MAX,
+          step: VIEWER_FIT_SCALE_STEP,
+        },
+        category: ["Media Feed", "Viewer", "Fit scale"],
+        sortOrder: 208,
+        tooltip: "Scale Fit media from 25% to 100% of the largest size that fits in the viewer.",
+        onChange: (newValue) => {
+          runtime.viewerFitScaleSettingSeen = true;
+          setViewerFitScale(newValue);
         },
       },
       {

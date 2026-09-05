@@ -18,6 +18,7 @@
     "Show metadata in viewer": "ビューアにメタデータを表示",
     "Metadata position": "メタデータの位置",
     "Fit media to viewer": "メディアをビューアに合わせる",
+    "Fit scale": "FIT時の倍率",
     "Show favorite button on hover": "ホバー時にお気に入りボタンを表示",
     "Favorite storage folder": "お気に入りの保存先"
   }

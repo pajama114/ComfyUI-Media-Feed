@@ -85,6 +85,10 @@
     "name": "Medien an den Betrachter anpassen",
     "tooltip": "Passt Bilder und Videos an den verfügbaren Bereich des Betrachters an."
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "Anpassungsskalierung",
+    "tooltip": "Skaliert angepasste Medien auf 25 % bis 100 % der größten in den Betrachter passenden Größe."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "Videos wiederholen",
     "tooltip": "Spielt Videos in Feed-Vorschauen und im Betrachter in einer Schleife ab."

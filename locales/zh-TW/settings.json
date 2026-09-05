@@ -85,6 +85,10 @@
     "name": "讓媒體符合檢視器",
     "tooltip": "讓影像與影片符合檢視器的可用區域。"
   },
+  "comfyui-media-feed_viewer-fit-scale": {
+    "name": "符合縮放比例",
+    "tooltip": "將符合顯示的影像與影片縮放為檢視器內最大符合尺寸的25%至100%。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "循環播放影片",
     "tooltip": "在動態預覽與檢視器中循環播放影片。"

@@ -66,7 +66,7 @@ export function installViewerZoom(context) {
     runtime.viewer.zoomOutButton.disabled = !hasMedia || runtime.viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
     runtime.viewer.zoomInButton.disabled = !hasMedia || runtime.viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
     runtime.viewer.zoomLevel.textContent = runtime.viewer.imageBaseMode === "fit" && isBaseZoom
-      ? "Fit"
+      ? `Fit (${state.viewerFitScale}%)`
       : `${Math.round(runtime.viewer.imageZoom * 100)}%`;
   }
   
@@ -97,7 +97,7 @@ export function installViewerZoom(context) {
     if (!natural.width || !natural.height) return;
   
     const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
-    const baseScale = runtime.viewer.imageBaseMode === "fit" ? fitScale : 1;
+    const baseScale = runtime.viewer.imageBaseMode === "fit" ? fitScale * state.viewerFitScale / 100 : 1;
     const layoutZoom = media instanceof HTMLVideoElement ? runtime.viewer.imageZoom : 1;
     media.style.width = `${natural.width * baseScale * layoutZoom}px`;
     media.style.height = `${natural.height * baseScale * layoutZoom}px`;

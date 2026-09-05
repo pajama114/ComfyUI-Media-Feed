@@ -222,9 +222,9 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 15);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 15);
-    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 15);
+    assert.equal(extension.settings.length, 16);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 16);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 16);
 
     const settingsByGroup = new Map();
     for (const setting of extension.settings) {
@@ -246,7 +246,7 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
       ["Feed", ["Feed history limit", "Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
-      ["Viewer", ["Show ComfyUI progress panel over viewer", "Show metadata in viewer", "Metadata position", "Fit media to viewer", "Loop videos", "Loop audio"]],
+      ["Viewer", ["Show ComfyUI progress panel over viewer", "Show metadata in viewer", "Metadata position", "Fit media to viewer", "Fit scale", "Loop videos", "Loop audio"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
 
@@ -258,6 +258,11 @@ test("the composed extension registers settings and setup integrations once", as
     assert.equal(historyLimitSetting.defaultValue, 256);
     assert.deepEqual(historyLimitSetting.options.map((option) => option.value), [64, 128, 256, 512, 1024]);
     assert.equal(historyLimitSetting.options.find((option) => option.value === 256).text, "256 (Default)");
+
+    const fitScaleSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.viewer-fit-scale");
+    assert.equal(fitScaleSetting.type, "slider");
+    assert.equal(fitScaleSetting.defaultValue, 100);
+    assert.deepEqual(fitScaleSetting.attrs, { min: 25, max: 100, step: 5 });
 
     const originalQueuePrompt = context.api.queuePrompt;
     await extension.setup();

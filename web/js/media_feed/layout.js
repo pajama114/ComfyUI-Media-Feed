@@ -17,6 +17,10 @@ import {
   DEFAULT_LOOP_VIDEOS,
   DEFAULT_HISTORY_LIMIT,
   HISTORY_LIMIT_OPTIONS,
+  DEFAULT_VIEWER_FIT_SCALE,
+  VIEWER_FIT_SCALE_MIN,
+  VIEWER_FIT_SCALE_MAX,
+  VIEWER_FIT_SCALE_STEP,
   SIDE_PLACEMENTS,
   PLACEMENTS,
   METADATA_POSITIONS,
@@ -95,6 +99,13 @@ export function installLayout(context) {
     const limit = Number(nextValue);
     return HISTORY_LIMIT_OPTIONS.includes(limit) ? limit : DEFAULT_HISTORY_LIMIT;
   }
+
+  function normalizeViewerFitScale(nextValue) {
+    const scale = Number(nextValue);
+    if (!Number.isFinite(scale)) return DEFAULT_VIEWER_FIT_SCALE;
+    const boundedScale = Math.min(VIEWER_FIT_SCALE_MAX, Math.max(VIEWER_FIT_SCALE_MIN, scale));
+    return Math.round(boundedScale / VIEWER_FIT_SCALE_STEP) * VIEWER_FIT_SCALE_STEP;
+  }
   
   function isVerticalPlacement(placement = state.placement) {
     return SIDE_PLACEMENTS.has(placement);
@@ -124,6 +135,10 @@ export function installLayout(context) {
   
   function applyScaleViewerMedia(nextValue) {
     state.scaleViewerMedia = normalizeBooleanSetting(nextValue);
+  }
+
+  function applyViewerFitScale(nextValue) {
+    state.viewerFitScale = normalizeViewerFitScale(nextValue);
   }
   
   function applyFollowLatest(nextValue) {
@@ -186,6 +201,7 @@ export function installLayout(context) {
     normalizeBatchDividers,
     normalizeBooleanSetting,
     normalizeHistoryLimit,
+    normalizeViewerFitScale,
     isVerticalPlacement,
     isVerticalView,
     applyThumbnailHeight,
@@ -193,6 +209,7 @@ export function installLayout(context) {
     applyShowPrompts,
     applyShowComfyProgress,
     applyScaleViewerMedia,
+    applyViewerFitScale,
     applyFollowLatest,
     applyHistoryLimit,
     applyMetadataPosition,
