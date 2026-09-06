@@ -8,6 +8,7 @@ const AUDIO_WAVEFORM_MIN_HALF_HEIGHT = 2;
 const AUDIO_WAVEFORM_MAX_HALF_HEIGHT = 46;
 const AUDIO_WAVEFORM_CACHE_SIZE = 32;
 const MAX_CONCURRENT_AUDIO_WAVEFORM_LOADS = 1;
+const VIEWER_AUDIO_DRAG_THRESHOLD = 4;
 
 export function calculateAudioWaveformPeaks(
   audioBuffer,
@@ -338,21 +339,38 @@ export function installAudioWaveforms(context) {
       seekToProgress((event.clientX - bounds.left) / bounds.width);
     };
     let waveformDragPointerId = null;
+    let waveformDragStartX = null;
+    let resumePlaybackAfterWaveformDrag = false;
     const startWaveformDrag = (event) => {
       if (event.button !== undefined && event.button !== 0) return;
       waveformDragPointerId = event.pointerId;
+      waveformDragStartX = Number.isFinite(event.clientX) ? event.clientX : null;
+      resumePlaybackAfterWaveformDrag = false;
       track.setPointerCapture?.(event.pointerId);
       seekFromPointer(event);
     };
     const moveWaveformDrag = (event) => {
       if (waveformDragPointerId === null || event.pointerId !== waveformDragPointerId) return;
+      if (
+        waveformDragStartX !== null
+        && Math.abs(event.clientX - waveformDragStartX) >= VIEWER_AUDIO_DRAG_THRESHOLD
+        && !resumePlaybackAfterWaveformDrag
+        && !audio.paused
+        && !audio.ended
+      ) {
+        resumePlaybackAfterWaveformDrag = true;
+        audio.pause();
+      }
       seekFromPointer(event);
     };
     const finishWaveformDrag = (event) => {
       if (waveformDragPointerId === null || event.pointerId !== waveformDragPointerId) return;
-      seekFromPointer(event);
       if (track.hasPointerCapture?.(event.pointerId)) track.releasePointerCapture(event.pointerId);
       waveformDragPointerId = null;
+      waveformDragStartX = null;
+      const shouldResumePlayback = resumePlaybackAfterWaveformDrag;
+      resumePlaybackAfterWaveformDrag = false;
+      if (shouldResumePlayback && audio.paused) audio.play().catch(() => {});
     };
     const seekFromControl = () => {
       seekToProgress(Number(seek.value) / 1000);
@@ -393,6 +411,8 @@ export function installAudioWaveforms(context) {
         track.releasePointerCapture(waveformDragPointerId);
       }
       waveformDragPointerId = null;
+      waveformDragStartX = null;
+      resumePlaybackAfterWaveformDrag = false;
       track.removeEventListener("pointerdown", startWaveformDrag);
       track.removeEventListener("pointermove", moveWaveformDrag);
       track.removeEventListener("pointerup", finishWaveformDrag);

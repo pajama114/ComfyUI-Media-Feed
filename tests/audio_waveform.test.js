@@ -137,6 +137,8 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
   const presentation = {
     querySelector: (selector) => presentationElements.get(selector) || null,
   };
+  let playCalls = 0;
+  let pauseCalls = 0;
   const audio = eventTarget({
     currentTime: 30,
     duration: 120,
@@ -146,11 +148,13 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     volume: 1,
     closest: () => presentation,
     play() {
+      playCalls++;
       this.paused = false;
       this.listeners.get("play")?.();
       return Promise.resolve();
     },
     pause() {
+      pauseCalls++;
       this.paused = true;
       this.listeners.get("pause")?.();
     },
@@ -198,6 +202,8 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
       preventDefault() { pointerDownPrevented = true; },
     });
     assert.equal(audio.currentTime, 90);
+    assert.equal(audio.paused, false);
+    assert.equal(pauseCalls, 0);
     assert.equal(playhead.style.left, "75%");
     assert.equal(pointerDownPrevented, true);
     assert.equal(capturedPointer, 7);
@@ -208,6 +214,8 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
       preventDefault() {},
     });
     assert.equal(audio.currentTime, 120);
+    assert.equal(audio.paused, true);
+    assert.equal(pauseCalls, 1);
     assert.equal(playhead.style.left, "100%");
 
     graph.listeners.get("pointermove")({
@@ -222,8 +230,46 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
       clientX: 70,
       preventDefault() {},
     });
-    assert.equal(audio.currentTime, 30);
+    assert.equal(audio.currentTime, 120);
+    assert.equal(audio.paused, false);
+    assert.equal(playCalls, 1);
     assert.equal(capturedPointer, null);
+
+    graph.listeners.get("pointerdown")({
+      button: 0,
+      pointerId: 8,
+      clientX: 120,
+      preventDefault() {},
+    });
+    graph.listeners.get("pointerup")({
+      pointerId: 8,
+      clientX: 120,
+      preventDefault() {},
+    });
+    assert.equal(audio.paused, false);
+    assert.equal(playCalls, 1);
+    assert.equal(pauseCalls, 1);
+
+    audio.pause();
+    graph.listeners.get("pointerdown")({
+      button: 0,
+      pointerId: 9,
+      clientX: 120,
+      preventDefault() {},
+    });
+    graph.listeners.get("pointermove")({
+      pointerId: 9,
+      clientX: 170,
+      preventDefault() {},
+    });
+    graph.listeners.get("pointerup")({
+      pointerId: 9,
+      clientX: 170,
+      preventDefault() {},
+    });
+    assert.equal(audio.paused, true);
+    assert.equal(playCalls, 1);
+    assert.equal(pauseCalls, 2);
 
     seek.value = "100";
     seek.listeners.get("input")();

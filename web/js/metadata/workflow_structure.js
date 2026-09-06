@@ -67,7 +67,7 @@ export function workflowSubgraphInputName(workflow, slot) {
   return String(input?.name || "");
 }
 
-export function buildWorkflowMaps(workflow) {
+export function buildWorkflowMaps(workflow, scopeKey = "root") {
   const nodes = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
   const nodeMap = new Map(nodes.map((node) => [workflowNodeId(node), node]));
   const linkMap = new Map();
@@ -113,11 +113,36 @@ export function buildWorkflowMaps(workflow) {
     }
   }
 
-  return { workflow, nodes, nodeMap, linkMap, consumerMap };
+  return { workflow, nodes, nodeMap, linkMap, consumerMap, scopeKey };
 }
 
 export function workflowLinkOrigin(maps, linkId) {
   return maps.linkMap.get(String(linkId)) || null;
+}
+
+export function workflowAncestorNodeIds(maps, outputNodeId) {
+  if (!maps || outputNodeId === undefined || outputNodeId === null || outputNodeId === "") return null;
+
+  const rootId = String(outputNodeId);
+  if (!maps.nodeMap.has(rootId)) return null;
+
+  const ancestors = new Set();
+  const queue = [rootId];
+  for (let index = 0; index < queue.length; index++) {
+    const nodeId = queue[index];
+    if (ancestors.has(nodeId)) continue;
+    ancestors.add(nodeId);
+
+    const node = maps.nodeMap.get(nodeId);
+    for (const input of node?.inputs || []) {
+      if (input?.link === undefined || input?.link === null) continue;
+      const origin = workflowLinkOrigin(maps, input.link);
+      const originId = String(origin?.originId || "");
+      if (originId && originId !== "-10" && !ancestors.has(originId)) queue.push(originId);
+    }
+  }
+
+  return ancestors;
 }
 
 export function workflowNodeHasPolarityInputs(node) {
@@ -167,6 +192,29 @@ export function isWorkflowTextPassthroughNode(node) {
 
 export function workflowInputByName(node, name) {
   return (node?.inputs || []).find((input) => input?.name === name) || null;
+}
+
+export function workflowInputNameForOutput(node, origin) {
+  if (!Array.isArray(node?.outputs) || node.outputs.length <= 1) return "";
+
+  const outputName = String(origin?.outputName || "").trim().toLowerCase();
+  if (!outputName) return "";
+
+  const input = (node?.inputs || []).find(
+    (current) => String(current?.name || "").trim().toLowerCase() === outputName,
+  );
+  return String(input?.name || "");
+}
+
+function workflowTraversalKey(kind, maps, origin, preferUserInputs = false) {
+  return [
+    kind,
+    String(maps?.scopeKey || "root"),
+    String(origin?.originId || ""),
+    String(origin?.originSlot ?? ""),
+    String(origin?.outputName || "").toLowerCase(),
+    preferUserInputs ? "preferred" : "all",
+  ].join(":");
 }
 
 export function workflowNodeBooleanValue(maps, nodeId, visited = new Set()) {
@@ -236,7 +284,7 @@ export function collectWorkflowExternalInputTexts(origin, maps, visited, context
   const texts = workflowInputLinkedTexts(
     input,
     externalMaps,
-    new Set(),
+    new Set(visited),
     context?.parentContext || null,
     preferUserInputs,
   );
@@ -251,14 +299,21 @@ export function workflowInputLinkedTexts(input, maps, visited, context = null, p
     if (isWorkflowSubgraphInputOrigin(origin)) {
       return collectWorkflowExternalInputTexts(origin, maps, visited, context, preferUserInputs);
     }
-    return collectWorkflowUserInputTexts(origin?.originId, maps, visited, context, preferUserInputs);
+    return collectWorkflowUserInputTexts(origin, maps, visited, context, preferUserInputs);
   }
   return collectWidgetStringValues(input.value ?? input.default ?? input.widget?.value);
 }
 
-export function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(), context = null, preferUserInputs = false) {
-  if (!nodeId || visited.has(String(nodeId))) return [];
-  visited.add(String(nodeId));
+export function collectWorkflowUserInputTexts(originOrNodeId, maps, visited = new Set(), context = null, preferUserInputs = false) {
+  const origin = originOrNodeId && typeof originOrNodeId === "object"
+    ? originOrNodeId
+    : { originId: originOrNodeId };
+  const nodeId = String(origin?.originId || "");
+  if (!nodeId) return [];
+
+  const visitKey = workflowTraversalKey("user", maps, origin, preferUserInputs);
+  if (visited.has(visitKey)) return [];
+  visited.add(visitKey);
 
   const node = maps.nodeMap.get(String(nodeId));
   if (!node || isWorkflowSystemNode(node)) return [];
@@ -274,7 +329,10 @@ export function collectWorkflowUserInputTexts(nodeId, maps, visited = new Set(),
     );
   }
 
-  const textInputs = workflowTextInputs(node);
+  const outputInputName = workflowInputNameForOutput(node, origin);
+  const textInputs = outputInputName
+    ? workflowTextInputs(node).filter((input) => input?.name === outputInputName)
+    : workflowTextInputs(node);
   const preferredNames = preferUserInputs
     ? preferredUserInputNames(textInputs.map((input) => [String(input?.name || ""), input]))
     : [];

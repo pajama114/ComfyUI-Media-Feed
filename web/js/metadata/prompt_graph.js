@@ -131,6 +131,47 @@ export function promptNodeInputValue(node, name) {
   return Object.prototype.hasOwnProperty.call(inputs, name) ? inputs[name] : undefined;
 }
 
+export function promptAncestorNodeIds(prompt, outputNodeId) {
+  if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return null;
+  if (outputNodeId === undefined || outputNodeId === null || outputNodeId === "") return null;
+
+  const rootId = String(outputNodeId);
+  if (!Object.prototype.hasOwnProperty.call(prompt, rootId)) return null;
+
+  const ancestors = new Set();
+  const queue = [rootId];
+  for (let index = 0; index < queue.length; index++) {
+    const nodeId = queue[index];
+    if (ancestors.has(nodeId)) continue;
+    ancestors.add(nodeId);
+
+    const node = prompt[nodeId];
+    for (const value of Object.values(node?.inputs || {})) {
+      const references = isPromptLink(value)
+        ? [value]
+        : Array.isArray(value)
+          ? value.filter((child) => isPromptLink(child))
+          : [];
+      for (const reference of references) {
+        const linkedId = String(reference[0]);
+        if (!ancestors.has(linkedId)) queue.push(linkedId);
+      }
+    }
+  }
+
+  return ancestors;
+}
+
+function promptTraversalKey(kind, reference, forceText = false, polarity = "") {
+  return [
+    kind,
+    String(reference?.[0] ?? ""),
+    String(reference?.[1] ?? ""),
+    polarity,
+    forceText ? "forced" : "typed",
+  ].join(":");
+}
+
 export function isPromptStringCombinerNode(node) {
   return /string.*(function|concat|join|combine|format)|(concat|join|combine|format).*string|text.*(concat|join|combine|format)|(concat|join|combine|format).*text/i
     .test(promptNodeClass(node));
@@ -158,8 +199,9 @@ export function collectPromptUserInputTexts(prompt, reference, visited = new Set
   if (!prompt || !isPromptLink(reference)) return [];
 
   const nodeId = String(reference[0]);
-  if (visited.has(nodeId)) return [];
-  visited.add(nodeId);
+  const visitKey = promptTraversalKey("user", reference);
+  if (visited.has(visitKey)) return [];
+  visited.add(visitKey);
 
   const node = prompt[nodeId];
   if (!node || isPromptSystemNode(node, nodeId)) return [];
@@ -410,8 +452,9 @@ export function collectPromptNodeTexts(prompt, reference, visited = new Set(), f
   if (!prompt || !isPromptLink(reference)) return [];
 
   const nodeId = String(reference[0]);
-  if (visited.has(nodeId)) return [];
-  visited.add(nodeId);
+  const visitKey = promptTraversalKey("prompt", reference, forceText, polarity);
+  if (visited.has(visitKey)) return [];
+  visited.add(visitKey);
 
   const node = prompt[nodeId];
   const inputs = node?.inputs || {};
@@ -444,7 +487,7 @@ export function collectPromptNodeTexts(prompt, reference, visited = new Set(), f
       texts.push(...collectPromptNodeTexts(prompt, value, visited, isTextInput || Boolean(selectedSwitchInputName), polarity));
     } else if (Array.isArray(value)) {
       for (const child of value) {
-        if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, forceText || Boolean(selectedSwitchInputName), polarity));
+        if (isPromptLink(child)) texts.push(...collectPromptNodeTexts(prompt, child, visited, isTextInput || Boolean(selectedSwitchInputName), polarity));
         else if ((forceText || textCarrier) && isTextInput) texts.push(...collectStringValues(child));
       }
     } else if ((forceText || textCarrier) && isTextInput) {
@@ -455,16 +498,18 @@ export function collectPromptNodeTexts(prompt, reference, visited = new Set(), f
   return uniqueNonEmpty(texts);
 }
 
-export function extractFromPromptGraph(prompt) {
+export function extractFromPromptGraph(prompt, context = null) {
   if (!prompt || typeof prompt !== "object" || Array.isArray(prompt)) return {};
 
   const positives = [];
   const negatives = [];
+  const allowedNodeIds = promptAncestorNodeIds(prompt, context?.outputNodeId);
   const seedEntries = collectPromptSeedEntries(prompt);
   const resources = collectPromptResourceEntries(prompt);
   const details = collectPromptMetadataEntries(prompt);
 
-  for (const node of Object.values(prompt)) {
+  for (const [nodeId, node] of Object.entries(prompt)) {
+    if (allowedNodeIds && !allowedNodeIds.has(String(nodeId))) continue;
     const inputs = node?.inputs || {};
     if (inputs.positive && inputs.negative) {
       if (!/sampler/i.test(promptNodeClass(node)) && !isPromptLink(inputs.positive)) continue;
@@ -485,5 +530,6 @@ export function extractFromPromptGraph(prompt) {
     resources,
     details,
     source: seedEntries.length || positives.length || negatives.length || resources.length || details.length ? "prompt" : "",
+    outputScoped: Boolean(allowedNodeIds),
   };
 }

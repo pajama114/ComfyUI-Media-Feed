@@ -14,16 +14,19 @@ import {
   extractFromWorkflowDefinitions,
 } from "./workflow_graph.js";
 
-export function extractPromptMetadata(chunks) {
+export function extractPromptMetadata(chunks, context = null) {
   const workflow = parseJsonMetadata(chunks.workflow || chunks.Workflow);
   const prompt = parseJsonMetadata(chunks.prompt || chunks.Prompt) || parseJsonMetadata(workflow?.extra?.prompt);
   const fromChunks = extractFromLooseMetadata(chunks);
-  const fromPrompt = extractFromPromptGraph(prompt);
-  const fromWorkflow = extractFromWorkflowGraph(workflow);
-  const fromDefinitions = extractFromWorkflowDefinitions(workflow);
+  const fromPrompt = extractFromPromptGraph(prompt, context);
+  const fromWorkflow = extractFromWorkflowGraph(workflow, context);
+  const fromDefinitions = extractFromWorkflowDefinitions(workflow, context);
+  const graphSources = [fromPrompt, fromWorkflow, fromDefinitions];
+  const scopedGraphSources = graphSources.filter((source) => source.outputScoped);
+  const promptSources = scopedGraphSources.length ? scopedGraphSources : graphSources;
   const seed = fromPrompt.seed || fromWorkflow.seed || fromDefinitions.seed || fromChunks.seed || "";
-  const positive = fromPrompt.positive || fromWorkflow.positive || fromDefinitions.positive || "";
-  const negative = fromPrompt.negative || fromWorkflow.negative || fromDefinitions.negative || "";
+  const positive = promptSources.find((source) => source.positive)?.positive || "";
+  const negative = promptSources.find((source) => source.negative)?.negative || "";
   const workflowResources = formatResourceEntries([
     ...(fromWorkflow.resources || []),
     ...(fromDefinitions.resources || []),
@@ -88,4 +91,3 @@ function collectEmbeddedJson(chunks) {
 
   return entries;
 }
-

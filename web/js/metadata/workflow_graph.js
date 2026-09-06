@@ -10,11 +10,13 @@ import {
 } from "./graph_shared.js";
 import {
   workflowNodeType,
+  workflowNodeId,
   workflowInputIsText,
   isWorkflowTextCarrierNode,
   workflowInputLink,
   buildWorkflowMaps,
   workflowLinkOrigin,
+  workflowAncestorNodeIds,
   workflowNodeHasPolarityInputs,
   isWorkflowSystemNode,
   isWorkflowConditioningZeroNode,
@@ -26,6 +28,7 @@ import {
   isWorkflowSubgraphInputOrigin,
   collectWorkflowExternalInputTexts,
   collectWorkflowTextGenerationInputTexts,
+  workflowInputNameForOutput,
 } from "./workflow_structure.js";
 import {
   collectWorkflowSeedEntries,
@@ -54,9 +57,32 @@ export function collectWorkflowMetadataEntries(workflow, maps = buildWorkflowMap
   return entries;
 }
 
-export function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forceText = false, polarity = "", context = null) {
-  if (!nodeId || visited.has(nodeId)) return [];
-  visited.add(nodeId);
+function workflowPromptTraversalKey(maps, origin, forceText, polarity) {
+  return [
+    "prompt",
+    String(maps?.scopeKey || "root"),
+    String(origin?.originId || ""),
+    String(origin?.originSlot ?? ""),
+    String(origin?.outputName || "").toLowerCase(),
+    polarity,
+    forceText ? "forced" : "typed",
+  ].join(":");
+}
+
+export function collectWorkflowNodeTexts(originOrNodeId, maps, visited = new Set(), forceText = false, polarity = "", context = null) {
+  const origin = originOrNodeId && typeof originOrNodeId === "object"
+    ? originOrNodeId
+    : { originId: originOrNodeId };
+  const nodeId = String(origin?.originId || "");
+  if (!nodeId) return [];
+
+  const outputPolarity = origin.outputName === "positive" || origin.outputName === "negative"
+    ? origin.outputName
+    : "";
+  const activePolarity = outputPolarity || polarity;
+  const visitKey = workflowPromptTraversalKey(maps, origin, forceText, activePolarity);
+  if (visited.has(visitKey)) return [];
+  visited.add(visitKey);
 
   const node = maps.nodeMap.get(String(nodeId));
   if (!node) return [];
@@ -66,15 +92,20 @@ export function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forc
   const texts = [];
   const textCarrier = isWorkflowTextCarrierNode(node);
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
+  const outputInputName = workflowInputNameForOutput(node, origin);
   const linkedTextInput = workflowNodeHasLinkedTextInput(node);
   if ((forceText || textCarrier) && !linkedTextInput) {
-    const directTexts = workflowTextInputs(node)
+    const directTextInputs = outputInputName
+      ? workflowTextInputs(node).filter((input) => input?.name === outputInputName)
+      : workflowTextInputs(node);
+    const directTexts = directTextInputs
       .flatMap((input) => collectWidgetStringValues(workflowInputValue(node, input)));
     texts.push(...(directTexts.length ? directTexts : collectWidgetStringValues(node.widgets_values || [])));
   }
 
   for (const input of node.inputs || []) {
     if (selectedSwitchInputName && input.name !== selectedSwitchInputName) continue;
+    if (!selectedSwitchInputName && outputInputName && input.name !== outputInputName) continue;
 
     const isTextInput = workflowInputIsText(input, node);
     if (input?.link === undefined || input?.link === null) {
@@ -86,25 +117,25 @@ export function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forc
     if (textCarrier && !isTextInput && !isWorkflowTextPassthroughNode(node)) continue;
 
     if (
-      polarity
+      activePolarity
       && workflowNodeHasPolarityInputs(node)
-      && input.name !== polarity
+      && input.name !== activePolarity
     ) {
       continue;
     }
 
-    const origin = workflowLinkOrigin(maps, input.link);
-    if (!origin) continue;
-    if (isWorkflowSubgraphInputOrigin(origin)) {
-      texts.push(...collectWorkflowExternalInputTexts(origin, maps, new Set(visited), context));
+    const inputOrigin = workflowLinkOrigin(maps, input.link);
+    if (!inputOrigin) continue;
+    if (isWorkflowSubgraphInputOrigin(inputOrigin)) {
+      texts.push(...collectWorkflowExternalInputTexts(inputOrigin, maps, new Set(visited), context));
       continue;
     }
 
-    const nextPolarity = origin.outputName === "positive" || origin.outputName === "negative"
-      ? origin.outputName
-      : polarity;
+    const nextPolarity = inputOrigin.outputName === "positive" || inputOrigin.outputName === "negative"
+      ? inputOrigin.outputName
+      : activePolarity;
     const nextForceText = isTextInput || Boolean(selectedSwitchInputName) || (textCarrier && isWorkflowTextPassthroughNode(node));
-    texts.push(...collectWorkflowNodeTexts(origin.originId, maps, visited, nextForceText, nextPolarity, context));
+    texts.push(...collectWorkflowNodeTexts(inputOrigin, maps, visited, nextForceText, nextPolarity, context));
   }
 
   return uniqueNonEmpty(texts);
@@ -113,28 +144,32 @@ export function collectWorkflowNodeTexts(nodeId, maps, visited = new Set(), forc
 export function extractFromWorkflowGraph(workflow, context = null) {
   if (!workflow || typeof workflow !== "object") return {};
 
-  const maps = buildWorkflowMaps(workflow);
+  const maps = buildWorkflowMaps(workflow, context?.scopeKey || "root");
   const positives = [];
   const negatives = [];
+  const allowedNodeIds = context?.allowedNodeIds instanceof Set
+    ? context.allowedNodeIds
+    : workflowAncestorNodeIds(maps, context?.outputNodeId);
   const seedEntries = collectWorkflowSeedEntries(workflow, maps);
   const resources = collectWorkflowResourceEntries(workflow, maps, context);
   const details = collectWorkflowMetadataEntries(workflow, maps);
 
   for (const node of maps.nodes) {
+    if (allowedNodeIds && !allowedNodeIds.has(workflowNodeId(node))) continue;
     const positiveLink = workflowInputLink(node, "positive");
     const negativeLink = workflowInputLink(node, "negative");
     if (positiveLink && negativeLink) {
       const positiveOrigin = workflowLinkOrigin(maps, positiveLink);
       const negativeOrigin = workflowLinkOrigin(maps, negativeLink);
-      positives.push(...collectWorkflowNodeTexts(positiveOrigin?.originId, maps, new Set(), true, "positive", context));
-      negatives.push(...collectWorkflowNodeTexts(negativeOrigin?.originId, maps, new Set(), true, "negative", context));
+      positives.push(...collectWorkflowNodeTexts(positiveOrigin, maps, new Set(), true, "positive", context));
+      negatives.push(...collectWorkflowNodeTexts(negativeOrigin, maps, new Set(), true, "negative", context));
       continue;
     }
 
     const conditioningLink = workflowInputLink(node, "conditioning");
     if (!conditioningLink || !/guider|guidance/i.test(workflowNodeType(node))) continue;
     const conditioningOrigin = workflowLinkOrigin(maps, conditioningLink);
-    positives.push(...collectWorkflowNodeTexts(conditioningOrigin?.originId, maps, new Set(), true, "positive", context));
+    positives.push(...collectWorkflowNodeTexts(conditioningOrigin, maps, new Set(), true, "positive", context));
   }
 
   return {
@@ -144,6 +179,7 @@ export function extractFromWorkflowGraph(workflow, context = null) {
     resources,
     details,
     source: seedEntries.length || positives.length || negatives.length || resources.length || details.length ? "workflow" : "",
+    outputScoped: Boolean(allowedNodeIds),
   };
 }
 
@@ -174,6 +210,70 @@ export function appendWorkflowExtraction(target, result) {
   target.details.push(...(result.details || []));
 }
 
+function workflowUsedOutputSlots(node, maps, allowedNodeIds) {
+  if (!(allowedNodeIds instanceof Set)) return null;
+
+  const slots = new Set();
+  (node?.outputs || []).forEach((output, slot) => {
+    const linkIds = Array.isArray(output?.links)
+      ? output.links
+      : output?.links === undefined || output?.links === null
+        ? []
+        : [output.links];
+    const used = linkIds.some((linkId) => (
+      (maps.consumerMap.get(String(linkId)) || [])
+        .some((consumer) => allowedNodeIds.has(String(consumer.targetId)))
+    ));
+    if (used) slots.add(slot);
+  });
+
+  return slots.size ? slots : null;
+}
+
+function workflowSubgraphOutputLinkIds(subgraph, outputSlots) {
+  const linkIds = new Set();
+  const outputs = Array.isArray(subgraph?.outputs) ? subgraph.outputs : [];
+  const selectedSlots = outputSlots instanceof Set && outputSlots.size
+    ? outputSlots
+    : new Set(outputs.map((_, slot) => slot));
+
+  for (const slot of selectedSlots) {
+    const output = outputs[Number(slot)];
+    const outputLinks = Array.isArray(output?.linkIds)
+      ? output.linkIds
+      : output?.linkIds === undefined || output?.linkIds === null
+        ? []
+        : [output.linkIds];
+    for (const linkId of outputLinks) linkIds.add(String(linkId));
+  }
+
+  if (linkIds.size) return linkIds;
+
+  for (const link of subgraph?.links || []) {
+    const id = Array.isArray(link) ? link[0] : link?.id ?? link?.link_id;
+    const targetId = Array.isArray(link) ? link[3] : link?.target_id ?? link?.targetId ?? link?.to_node_id;
+    const targetSlot = Array.isArray(link) ? link[4] : link?.target_slot ?? link?.targetSlot ?? link?.to_slot ?? link?.to_socket;
+    if (id === undefined || String(targetId) !== "-20") continue;
+    if (outputSlots instanceof Set && outputSlots.size && !outputSlots.has(Number(targetSlot))) continue;
+    linkIds.add(String(id));
+  }
+
+  return linkIds;
+}
+
+function workflowSubgraphAncestorNodeIds(subgraph, outputSlots, scopeKey) {
+  const maps = buildWorkflowMaps(subgraph, scopeKey);
+  const ancestors = new Set();
+
+  for (const linkId of workflowSubgraphOutputLinkIds(subgraph, outputSlots)) {
+    const origin = workflowLinkOrigin(maps, linkId);
+    const branchAncestors = workflowAncestorNodeIds(maps, origin?.originId);
+    for (const nodeId of branchAncestors || []) ancestors.add(nodeId);
+  }
+
+  return ancestors.size ? ancestors : null;
+}
+
 export function extractFromWorkflowDefinitions(workflow, context = null, availableSubgraphs = null, visited = new Set()) {
   const subgraphs = mergeWorkflowSubgraphDefinitions(
     workflowSubgraphDefinitions(workflow),
@@ -181,7 +281,10 @@ export function extractFromWorkflowDefinitions(workflow, context = null, availab
   );
   if (!subgraphs.length) return {};
 
-  const parentMaps = buildWorkflowMaps(workflow);
+  const parentMaps = buildWorkflowMaps(workflow, context?.scopeKey || "root");
+  const allowedParentNodeIds = context?.allowedNodeIds instanceof Set
+    ? context.allowedNodeIds
+    : workflowAncestorNodeIds(parentMaps, context?.outputNodeId);
   const collected = {
     seeds: [],
     positives: [],
@@ -194,14 +297,21 @@ export function extractFromWorkflowDefinitions(workflow, context = null, availab
     const subgraphId = String(subgraph?.id || "");
     if (!subgraphId || visited.has(subgraphId)) continue;
 
-    const parentNodes = parentMaps.nodes.filter((node) => workflowNodeType(node) === subgraphId);
+    const parentNodes = parentMaps.nodes.filter((node) => (
+      workflowNodeType(node) === subgraphId
+      && (!allowedParentNodeIds || allowedParentNodeIds.has(workflowNodeId(node)))
+    ));
     if (!parentNodes.length) continue;
 
     for (const parentNode of parentNodes) {
+      const childScopeKey = `${parentMaps.scopeKey}/subgraph:${subgraphId}@${workflowNodeId(parentNode)}`;
+      const outputSlots = workflowUsedOutputSlots(parentNode, parentMaps, allowedParentNodeIds);
       const childContext = {
         externalNode: parentNode,
         externalMaps: parentMaps,
         parentContext: context,
+        scopeKey: childScopeKey,
+        allowedNodeIds: workflowSubgraphAncestorNodeIds(subgraph, outputSlots, childScopeKey),
       };
       const nextVisited = new Set(visited);
       nextVisited.add(subgraphId);
@@ -221,5 +331,6 @@ export function extractFromWorkflowDefinitions(workflow, context = null, availab
     resources: formatResourceEntries(collected.resources),
     details: collected.details,
     source: collected.seeds.length || collected.positives.length || collected.negatives.length || collected.resources.length || collected.details.length ? "workflow" : "",
+    outputScoped: Boolean(allowedParentNodeIds),
   };
 }

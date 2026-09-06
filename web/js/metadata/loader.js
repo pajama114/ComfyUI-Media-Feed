@@ -80,13 +80,16 @@ export async function loadPromptMetadata(item, options = {}) {
   }
 
   const cacheGeneration = promptMetadataCacheGeneration;
+  const extractionContext = {
+    outputNodeId: item.nodeId,
+  };
   const request = (async () => {
     const extension = getExtension(item.filename);
     const result = !supportsPromptMetadata(extension)
       ? unsupportedMetadataResult()
       : fullScan
-        ? await scanFullMetadata(item.url, extension)
-        : await scanMetadataRanges(item.url, extension);
+        ? await scanFullMetadata(item.url, extension, extractionContext)
+        : await scanMetadataRanges(item.url, extension, extractionContext);
     return cacheGeneration === promptMetadataCacheGeneration
       ? rememberPromptMetadata(cacheKey, result)
       : result;
@@ -213,15 +216,15 @@ async function parseMetadataBytes(bytes, extension) {
   return parseAudioTextMetadata(bytes, extension);
 }
 
-async function scanFullMetadata(url, extension) {
+async function scanFullMetadata(url, extension, extractionContext = null) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch media metadata: ${response.status}`);
 
   const chunks = await parseMetadataBytes(new Uint8Array(await response.arrayBuffer()), extension);
-  return extractPromptMetadata(chunks);
+  return extractPromptMetadata(chunks, extractionContext);
 }
 
-async function scanMetadataRanges(url, extension) {
+async function scanMetadataRanges(url, extension, extractionContext = null) {
   const firstRange = await fetchRange(url, 0, RANGE_CHUNK_BYTES - 1);
   if (firstRange.requiresFullScan) {
     return emptyMetadataResult(
@@ -232,7 +235,7 @@ async function scanMetadataRanges(url, extension) {
 
   const leadingParts = [firstRange.bytes];
   let leadingChunks = await parseMetadataBytes(leadingParts[0], extension);
-  let result = extractPromptMetadata(leadingChunks);
+  let result = extractPromptMetadata(leadingChunks, extractionContext);
   if (metadataFound(result) || firstRange.complete) return result;
 
   const scanLimit = firstRange.total === null
@@ -245,7 +248,7 @@ async function scanMetadataRanges(url, extension) {
 
     leadingParts.push(nextRange.bytes);
     leadingChunks = await parseMetadataBytes(appendBytes(leadingParts), extension);
-    result = extractPromptMetadata(leadingChunks);
+    result = extractPromptMetadata(leadingChunks, extractionContext);
     if (metadataFound(result) || nextRange.complete) return result;
     nextOffset += nextRange.bytes.length;
   }
@@ -256,7 +259,7 @@ async function scanMetadataRanges(url, extension) {
       const tailRange = await fetchRange(url, tailStart, firstRange.total - 1);
       if (!tailRange.requiresFullScan) {
         const tailChunks = await parseMetadataBytes(tailRange.bytes, extension);
-        result = extractPromptMetadata(mergeChunks(leadingChunks, tailChunks));
+        result = extractPromptMetadata(mergeChunks(leadingChunks, tailChunks), extractionContext);
         if (metadataFound(result)) return result;
       }
     }
@@ -267,4 +270,3 @@ async function scanMetadataRanges(url, extension) {
     { requiresFullScan: true },
   );
 }
-
