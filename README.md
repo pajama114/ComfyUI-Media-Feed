@@ -6,9 +6,9 @@ and audio in ComfyUI.
 ## Preview
 
 <p>
-  <img src="sample1.png" alt="Media Feed preview showing metadata" width="55%">
-  <img src="sample2.png" alt="Media Feed preview showing generated images" width="55%">
-  <img src="sample3.png" alt="Media Feed preview showing generated images" width="55%">
+  <img src="sample1.png" alt="Media Feed preview showing generated images" width="60%">
+  <img src="sample2.png" alt="Media Feed preview showing generated images" width="60%">
+  <img src="sample3.png" alt="Media Feed preview showing metadata" width="60%">
 </p>
 
 Generated media appears in a fixed panel on the chosen edge of the canvas.
