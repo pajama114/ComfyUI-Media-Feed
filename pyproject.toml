@@ -1,6 +1,6 @@
 [project]
 name = "media-feed"
-version = "1.0.0"
+version = "1.1.0"
 description = "A lightweight in-session feed for newly generated ComfyUI images, videos, and audio."
 readme = "README.md"
 requires-python = ">=3.10"
