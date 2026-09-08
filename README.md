@@ -1,7 +1,8 @@
 # Media Feed for ComfyUI
 
-Media Feed adds a lightweight, in-session browser for generated images, videos,
-and audio in ComfyUI.
+**A media feed for ComfyUI that shows your generated images, videos, and audio right inside the canvas.**
+
+Browse recent outputs, inspect metadata, compare generations, and save favorites without opening the output folder.
 
 ## Preview
 
@@ -13,7 +14,20 @@ and audio in ComfyUI.
 
 Generated media appears in a fixed panel on the chosen edge of the canvas.
 
-## Features
+## Key Features
+
+- **All your generated media in one feed** — Browse images, videos, and audio
+  directly inside ComfyUI.
+- **Full-screen media viewer** — Inspect images with zoom and pan, play videos
+  and audio, and navigate between outputs.
+- **Generation metadata at a glance** — View and copy embedded prompts, seeds,
+  model details, and other available generation settings.
+- **One-click favorites** — Save copies of your favorite outputs to
+  `output/favorites` with the star button.
+- **A feed that fits your workspace** — Choose its canvas edge, resize
+  thumbnails, and automatically follow new generations.
+
+## Detailed Features
 
 - Shows newly generated images, videos, and audio in one feed, with filters for
   each media type.
@@ -113,7 +127,11 @@ are cached after decoding.
 
 ## Install
 
-Install through ComfyUI Manager once this extension is published.
+#### ComfyUI Manager
+
+Search for **Media Feed** in ComfyUI Manager and install it.
+
+#### Manual
 
 For manual installation, clone this repository into `ComfyUI/custom_nodes`:
 
