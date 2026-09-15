@@ -64,6 +64,38 @@ test("collectMedia walks nested outputs, deduplicates files, and reuses the view
   assert.doesNotMatch(items[0].url, /[?&](?:v|t|cache)=/i);
 });
 
+test("collectMedia excludes input previews while retaining generated and temporary media", () => {
+  const { actions } = createContext();
+  assert.deepEqual(actions.collectMedia({
+    images: [{ filename: "meruru2.mp4", subfolder: "", type: "input" }],
+  }, "prompt", 299), []);
+
+  const items = actions.collectMedia({
+    images: [
+      { filename: "reference.png", type: "input" },
+      { filename: "result.png", type: "output" },
+    ],
+    nested: {
+      videos: [
+        { filename: "edited.mp4", type: "input" },
+        { filename: "edited.mp4", type: "output" },
+        { filename: "preview.mp4", type: "temp" },
+      ],
+      audio: [
+        { filename: "reference.wav", type: "input" },
+        { filename: "generated.wav" },
+      ],
+    },
+  }, "prompt", 92);
+
+  assert.deepEqual(items.map(({ filename, type }) => [filename, type]), [
+    ["result.png", "output"],
+    ["edited.mp4", "output"],
+    ["preview.mp4", "temp"],
+    ["generated.wav", "output"],
+  ]);
+});
+
 test("addItems replaces duplicates and keeps the feed bounded at the default 256 items", () => {
   const context = createContext();
   const { actions, state } = context;

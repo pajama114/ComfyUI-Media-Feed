@@ -94,7 +94,8 @@ export function installMediaItems(context) {
   
       if (typeof value !== "object") return;
   
-      if (typeof value.filename === "string") {
+      // Load nodes can emit UI previews of input files through executed events.
+      if (typeof value.filename === "string" && value.type !== "input") {
         const kind = getMediaKind(value.filename, parentKey);
         if (kind) {
           const file = {
