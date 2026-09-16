@@ -292,7 +292,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     }
 
     .cmf-card:hover .cmf-card-favorite,
-    .cmf-card:focus-within .cmf-card-favorite,
+    .cmf-card:focus-visible .cmf-card-favorite,
     .cmf-card-favorite:focus-visible {
       opacity: 0.72;
       transform: translateY(0);
