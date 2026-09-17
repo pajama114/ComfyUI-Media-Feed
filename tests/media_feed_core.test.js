@@ -480,10 +480,11 @@ test("Fit scale is applied to fitted media dimensions", () => {
     video.videoWidth = 1000;
     video.videoHeight = 500;
     video.style = { setProperty(name, value) { this[name] = value; } };
+    let displayedMedia = video;
     const media = {
       dataset: {},
       getBoundingClientRect: () => ({ width: 800, height: 600 }),
-      querySelector: (selector) => selector.startsWith("audio") ? null : video,
+      querySelector: (selector) => selector.startsWith("audio") ? null : displayedMedia,
     };
     const button = () => ({ disabled: false, setAttribute() {} });
     const context = {
@@ -514,11 +515,12 @@ test("Fit scale is applied to fitted media dimensions", () => {
 
     assert.equal(video.style.width, "600px");
     assert.equal(video.style.height, "300px");
-    assert.equal(context.runtime.viewer.zoomLevel.textContent, "Fit (75%)");
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "60%");
 
     context.runtime.viewer.imageZoom = 2;
     context.actions.updateViewerImageLayout();
     assert.equal(video.style.width, "1200px");
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "120%");
     assert.equal(media.dataset.pannable, "false");
 
     context.runtime.viewer.comparing = true;
@@ -527,6 +529,32 @@ test("Fit scale is applied to fitted media dimensions", () => {
     context.actions.updateViewerImageLayout();
     assert.equal(video.style.width, "600px");
     assert.equal(video.style["--cmf-image-zoom"], "2");
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "120%");
+
+    context.runtime.viewer.imageBaseMode = "native";
+    context.runtime.viewer.imageZoom = 1;
+    context.actions.updateViewerImageLayout();
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "100%");
+    context.runtime.viewer.imageZoom = 2;
+    context.actions.updateViewerImageLayout();
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "200%");
+
+    const image = new MockImageElement();
+    image.dataset = { mediaItemKey: "image-1" };
+    image.naturalWidth = 2000;
+    image.naturalHeight = 1000;
+    image.offsetWidth = 600;
+    image.offsetHeight = 300;
+    image.style = { setProperty(name, value) { this[name] = value; } };
+    displayedMedia = image;
+    context.runtime.viewer.item = { key: "image-1", kind: "image" };
+    context.runtime.viewer.imageBaseMode = "fit";
+    context.runtime.viewer.imageZoom = 4;
+    context.runtime.viewer.comparing = false;
+    context.actions.updateViewerImageLayout();
+    assert.equal(image.style.width, "600px");
+    assert.equal(image.style["--cmf-image-zoom"], "4");
+    assert.equal(context.runtime.viewer.zoomLevel.textContent, "120%");
   } finally {
     if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
     else globalThis.HTMLElement = originalHTMLElement;
@@ -541,6 +569,7 @@ test("Fit scale is applied to fitted media dimensions", () => {
 
 test("viewer zoom controls stay enabled while the next scalable item loads", () => {
   const previousImage = { dataset: { mediaItemKey: "image-old" } };
+  let displayedMedia = previousImage;
   const button = () => ({ disabled: true, setAttribute() {} });
   const context = {
     app: {},
@@ -551,7 +580,7 @@ test("viewer zoom controls stay enabled while the next scalable item loads", () 
       viewer: {
         item: { key: "image-new", kind: "image" },
         media: {
-          querySelector: () => previousImage,
+          querySelector: () => displayedMedia,
         },
         imageBaseMode: "fit",
         imageZoom: 1,
@@ -560,7 +589,7 @@ test("viewer zoom controls stay enabled while the next scalable item loads", () 
         zoomOutButton: button(),
         zoomInButton: button(),
         zoomControls: { hidden: true },
-        zoomLevel: { textContent: "" },
+        zoomLevel: { textContent: "60%" },
       },
     },
     actions: { setScaleViewerMedia() {}, closeViewer() {} },
@@ -573,6 +602,11 @@ test("viewer zoom controls stay enabled while the next scalable item loads", () 
   assert.equal(context.runtime.viewer.fitButton.disabled, false);
   assert.equal(context.runtime.viewer.nativeButton.disabled, false);
   assert.equal(context.runtime.viewer.zoomInButton.disabled, false);
+  assert.equal(context.runtime.viewer.zoomLevel.textContent, "60%");
+
+  displayedMedia = null;
+  context.actions.updateViewerImageControls(null);
+  assert.equal(context.runtime.viewer.zoomLevel.textContent, "—");
 });
 
 test("virtualization bounds include overscan without escaping the item list", () => {

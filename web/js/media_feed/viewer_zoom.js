@@ -51,7 +51,7 @@ export function installViewerZoom(context) {
     return !isFitAtBaseZoom && (bounds.x > 0 || bounds.y > 0);
   }
   
-  function updateViewerImageControls(media = getViewerScalableMedia()) {
+  function updateViewerImageControls(media = getViewerScalableMedia(), displayScale) {
     if (!runtime.viewer) return;
     const isScalableItem = runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
     // Keep the controls visually stable while the next image or video is
@@ -71,9 +71,14 @@ export function installViewerZoom(context) {
     runtime.viewer.nativeButton.disabled = !hasMedia;
     runtime.viewer.zoomOutButton.disabled = !hasMedia || runtime.viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
     runtime.viewer.zoomInButton.disabled = !hasMedia || runtime.viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
-    runtime.viewer.zoomLevel.textContent = runtime.viewer.imageBaseMode === "fit" && isBaseZoom
-      ? `Fit (${state.viewerFitScale}%)`
-      : `${Math.round(runtime.viewer.imageZoom * 100)}%`;
+    if (media && Number.isFinite(displayScale) && displayScale > 0) {
+      const percent = displayScale * 100;
+      const precision = percent < 1 ? 2 : percent < 10 ? 1 : 0;
+      const label = `${Number(percent.toFixed(precision))}%`;
+      if (runtime.viewer.zoomLevel.textContent !== label) runtime.viewer.zoomLevel.textContent = label;
+    } else if (!displayedScalableMedia && runtime.viewer.zoomLevel.textContent !== "—") {
+      runtime.viewer.zoomLevel.textContent = "—";
+    }
   }
   
   function updateViewerImageLayout() {
@@ -113,7 +118,7 @@ export function installViewerZoom(context) {
     if (normalVideo) {
       runtime.viewer.media.dataset.pannable = "false";
       runtime.viewer.media.dataset.dragging = "false";
-      updateViewerImageControls(media);
+      updateViewerImageControls(media, baseScale * runtime.viewer.imageZoom);
       return;
     }
   
@@ -124,7 +129,7 @@ export function installViewerZoom(context) {
     image.style.setProperty("--cmf-image-pan-y", `${runtime.viewer.imagePanY}px`);
     runtime.viewer.media.dataset.pannable = String(canPanViewerImage(bounds));
     runtime.viewer.media.dataset.dragging = String(Boolean(runtime.viewer.imageDrag));
-    updateViewerImageControls(image);
+    updateViewerImageControls(image, baseScale * runtime.viewer.imageZoom);
   }
   
   function resetViewerImageView(baseMode = runtime.viewer?.imageBaseMode || "native") {

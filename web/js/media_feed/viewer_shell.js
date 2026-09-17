@@ -55,7 +55,7 @@ export function installViewerShell(context) {
             <button class="cmf-button cmf-viewer-zoom-text cmf-viewer-native" type="button" title="Actual size" aria-label="Actual size" aria-pressed="false">1:1</button>
           </div>
           <button class="cmf-button cmf-icon-button cmf-viewer-zoom-out" type="button" title="Zoom out" aria-label="Zoom out">${ICONS.zoomOut}</button>
-          <output class="cmf-viewer-zoom-level" aria-live="polite">Fit</output>
+          <output class="cmf-viewer-zoom-level" aria-live="polite">—</output>
           <button class="cmf-button cmf-icon-button cmf-viewer-zoom-in" type="button" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
         </div>
         <button class="cmf-button cmf-icon-button cmf-viewer-favorite" type="button" title="Add to favorites" aria-label="Add to favorites" aria-pressed="false">${ICONS.star}</button>
