@@ -30,6 +30,7 @@ export function installFeedView(context) {
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const createCard = (...args) => actions.createCard(...args);
   const createBatchCard = (...args) => actions.createBatchCard(...args);
+  const updateBatchCard = (...args) => actions.updateBatchCard(...args);
   const clearSessionItems = (...args) => actions.clearSessionItems(...args);
   function isBatchBoundary(item, nextItem) {
     const batchId = String(item?.promptId || "");
@@ -324,6 +325,7 @@ export function installFeedView(context) {
   
   function destroyCard(card) {
     if (!card) return;
+    if (card.batch) card.batchRenderRequestId++;
     card.deactivateAudioWaveform?.();
     card.thumbnailResizeObserver?.disconnect();
     for (const media of card.querySelectorAll("video, audio")) discardStagedMedia(media);
@@ -367,8 +369,12 @@ export function installFeedView(context) {
     if (!card) return null;
     view.cardCache.delete(id);
     if (card.dataset.entrySignature !== entrySignature(entry)) {
-      destroyCard(card);
-      return null;
+      if (!card.batch || entry.kind !== "batch") {
+        destroyCard(card);
+        return null;
+      }
+      card.dataset.entrySignature = entrySignature(entry);
+      void updateBatchCard(card, entry);
     }
     if (card.favoriteButton) syncFavoriteButton(card.favoriteButton, entry);
     if (card.thumbnailResizeObserver && card.thumbnailPreview) {
@@ -404,9 +410,14 @@ export function installFeedView(context) {
   
       let card = view.cards.get(item.id);
       if (card && card.dataset.entrySignature !== entrySignature(item)) {
-        destroyCard(card);
-        view.cards.delete(item.id);
-        card = null;
+        if (card.batch && item.kind === "batch") {
+          card.dataset.entrySignature = entrySignature(item);
+          void updateBatchCard(card, item);
+        } else {
+          destroyCard(card);
+          view.cards.delete(item.id);
+          card = null;
+        }
       }
       if (!card) {
         card = takeCachedCard(view, item.id, item) || (item.kind === "batch" ? createBatchCard(item) : createCard(item));

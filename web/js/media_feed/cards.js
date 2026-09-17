@@ -8,6 +8,7 @@ export function installCards(context) {
 
   const formatMediaDuration = (...args) => actions.formatMediaDuration(...args);
   const rememberDecodedImage = (...args) => actions.rememberDecodedImage(...args);
+  const decodeImageElement = (...args) => actions.decodeImageElement(...args);
   const rememberMediaDimensions = (...args) => actions.rememberMediaDimensions(...args);
   const openViewer = (...args) => actions.openViewer(...args);
   const fitThumbnailMedia = (...args) => actions.fitThumbnailMedia(...args);
@@ -169,65 +170,108 @@ export function installCards(context) {
     return card;
   }
 
+  function createBatchThumbnailCell(item) {
+    const cell = document.createElement("div");
+    cell.className = "cmf-batch-thumbnail-cell";
+    cell.dataset.mediaItemKey = item.key;
+    cell.dataset.mediaUrl = item.url;
+    if (item.kind === "image") {
+      const image = document.createElement("img");
+      image.alt = "";
+      image.decoding = "async";
+      image.loading = "eager";
+      image.addEventListener("load", () => rememberDecodedImage(item.url, image), { once: true });
+      image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
+      image.src = item.url;
+      cell.append(image);
+    } else if (item.kind === "video") {
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.src = item.url;
+      video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
+      cell.addEventListener("mouseenter", () => {
+        if (window.matchMedia?.("(hover: hover)").matches === false) return;
+        video.muted = true;
+        video.play().catch(() => {});
+      });
+      cell.addEventListener("mouseleave", () => {
+        video.pause();
+        try { video.currentTime = 0; } catch { /* Metadata may still be loading. */ }
+      });
+      cell.append(video);
+    } else {
+      cell.classList.add("cmf-batch-audio-cell");
+      cell.innerHTML = ICONS.music;
+    }
+    return cell;
+  }
+
+  function setBatchThumbnailMore(cells, count) {
+    for (const cell of cells) cell.querySelector(".cmf-batch-more")?.remove();
+    if (count <= 4 || cells.length < 4) return;
+    const more = document.createElement("span");
+    more.className = "cmf-batch-more";
+    more.textContent = `+${count - 4}`;
+    cells[3].append(more);
+  }
+
+  async function updateBatchCard(card, batch) {
+    const requestId = ++card.batchRenderRequestId;
+    card.batch = batch;
+    card.setAttribute("aria-label", `Open batch of ${batch.items.length} media`);
+    card.title = `${batch.items.length} media in batch`;
+    const grid = card.querySelector(".cmf-batch-thumbnail-grid");
+    const existingCells = new Map([...grid.children].map((cell) => [cell.dataset.mediaItemKey, cell]));
+    const imageLoads = [];
+    const cells = batch.items.slice(0, 4).map((item) => {
+      const existing = existingCells.get(item.key);
+      if (existing?.dataset.mediaUrl === item.url) return existing;
+      const cell = createBatchThumbnailCell(item);
+      const image = cell.querySelector("img");
+      if (image) imageLoads.push(decodeImageElement(image));
+      return cell;
+    });
+    await Promise.all(imageLoads);
+    if (card.batchRenderRequestId !== requestId) return;
+    for (const cell of grid.children) {
+      if (cells.includes(cell)) continue;
+      const video = cell.querySelector("video");
+      if (video) {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      }
+    }
+    setBatchThumbnailMore(cells, batch.items.length);
+    grid.dataset.count = String(cells.length);
+    grid.replaceChildren(...cells);
+  }
+
   function createBatchCard(batch) {
     const card = document.createElement("div");
     card.className = "cmf-card cmf-batch-card";
     card.role = "button";
     card.tabIndex = 0;
+    card.batch = batch;
+    card.batchRenderRequestId = 0;
     card.setAttribute("aria-label", `Open batch of ${batch.items.length} media`);
     card.title = `${batch.items.length} media in batch`;
 
     const grid = document.createElement("div");
     grid.className = "cmf-batch-thumbnail-grid";
     grid.dataset.count = String(Math.min(4, batch.items.length));
-    for (const [index, item] of batch.items.slice(0, 4).entries()) {
-      const cell = document.createElement("div");
-      cell.className = "cmf-batch-thumbnail-cell";
-      if (item.kind === "image") {
-        const image = document.createElement("img");
-        image.alt = "";
-        image.decoding = "async";
-        image.loading = "eager";
-        image.src = item.url;
-        image.addEventListener("load", () => rememberDecodedImage(item.url, image), { once: true });
-        image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-        cell.append(image);
-      } else if (item.kind === "video") {
-        const video = document.createElement("video");
-        video.muted = true;
-        video.playsInline = true;
-        video.preload = "metadata";
-        video.src = item.url;
-        video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-        cell.addEventListener("mouseenter", () => {
-          if (window.matchMedia?.("(hover: hover)").matches === false) return;
-          video.muted = true;
-          video.play().catch(() => {});
-        });
-        cell.addEventListener("mouseleave", () => {
-          video.pause();
-          try { video.currentTime = 0; } catch { /* Metadata may still be loading. */ }
-        });
-        cell.append(video);
-      } else {
-        cell.classList.add("cmf-batch-audio-cell");
-        cell.innerHTML = ICONS.music;
-      }
-      if (index === 3 && batch.items.length > 4) {
-        const more = document.createElement("span");
-        more.className = "cmf-batch-more";
-        more.textContent = `+${batch.items.length - 4}`;
-        cell.append(more);
-      }
-      grid.append(cell);
-    }
+    const cells = batch.items.slice(0, 4).map(createBatchThumbnailCell);
+    setBatchThumbnailMore(cells, batch.items.length);
+    grid.append(...cells);
     card.append(grid);
-    card.addEventListener("click", () => openViewer(batch));
+    card.addEventListener("click", () => openViewer(card.batch));
     card.addEventListener("keydown", (event) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      openViewer(batch);
+      openViewer(card.batch);
     });
     return card;
   }
@@ -365,6 +409,7 @@ export function installCards(context) {
   Object.assign(actions, {
     createCard,
     createBatchCard,
+    updateBatchCard,
     setupAudioPreview,
     setupAudioWaveform,
     setupVideoPreview,

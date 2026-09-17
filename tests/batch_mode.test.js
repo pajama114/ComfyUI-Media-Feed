@@ -6,6 +6,7 @@ import { pinnedComparisonEntry } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
 import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
+import { installCards } from "../web/js/media_feed/cards.js";
 
 function media(id, promptId, kind = "image") {
   return { id, key: `${kind}:${id}`, promptId, kind, filename: `${id}.${kind === "image" ? "png" : kind === "video" ? "mp4" : "wav"}`, url: `/view?filename=${id}` };
@@ -58,9 +59,22 @@ test("batch viewer renders every output as one grid without selectable cells", a
       this.style = { setProperty: (key, value) => this.styles.set(key, value) };
     }
 
-    append(...children) { this.children.push(...children); }
-    replaceChildren(...children) { this.children = children; }
+    append(...children) {
+      for (const child of children) {
+        if (child.parentElement) {
+          child.parentElement.children = child.parentElement.children.filter((current) => current !== child);
+        }
+        child.parentElement = this;
+        this.children.push(child);
+      }
+    }
+    replaceChildren(...children) {
+      for (const child of this.children) child.parentElement = null;
+      this.children = [];
+      this.append(...children);
+    }
     setAttribute() {}
+    hasAttribute(name) { return name === "src" && Boolean(this.src); }
     addEventListener(type, listener) {
       const listeners = this.listeners.get(type) || [];
       listeners.push(listener);
@@ -70,7 +84,9 @@ test("batch viewer renders every output as one grid without selectable cells", a
     querySelectorAll(selector) {
       const matches = (element) => selector === ".cmf-viewer-batch-cell"
         ? element.className.split(" ").includes("cmf-viewer-batch-cell")
-        : selector === "video, audio" && ["VIDEO", "AUDIO"].includes(element.tagName);
+        : selector === ".cmf-viewer-batch-grid" && element.className === "cmf-viewer-batch-grid"
+          || selector === "video" && element.tagName === "VIDEO"
+          || selector === "video, audio" && ["VIDEO", "AUDIO"].includes(element.tagName);
       const result = [];
       const visit = (element) => {
         for (const child of element.children) {
@@ -81,10 +97,15 @@ test("batch viewer renders every output as one grid without selectable cells", a
       visit(this);
       return result;
     }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   }
 
   globalThis.document = { createElement: (tagName) => new Element(tagName) };
   delete globalThis.IntersectionObserver;
+  let finishNewImage;
+  const newImageReady = new Promise((resolve) => { finishNewImage = resolve; });
+  let finishStaleImage;
+  const staleImageReady = new Promise((resolve) => { finishStaleImage = resolve; });
 
   try {
     const viewer = {
@@ -106,6 +127,8 @@ test("batch viewer renders every output as one grid without selectable cells", a
       syncFavoriteButton() {},
       syncViewerNav() {},
       prepareViewerImage() {},
+      decodeImageElement: (image) => image.src.includes("five") ? newImageReady
+        : image.src.includes("stale") ? staleImageReady : Promise.resolve(),
       updateViewerImageLayout() {},
       refreshViewerPromptPanelDetails() {},
     };
@@ -118,20 +141,97 @@ test("batch viewer renders every output as one grid without selectable cells", a
     const items = [media("four", "p", "audio"), media("three", "p", "video"), media("two", "p"), media("one", "p")];
     await actions.renderViewerItem(displayEntries(items, true)[0]);
     let grid = viewer.media.children[0];
+    const originalCells = [...grid.children];
     assert.equal(grid.children.length, 4);
     assert.equal(grid.styles.get("--cmf-batch-columns"), "2");
     assert.equal(viewer.item.id, "one");
     assert.equal(grid.children[2].listeners.has("click"), false);
 
-    await actions.renderViewerItem(displayEntries([media("five", "p"), ...items], true)[0]);
+    const rendering = actions.renderViewerItem(displayEntries([media("five", "p"), ...items], true)[0]);
+    assert.equal(viewer.media.children[0], grid);
+    finishNewImage();
+    await rendering;
     grid = viewer.media.children[0];
     assert.equal(grid.children.length, 5);
+    for (let index = 0; index < originalCells.length; index++) {
+      assert.equal(grid.children[index], originalCells[index]);
+    }
     assert.equal(grid.styles.get("--cmf-batch-columns"), "3");
     assert.equal(viewer.item.id, "one");
+
+    const staleRender = actions.renderViewerItem(displayEntries([media("stale", "p"), media("five", "p"), ...items], true)[0]);
+    assert.equal(viewer.media.children[0], grid);
+    await actions.renderViewerItem(displayEntries([media("q", "q", "audio")], true)[0]);
+    finishStaleImage();
+    await staleRender;
+    assert.equal(viewer.media.children[0].dataset.mediaItemKey, "batch:q");
   } finally {
     globalThis.document = originalDocument;
     if (originalObserver === undefined) delete globalThis.IntersectionObserver;
     else globalThis.IntersectionObserver = originalObserver;
+  }
+});
+
+test("batch thumbnail keeps displayed images while a new image is decoded", async () => {
+  const originalDocument = globalThis.document;
+  class Element {
+    constructor(tagName) {
+      this.tagName = tagName.toUpperCase();
+      this.children = [];
+      this.dataset = {};
+      this.className = "";
+      this.classList = { add: (name) => { this.className += ` ${name}`; } };
+      this.listeners = new Map();
+    }
+    append(...children) { this.children.push(...children); }
+    replaceChildren(...children) { this.children = children; }
+    setAttribute() {}
+    addEventListener(name, listener) { this.listeners.set(name, listener); }
+    querySelector(selector) {
+      const matches = (element) => selector === "img" && element.tagName === "IMG"
+        || selector === ".cmf-batch-thumbnail-grid" && element.className === "cmf-batch-thumbnail-grid"
+        || selector === ".cmf-batch-more" && element.className === "cmf-batch-more";
+      const visit = (element) => {
+        for (const child of element.children) {
+          if (matches(child)) return child;
+          const nested = visit(child);
+          if (nested) return nested;
+        }
+        return null;
+      };
+      return visit(this);
+    }
+    remove() {}
+  }
+  globalThis.document = { createElement: (tagName) => new Element(tagName) };
+  let finishNewImage;
+  const newImageReady = new Promise((resolve) => { finishNewImage = resolve; });
+
+  try {
+    const opened = [];
+    const actions = {
+      rememberDecodedImage() {},
+      decodeImageElement: (image) => image.src.includes("three") ? newImageReady : Promise.resolve(),
+      openViewer: (batch) => opened.push(batch.items.length),
+    };
+    installCards({ app: {}, api: {}, ICONS: {}, state: {}, runtime: {}, actions });
+    const initial = displayEntries([media("two", "p"), media("one", "p")], true)[0];
+    const card = actions.createBatchCard(initial);
+    const grid = card.children[0];
+    const oldCells = [...grid.children];
+    const expanded = displayEntries([media("three", "p"), media("two", "p"), media("one", "p")], true)[0];
+    const rendering = actions.updateBatchCard(card, expanded);
+
+    assert.deepEqual(grid.children, oldCells);
+    card.listeners.get("click")();
+    assert.deepEqual(opened, [3]);
+    finishNewImage();
+    await rendering;
+    assert.equal(grid.children.length, 3);
+    assert.equal(grid.children[0], oldCells[0]);
+    assert.equal(grid.children[1], oldCells[1]);
+  } finally {
+    globalThis.document = originalDocument;
   }
 });
 
