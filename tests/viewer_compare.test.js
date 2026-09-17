@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { captureComparisonView, applyComparisonView } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
+import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
+import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 
 function pane(width, height, frameWidth = 500, frameHeight = 500) {
   const media = {};
@@ -68,4 +70,90 @@ test("pinned video and audio mount paused with independent audible playback avai
   assert.equal(plays, 0);
   assert.equal(pauses, 1);
   assert.equal(playback.muted, false);
+});
+
+test("pinned metadata follows its own item and ignores stale loads", async () => {
+  const pending = new Map();
+  const grid = () => ({ childElementCount: 0, replaceChildren() {} });
+  const viewer = {
+    isComparisonPane: true,
+    showPrompts: true,
+    item: { id: "a", kind: "audio" },
+    root: { dataset: { open: "true" } },
+    body: { dataset: {} },
+    media: { querySelector: () => null },
+    promptPanel: { hidden: true, dataset: { rendered: "false" }, setAttribute() {} },
+    promptStatus: {},
+    scanFullMetadataButton: {},
+    copyAllMetadataButton: {},
+    downloadMetadataButton: {},
+    resourcesGrid: grid(),
+    metadataGrid: grid(),
+    resourcesSection: {},
+    metadataSection: {},
+    promptSeed: {},
+    promptPositive: {},
+    promptNegative: {},
+    items: [],
+    index: -1,
+    promptRequestId: 0,
+  };
+  const context = {
+    state: { showPrompts: false },
+    runtime: { viewer, mediaDimensionCache: new Map() },
+    services: {
+      getCachedPromptMetadata: () => null,
+      loadPromptMetadata: (item) => new Promise((resolve) => pending.set(item.id, resolve)),
+    },
+    actions: { formatAllViewerMetadata: () => "", viewerMediaNaturalSize: () => ({}) },
+  };
+  installViewerMetadata(context);
+  context.actions.updateViewerPromptPanel();
+  viewer.item = { id: "b", kind: "audio" };
+  context.actions.updateViewerPromptPanel();
+  pending.get("b")({ positive: "new prompt" });
+  await Promise.resolve();
+  pending.get("a")({ positive: "old prompt" });
+  await Promise.resolve();
+  assert.equal(viewer.promptPanel.hidden, false);
+  assert.equal(viewer.promptPositive.textContent, "new prompt");
+  assert.equal(viewer.lastPromptMetadataItemId, "b");
+  assert.equal(context.state.showPrompts, false);
+
+  viewer.item = { id: "c", kind: "audio" };
+  context.actions.updateViewerPromptPanel();
+  assert.equal(viewer.promptPositive.textContent, "new prompt");
+  assert.equal(viewer.promptPanel.dataset.pending, "true");
+  pending.get("c")({ positive: "later prompt" });
+  await Promise.resolve();
+  assert.equal(viewer.promptPositive.textContent, "later prompt");
+  assert.equal(viewer.promptPanel.dataset.pending, "false");
+
+  viewer.item = { id: "d", kind: "image" };
+  viewer.mediaReadyItemId = "";
+  context.actions.renderPromptMetadataWhenMediaReady({ positive: "image prompt" }, viewer.item);
+  assert.equal(viewer.promptPositive.textContent, "image prompt");
+  assert.equal(viewer.pendingPromptMetadataResult.itemId, "d");
+  viewer.mediaReadyItemId = "d";
+  context.actions.refreshViewerPromptPanelDetails();
+  assert.equal(viewer.pendingPromptMetadataResult, null);
+});
+
+test("clicking the comparison backdrop closes the viewer", () => {
+  const originalImageElement = globalThis.HTMLImageElement;
+  globalThis.HTMLImageElement = class {};
+  try {
+    let closed = 0;
+    const runtime = { viewer: { comparing: true, root: {}, body: {}, main: {}, media: {} } };
+    const context = {
+      state: {}, runtime,
+      actions: { closeViewer: () => { closed++; } },
+    };
+    installViewerZoom(context);
+    context.actions.handleViewerBackdropClick({ target: { classList: { contains: (name) => name === "cmf-viewer-media-stage" } } });
+    assert.equal(closed, 1);
+  } finally {
+    if (originalImageElement === undefined) delete globalThis.HTMLImageElement;
+    else globalThis.HTMLImageElement = originalImageElement;
+  }
 });

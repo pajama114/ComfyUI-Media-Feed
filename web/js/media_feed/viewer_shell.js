@@ -124,7 +124,13 @@ export function installViewerShell(context) {
     root.addEventListener("click", handleViewerBackdropClick);
     root.querySelector(".cmf-close").addEventListener("click", closeViewer);
     for (const button of root.querySelectorAll(".cmf-viewer-metadata-toggle")) {
-      button.addEventListener("click", () => setShowPrompts(!state.showPrompts, { syncSettings: true }));
+      button.addEventListener("click", () => {
+        if (runtime.viewer?.comparing) {
+          actions.setComparisonMetadataVisible("left", !runtime.viewer.showPrompts);
+        } else {
+          setShowPrompts(!state.showPrompts, { syncSettings: true });
+        }
+      });
     }
     root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => toggleFavorite(runtime.viewer?.item));
     root.querySelector(".cmf-viewer-download").addEventListener("click", downloadViewerMedia);
@@ -253,7 +259,7 @@ export function installViewerShell(context) {
   
   function closeViewer() {
     if (!runtime.viewer) return;
-    runtime.viewer.stopComparison?.();
+    runtime.viewer.stopComparison?.({ closing: true });
     clearViewerAudioWaveform(runtime.viewer);
     runtime.viewer.root.dataset.open = "false";
     syncViewerProgressSpace();

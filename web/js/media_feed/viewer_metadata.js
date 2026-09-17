@@ -15,6 +15,7 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer) return;
     clearViewerPromptLoadingTimer();
     runtime.viewer.promptPanel.dataset.loading = "false";
+    runtime.viewer.promptPanel.dataset.pending = "false";
     runtime.viewer.promptPanel.dataset.rendered = "false";
     runtime.viewer.promptPanel.setAttribute("aria-busy", "false");
     runtime.viewer.lastPromptMetadata = null;
@@ -59,6 +60,12 @@ export function installViewerMetadata(context) {
     runtime.viewer.promptPanel.setAttribute("aria-busy", "true");
     if (!hasRenderedMetadata) {
       runtime.viewer.promptPanel.dataset.loading = "true";
+      return;
+    }
+
+    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
+      runtime.viewer.promptPanel.dataset.loading = "false";
+      runtime.viewer.promptPanel.dataset.pending = "true";
       return;
     }
   
@@ -152,6 +159,9 @@ export function installViewerMetadata(context) {
     const needsMediaDetails = item.kind === "image" || item.kind === "video";
     if (needsMediaDetails && runtime.viewer.mediaReadyItemId !== item.id) {
       runtime.viewer.pendingPromptMetadataResult = { result, itemId: item.id };
+      if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
+        renderPromptMetadata(result, item.id);
+      }
       return;
     }
   
@@ -181,6 +191,7 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer) return;
     clearViewerPromptLoadingTimer();
     runtime.viewer.promptPanel.dataset.loading = "false";
+    runtime.viewer.promptPanel.dataset.pending = "false";
     runtime.viewer.promptPanel.dataset.rendered = "true";
     runtime.viewer.promptPanel.setAttribute("aria-busy", "false");
     runtime.viewer.lastPromptMetadata = result;
@@ -254,9 +265,14 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
   
     const item = runtime.viewer.item;
-    const shouldShow = state.showPrompts && (item?.kind === "image" || item?.kind === "video" || item?.kind === "audio");
+    const showPrompts = runtime.viewer.comparing || runtime.viewer.isComparisonPane
+      ? runtime.viewer.showPrompts
+      : state.showPrompts;
+    const shouldShow = showPrompts && VIEWER_METADATA_KINDS.has(item?.kind);
     runtime.viewer.promptRequestId++;
-    runtime.viewer.body.dataset.prompts = String(shouldShow);
+    if (!runtime.viewer.comparing && !runtime.viewer.isComparisonPane) {
+      runtime.viewer.body.dataset.prompts = String(shouldShow);
+    }
     runtime.viewer.promptPanel.hidden = !shouldShow;
   
     if (!shouldShow) {

@@ -3,6 +3,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       --cmf-border: var(--border-color, rgba(255, 255, 255, 0.12));
       --cmf-text: var(--fg-color, var(--comfy-menu-text, rgba(255, 255, 255, 0.86)));
       --cmf-muted: var(--descrip-text, var(--comfy-menu-secondary-text, rgba(255, 255, 255, 0.58)));
+      --cmf-accent: var(--p-primary-color, var(--comfy-accent, #4db6ac));
       --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
@@ -69,6 +70,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-download,
     .cmf-viewer-copy-image,
     .cmf-open-link,
+    .cmf-viewer-compare,
     .cmf-close {
       border-color: transparent;
       background: transparent;
@@ -78,6 +80,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-download svg,
     .cmf-viewer-copy-image svg,
     .cmf-open-link svg,
+    .cmf-viewer-compare svg,
     .cmf-close svg {
       width: 18px;
       height: 18px;
@@ -95,6 +98,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-download:focus-visible,
     .cmf-viewer-copy-image:focus-visible,
     .cmf-open-link:focus-visible,
+    .cmf-viewer-compare:focus-visible,
     .cmf-close:focus-visible,
     .cmf-metadata-action:focus-visible,
     .cmf-prompt-copy:focus-visible,
@@ -443,6 +447,17 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       pointer-events: none;
     }
 
+    .cmf-prompt-panel[data-pending="true"] .cmf-prompt-section {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .cmf-prompt-panel[data-pending="true"] .cmf-prompt-panel-title::after {
+      content: " · Loading…";
+      color: var(--cmf-muted);
+      font-weight: 400;
+    }
+
     .cmf-prompt-panel-title {
       margin: 0;
       font-size: 13px;
@@ -555,10 +570,6 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-metadata-chip {
       min-width: 0;
       max-width: 100%;
-      padding: 3px 7px;
-      border: 1px solid color-mix(in srgb, var(--cmf-accent) 20%, var(--cmf-border));
-      border-radius: 5px;
-      background: color-mix(in srgb, var(--cmf-accent) 8%, transparent);
       color: var(--cmf-text);
       font-size: 11px;
       font-weight: 600;
@@ -843,12 +854,22 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-global-controls svg { width: 18px; height: 18px; }
-    .cmf-viewer-global-controls [aria-pressed="true"] {
-      color: #fff;
-      background: #2878d4;
+    .cmf-viewer-compare[aria-pressed="true"] {
+      color: var(--cmf-accent);
     }
 
     .cmf-viewer-pane {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .cmf-viewer-media-stage {
       position: relative;
       display: grid;
       place-items: center;
@@ -867,13 +888,73 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       gap: 14px;
     }
 
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-main::after {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      border-left: 1px solid var(--cmf-border);
+      pointer-events: none;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body,
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-prompts="true"],
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body .cmf-viewer-main {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"] {
+      grid-template-columns: minmax(0, min(300px, 42%)) minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"] .cmf-viewer-media-stage {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"] .cmf-prompt-panel {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane .cmf-prompt-panel {
+      box-sizing: border-box;
+      height: 100%;
+      max-width: none;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane .cmf-show-metadata,
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="left"] .cmf-show-metadata {
+      top: 12px;
+      bottom: auto;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane:not(.cmf-viewer-reference) .cmf-show-metadata {
+      left: 12px;
+      right: auto;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-reference .cmf-show-metadata {
+      left: 12px;
+      right: auto;
+    }
+
     .cmf-viewer-reference-bar {
       border-left: 1px solid var(--cmf-border);
       padding-left: 6px;
     }
 
     .cmf-viewer-reference {
-      border-left: 1px solid var(--cmf-border);
+      border-left: 0;
     }
 
     .cmf-viewer-pin { display: flex; flex-shrink: 0; }

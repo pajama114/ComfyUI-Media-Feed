@@ -37,8 +37,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   row. On narrow panes, additional controls are available from the **…** menu.
   Zoom and pan stay synchronized during comparison. Playback
   is independent, and the pinned video/audio starts paused. Press compare again
-  to return to the left item in the normal viewer. Metadata follows the left item
-  during comparison.
+  to return to the left item in the normal viewer. Each side has its own
+  metadata panel that can be shown or hidden independently; the left metadata
+  follows navigation while the right metadata stays pinned.
 - Opens media in an overlay viewer, with actions to download or open the
   original file.
 - Copies output media to `output/favorites` from the star button in the viewer

@@ -270,14 +270,15 @@ export function installViewerZoom(context) {
   }
   
   function handleViewerBackdropClick(event) {
-    if (runtime.viewer?.comparing) return;
     if (runtime.viewer?.suppressImageClick && event.target instanceof HTMLImageElement) {
       runtime.viewer.suppressImageClick = false;
       return;
     }
   
     if (event.target === runtime.viewer?.root || event.target === runtime.viewer?.body || event.target === runtime.viewer?.main || event.target === runtime.viewer?.media
-      || event.target?.classList?.contains("cmf-viewer-pane")) {
+      || event.target?.classList?.contains("cmf-viewer-pane")
+      || event.target?.classList?.contains("cmf-viewer-media-stage")
+      || event.target?.classList?.contains("cmf-viewer-media")) {
       closeViewer();
       return;
     }
@@ -287,7 +288,7 @@ export function installViewerZoom(context) {
     const element = event.target instanceof Element
       ? event.target.closest(".cmf-viewer-media img, .cmf-viewer-media video")
       : null;
-    if (!element || !runtime.viewer.media.contains(element)) return;
+    if (!element || !event.target.closest(".cmf-viewer-pane")?.contains(element)) return;
   
     if (element instanceof HTMLImageElement && element.classList.contains("cmf-zoomable-image")) return;
   

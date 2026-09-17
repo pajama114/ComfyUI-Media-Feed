@@ -1,6 +1,7 @@
 import { installViewerZoom } from "./viewer_zoom.js";
 import { installViewerSupport } from "./viewer_support.js";
 import { installViewerRender } from "./viewer_render.js";
+import { installViewerMetadata } from "./viewer_metadata.js";
 import { VIEWER_IMAGE_ZOOM_STEP, VIEWER_IMAGE_WHEEL_ZOOM_FACTOR } from "./constants.js";
 
 // Store zoom relative to the fitted size and pan as fractions of the media,
@@ -70,14 +71,23 @@ export function installViewerCompare(context) {
     const leftPane = document.createElement("section");
     leftPane.className = "cmf-viewer-pane";
     leftPane.setAttribute("aria-label", "Browsing media");
-    leftPane.append(...viewer.main.children);
+    const leftStage = document.createElement("div");
+    leftStage.className = "cmf-viewer-media-stage";
+    leftStage.append(...viewer.main.children);
+    leftPane.append(leftStage);
     const rightPane = document.createElement("section");
     rightPane.className = "cmf-viewer-pane cmf-viewer-reference";
     rightPane.setAttribute("aria-label", "Pinned comparison media");
     rightPane.hidden = true;
+    const rightStage = document.createElement("div");
+    rightStage.className = "cmf-viewer-media-stage";
     const media = document.createElement("div");
     media.className = "cmf-viewer-media";
-    rightPane.append(media);
+    rightStage.append(media);
+    const rightPanel = viewer.promptPanel.cloneNode(true);
+    rightPanel.setAttribute("aria-label", "Pinned media metadata");
+    const rightShowMetadataButton = viewer.showMetadataButton.cloneNode(true);
+    rightPane.append(rightStage, rightPanel, rightShowMetadataButton);
     viewer.main.append(leftPane, rightPane);
 
     // Header geometry follows the actual media panes, including metadata placement.
@@ -163,6 +173,27 @@ export function installViewerCompare(context) {
       root: viewer.root, media, item: null, isComparisonPane: true,
       imageBaseMode: "fit", imageZoom: 1, imagePanX: 0, imagePanY: 0,
       renderRequestId: 0, pendingMedia: null,
+      body: rightPane,
+      promptPanel: rightPanel,
+      promptStatus: rightPanel.querySelector(".cmf-prompt-status"),
+      scanFullMetadataButton: rightPanel.querySelector(".cmf-scan-full-metadata"),
+      copyAllMetadataButton: rightPanel.querySelector(".cmf-copy-all"),
+      downloadMetadataButton: rightPanel.querySelector(".cmf-download-json"),
+      resourcesSection: rightPanel.querySelector(".cmf-resources-section"),
+      resourcesGrid: rightPanel.querySelector(".cmf-resource-grid"),
+      metadataSection: rightPanel.querySelector(".cmf-metadata-section"),
+      metadataGrid: rightPanel.querySelector(".cmf-metadata-grid"),
+      promptSeed: rightPanel.querySelector(".cmf-seed-text"),
+      promptPositive: rightPanel.querySelector(".cmf-prompt-positive"),
+      promptNegative: rightPanel.querySelector(".cmf-prompt-negative"),
+      hideMetadataButton: rightPanel.querySelector(".cmf-hide-metadata"),
+      showMetadataButton: rightShowMetadataButton,
+      promptRequestId: 0,
+      promptLoadingTimer: 0,
+      mediaReadyItemId: "",
+      lastPromptMetadataItemId: "",
+      lastMetadataDetails: [],
+      items: [], index: -1,
     };
     for (const [key, selector] of Object.entries({
       title: ".cmf-viewer-title", openLink: ".cmf-open-link",
@@ -179,9 +210,9 @@ export function installViewerCompare(context) {
     installViewerSupport(referenceContext);
     installViewerZoom(referenceContext);
     installViewerRender(referenceContext);
+    installViewerMetadata(referenceContext);
     controller.ensureViewer = () => reference;
     controller.syncViewerNav = () => {};
-    controller.refreshViewerPromptPanelDetails = () => {};
     reference.favoriteButton.addEventListener("click", () => actions.toggleFavorite(reference.item));
     reference.downloadButton.addEventListener("click", controller.downloadViewerMedia);
     reference.copyImageButton.addEventListener("click", controller.copyViewerImage);
@@ -189,6 +220,32 @@ export function installViewerCompare(context) {
     reference.nativeButton.addEventListener("click", () => controller.setViewerImageBaseMode("native"));
     reference.zoomOutButton.addEventListener("click", () => controller.setViewerImageZoom(reference.imageZoom - VIEWER_IMAGE_ZOOM_STEP));
     reference.zoomInButton.addEventListener("click", () => controller.setViewerImageZoom(reference.imageZoom + VIEWER_IMAGE_ZOOM_STEP));
+    for (const button of [reference.hideMetadataButton, reference.showMetadataButton]) {
+      button.addEventListener("click", () => setComparisonMetadataVisible("right", !reference.showPrompts));
+    }
+    for (const [selector, callback] of [
+      [".cmf-copy-seed", (event) => controller.copyPromptText(event, reference.promptSeed)],
+      [".cmf-copy-positive", (event) => controller.copyPromptText(event, reference.promptPositive)],
+      [".cmf-copy-negative", (event) => controller.copyPromptText(event, reference.promptNegative)],
+      [".cmf-copy-all", controller.copyAllViewerMetadata],
+      [".cmf-copy-resources", controller.copyViewerResources],
+      [".cmf-copy-other-metadata", controller.copyViewerOtherMetadata],
+      [".cmf-download-json", controller.downloadViewerEmbeddedJson],
+      [".cmf-scan-full-metadata", controller.scanFullViewerMetadata],
+    ]) rightPanel.querySelector(selector).addEventListener("click", callback);
+
+    function setComparisonMetadataVisible(side, visible) {
+      const pane = side === "left" ? viewer : reference;
+      const container = side === "left" ? leftPane : rightPane;
+      pane.showPrompts = visible;
+      container.dataset.prompts = String(visible);
+      pane.hideMetadataButton.hidden = !visible;
+      pane.showMetadataButton.hidden = visible;
+      pane.hideMetadataButton.setAttribute("aria-pressed", String(visible));
+      pane.showMetadataButton.setAttribute("aria-pressed", String(visible));
+      (side === "left" ? actions : controller).updateViewerPromptPanel();
+    }
+    viewer.setComparisonMetadataVisible = setComparisonMetadataVisible;
     rightPane.addEventListener("wheel", (event) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
@@ -222,9 +279,11 @@ export function installViewerCompare(context) {
     });
     observer.observe(media);
     viewer.reference = reference;
-    viewer.stopComparison = () => {
+    viewer.stopComparison = ({ closing = false } = {}) => {
       viewer.comparing = false;
       viewer.root.dataset.comparing = "false";
+      reference.promptRequestId++;
+      controller.clearViewerPromptLoadingTimer();
       reference.renderRequestId++;
       actions.clearViewerAudioWaveform(reference);
       actions.discardStagedMedia(reference.pendingMedia);
@@ -233,8 +292,13 @@ export function installViewerCompare(context) {
       reference.media.replaceChildren();
       reference.item = null;
       reference.imageDrag = null;
+      rightPanel.hidden = true;
+      viewer.body.append(viewer.promptPanel, viewer.showMetadataButton);
       rightPane.hidden = rightHeader.hidden = true;
       compare.setAttribute("aria-pressed", "false");
+      actions.syncViewerMetadataPosition();
+      actions.syncViewerMetadataToggle();
+      if (!closing && viewer.root.dataset.open === "true") actions.updateViewerPromptPanel();
       actions.updateViewerImageLayout();
       layoutHeaders();
     };
@@ -247,6 +311,12 @@ export function installViewerCompare(context) {
       viewer.root.dataset.comparing = "true";
       compare.setAttribute("aria-pressed", "true");
       rightPane.hidden = rightHeader.hidden = false;
+      leftPane.append(viewer.promptPanel, viewer.showMetadataButton);
+      viewer.hideMetadataButton.innerHTML = ICONS.panelLeftClose;
+      viewer.showMetadataButton.innerHTML = ICONS.panelLeftOpen;
+      reference.hideMetadataButton.innerHTML = ICONS.panelLeftClose;
+      reference.showMetadataButton.innerHTML = ICONS.panelLeftOpen;
+      setComparisonMetadataVisible("left", state.showPrompts);
       layoutHeaders();
       reference.imageBaseMode = "fit";
       reference.imageZoom = 1;
@@ -255,6 +325,7 @@ export function installViewerCompare(context) {
       const playback = viewer.media.querySelector("video, audio");
       const playbackTime = playback?.currentTime || 0;
       const rendering = controller.renderViewerItem({ ...viewer.item });
+      setComparisonMetadataVisible("right", state.showPrompts);
       const requestId = reference.renderRequestId;
       rendering.then(() => {
         if (!viewer.comparing || reference.renderRequestId !== requestId) return;
@@ -267,5 +338,8 @@ export function installViewerCompare(context) {
 
   }
 
-  Object.assign(actions, { setupViewerComparison });
+  Object.assign(actions, {
+    setupViewerComparison,
+    setComparisonMetadataVisible: (...args) => runtime.viewer?.setComparisonMetadataVisible(...args),
+  });
 }
