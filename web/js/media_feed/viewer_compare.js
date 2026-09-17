@@ -145,13 +145,19 @@ export function installViewerCompare(context) {
       if (viewer.root.dataset.open !== "true") return;
       const barRect = bar.getBoundingClientRect();
       const globalRect = globalControls.getBoundingClientRect();
+      const mainRect = viewer.main.getBoundingClientRect();
+      // Match the divider drawn at 50% of the media area, not the right pane's
+      // edge, which sits half the grid gap away from that divider.
+      const divider = mainRect.left - barRect.left + mainRect.width / 2;
       const panes = viewer.comparing
         ? [[leftHeader, leftPane, layoutLeft], [rightHeader, rightPane, layoutRight]]
         : [[leftHeader, null, layoutLeft]];
       for (const [header, pane, layout] of panes) {
         const rect = pane?.getBoundingClientRect();
-        const left = rect ? rect.left - barRect.left : 12;
-        const right = Math.min(rect ? rect.right - barRect.left : barRect.width, globalRect.left - barRect.left - 8);
+        const paneLeft = rect ? rect.left - barRect.left : 12;
+        const paneRight = rect ? rect.right - barRect.left : barRect.width;
+        const left = viewer.comparing && header === rightHeader ? divider : paneLeft;
+        const right = Math.min(viewer.comparing && header === leftHeader ? divider : paneRight, globalRect.left - barRect.left - 8);
         const width = Math.max(0, right - left);
         header.style.left = `${left}px`;
         header.style.width = `${width}px`;
