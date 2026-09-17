@@ -292,6 +292,11 @@ export function installViewerCompare(context) {
       reference.media.replaceChildren();
       reference.item = null;
       reference.imageDrag = null;
+      if (viewer.item?.kind === "video") {
+        viewer.imagePanX = 0;
+        viewer.imagePanY = 0;
+        viewer.imageDrag = null;
+      }
       rightPanel.hidden = true;
       viewer.body.append(viewer.promptPanel, viewer.showMetadataButton);
       rightPane.hidden = rightHeader.hidden = true;

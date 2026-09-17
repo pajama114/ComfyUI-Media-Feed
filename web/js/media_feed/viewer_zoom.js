@@ -104,8 +104,18 @@ export function installViewerZoom(context) {
   
     const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
     const baseScale = runtime.viewer.imageBaseMode === "fit" ? fitScale * state.viewerFitScale / 100 : 1;
-    media.style.width = `${natural.width * baseScale}px`;
-    media.style.height = `${natural.height * baseScale}px`;
+    const comparison = runtime.viewer.comparing || runtime.viewer.isComparisonPane;
+    const normalVideo = media instanceof HTMLVideoElement && !comparison;
+    const layoutZoom = normalVideo ? runtime.viewer.imageZoom : 1;
+    media.style.width = `${natural.width * baseScale * layoutZoom}px`;
+    media.style.height = `${natural.height * baseScale * layoutZoom}px`;
+
+    if (normalVideo) {
+      runtime.viewer.media.dataset.pannable = "false";
+      runtime.viewer.media.dataset.dragging = "false";
+      updateViewerImageControls(media);
+      return;
+    }
   
     const image = media;
     const bounds = constrainViewerImagePan(image);
@@ -143,7 +153,8 @@ export function installViewerZoom(context) {
   
   function setViewerImageZoom(nextZoom, origin) {
     const media = getViewerScalableMedia();
-    const image = media;
+    const image = media instanceof HTMLVideoElement
+      && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane ? null : media;
     if (!media || !runtime.viewer) return;
   
     const previousZoom = runtime.viewer.imageZoom;
@@ -165,8 +176,7 @@ export function installViewerZoom(context) {
   }
   
   function handleViewerImageDoubleClick(event) {
-    if (!runtime.viewer || event.button !== 0) return;
-    if (event.currentTarget instanceof HTMLVideoElement && event.clientY >= event.currentTarget.getBoundingClientRect().bottom - 48) return;
+    if (!runtime.viewer || event.button !== 0 || !(event.currentTarget instanceof HTMLImageElement)) return;
     event.preventDefault();
     event.stopPropagation();
   
@@ -179,6 +189,8 @@ export function installViewerZoom(context) {
   
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
+    if (image instanceof HTMLVideoElement
+      && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
     const bounds = viewerImagePanBounds(image);
     if (image instanceof HTMLVideoElement && event.clientY >= image.getBoundingClientRect().bottom - 48) return;
     if (event.button !== 0 || !canPanViewerImage(bounds)) return;
@@ -229,7 +241,7 @@ export function installViewerZoom(context) {
   
   function prepareViewerImage(image) {
     image.classList.add(image instanceof HTMLVideoElement ? "cmf-zoomable-video" : "cmf-zoomable-image");
-    image.addEventListener("dblclick", handleViewerImageDoubleClick);
+    if (image instanceof HTMLImageElement) image.addEventListener("dblclick", handleViewerImageDoubleClick);
     image.addEventListener("pointerdown", handleViewerImagePointerDown);
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);

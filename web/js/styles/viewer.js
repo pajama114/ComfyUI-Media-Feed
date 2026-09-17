@@ -968,12 +968,12 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       stroke-linejoin: round;
     }
 
-    .cmf-viewer-media video.cmf-zoomable-video {
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-media video.cmf-zoomable-video {
       transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
       transform-origin: center;
     }
 
-    .cmf-viewer-media[data-pannable="true"] video.cmf-zoomable-video {
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-media[data-pannable="true"] video.cmf-zoomable-video {
       cursor: grab;
       touch-action: none;
     }

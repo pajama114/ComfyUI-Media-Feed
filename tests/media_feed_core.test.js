@@ -515,6 +515,18 @@ test("Fit scale is applied to fitted media dimensions", () => {
     assert.equal(video.style.width, "600px");
     assert.equal(video.style.height, "300px");
     assert.equal(context.runtime.viewer.zoomLevel.textContent, "Fit (75%)");
+
+    context.runtime.viewer.imageZoom = 2;
+    context.actions.updateViewerImageLayout();
+    assert.equal(video.style.width, "1200px");
+    assert.equal(media.dataset.pannable, "false");
+
+    context.runtime.viewer.comparing = true;
+    video.offsetWidth = 600;
+    video.offsetHeight = 300;
+    context.actions.updateViewerImageLayout();
+    assert.equal(video.style.width, "600px");
+    assert.equal(video.style["--cmf-image-zoom"], "2");
   } finally {
     if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
     else globalThis.HTMLElement = originalHTMLElement;
