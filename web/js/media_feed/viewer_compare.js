@@ -323,10 +323,7 @@ export function installViewerCompare(context) {
       compare.setAttribute("aria-pressed", "true");
       rightPane.hidden = rightHeader.hidden = false;
       leftPane.append(viewer.promptPanel, viewer.showMetadataButton);
-      viewer.hideMetadataButton.innerHTML = ICONS.panelLeftClose;
-      viewer.showMetadataButton.innerHTML = ICONS.panelLeftOpen;
-      reference.hideMetadataButton.innerHTML = ICONS.panelLeftClose;
-      reference.showMetadataButton.innerHTML = ICONS.panelLeftOpen;
+      actions.syncViewerMetadataPosition();
       setComparisonMetadataVisible("left", state.showPrompts);
       layoutHeaders();
       reference.imageBaseMode = "fit";

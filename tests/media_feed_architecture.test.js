@@ -105,6 +105,10 @@ test("viewer metadata panel icons follow the configured side", () => {
         body: { dataset: {} },
         hideMetadataButton: { innerHTML: "" },
         showMetadataButton: { innerHTML: "" },
+        reference: {
+          hideMetadataButton: { innerHTML: "" },
+          showMetadataButton: { innerHTML: "" },
+        },
       },
     },
     actions: { syncViewerProgressSpace() {} },
@@ -115,12 +119,16 @@ test("viewer metadata panel icons follow the configured side", () => {
   assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "right");
   assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "right-close");
   assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "right-open");
+  assert.equal(context.runtime.viewer.reference.hideMetadataButton.innerHTML, "right-close");
+  assert.equal(context.runtime.viewer.reference.showMetadataButton.innerHTML, "right-open");
 
   context.state.metadataPosition = "left";
   context.actions.syncViewerMetadataPosition();
   assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "left");
   assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "left-close");
   assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "left-open");
+  assert.equal(context.runtime.viewer.reference.hideMetadataButton.innerHTML, "left-close");
+  assert.equal(context.runtime.viewer.reference.showMetadataButton.innerHTML, "left-open");
 });
 
 test("viewer metadata prefetch includes video and audio items", () => {

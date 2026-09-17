@@ -241,8 +241,10 @@ export function installViewerShell(context) {
     if (!runtime.viewer) return;
     const metadataOnLeft = state.metadataPosition === "left";
     runtime.viewer.body.dataset.metadataPosition = state.metadataPosition;
-    runtime.viewer.hideMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
-    runtime.viewer.showMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
+    for (const pane of [runtime.viewer, runtime.viewer.reference].filter(Boolean)) {
+      pane.hideMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
+      pane.showMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
+    }
     syncViewerProgressSpace();
   }
   
