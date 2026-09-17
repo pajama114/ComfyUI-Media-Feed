@@ -51,6 +51,7 @@ export function installFavorites(context) {
       }
     }
     syncFavoriteButton(runtime.viewer?.favoriteButton, runtime.viewer?.item);
+    syncFavoriteButton(runtime.viewer?.reference?.favoriteButton, runtime.viewer?.reference?.item);
   }
   
   async function toggleFavorite(item) {

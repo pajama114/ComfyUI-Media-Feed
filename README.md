@@ -31,6 +31,14 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 - Shows newly generated images, videos, and audio in one feed, with filters for
   each media type.
+- Compares images, videos, and audio side by side: the compare button pins the
+  current item on the right while navigation continues on the left. Each pane
+  has its own filename, favorites, download, and viewing controls in one header
+  row. On narrow panes, additional controls are available from the **…** menu.
+  Zoom and pan stay synchronized during comparison. Playback
+  is independent, and the pinned video/audio starts paused. Press compare again
+  to return to the left item in the normal viewer. Metadata follows the left item
+  during comparison.
 - Opens media in an overlay viewer, with actions to download or open the
   original file.
 - Copies output media to `output/favorites` from the star button in the viewer
@@ -66,7 +74,7 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 - Downloads all embedded JSON metadata as a formatted `.json` file.
 - Lets you place the metadata panel on either side of the viewer.
 - Provides Fit, actual-size, and zoom controls for images and videos. Zoomed
-  images can be panned by dragging, and double-clicking zooms in
+  images and videos can be panned by dragging, and double-clicking zooms in
   or returns to the selected Fit/actual-size view. The Fit scale can be adjusted
   from 25% to 100% of the available viewer area.
 - Uses ComfyUI theme colors when available.

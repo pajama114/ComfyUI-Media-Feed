@@ -1,3 +1,4 @@
+import { installViewerCompare } from "./viewer_compare.js";
 import {
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
@@ -5,6 +6,7 @@ import {
 
 export function installViewerShell(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
+  installViewerCompare(context);
 
   const toggleFavorite = (...args) => actions.toggleFavorite(...args);
   const filteredItems = (...args) => actions.filteredItems(...args);
@@ -19,7 +21,6 @@ export function installViewerShell(context) {
   const copyViewerImage = (...args) => actions.copyViewerImage(...args);
   const downloadViewerMedia = (...args) => actions.downloadViewerMedia(...args);
   const downloadViewerEmbeddedJson = (...args) => actions.downloadViewerEmbeddedJson(...args);
-  const getViewerImage = (...args) => actions.getViewerImage(...args);
   const updateViewerImageLayout = (...args) => actions.updateViewerImageLayout(...args);
   const resetViewerImageView = (...args) => actions.resetViewerImageView(...args);
   const setViewerImageBaseMode = (...args) => actions.setViewerImageBaseMode(...args);
@@ -211,6 +212,7 @@ export function installViewerShell(context) {
       suppressImageClick: false,
       audioWaveformCleanup: null,
     };
+    actions.setupViewerComparison(runtime.viewer);
     runtime.viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
     runtime.viewer.resizeObserver.observe(runtime.viewer.media);
     syncViewerMetadataToggle();
@@ -251,6 +253,7 @@ export function installViewerShell(context) {
   
   function closeViewer() {
     if (!runtime.viewer) return;
+    runtime.viewer.stopComparison?.();
     clearViewerAudioWaveform(runtime.viewer);
     runtime.viewer.root.dataset.open = "false";
     syncViewerProgressSpace();
@@ -400,7 +403,7 @@ export function installViewerShell(context) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
     if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
   
-    const image = getViewerImage();
+    const image = actions.getViewerScalableMedia();
     if ((event.ctrlKey || event.metaKey) && image) {
       event.preventDefault();
       event.stopPropagation();

@@ -69,7 +69,7 @@ export function installViewerSupport(context) {
       : nextMedia.querySelector?.("video, audio");
     if (!playbackMedia) return;
     playbackMedia.muted = false;
-    playbackMedia.play().catch(() => {});
+    if (!currentViewer.isComparisonPane) playbackMedia.play().catch(() => {});
   }
   
   function waitForImageReady(image) {

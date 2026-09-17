@@ -479,7 +479,7 @@ test("Fit scale is applied to fitted media dimensions", () => {
     video.dataset = { mediaItemKey: "video-1" };
     video.videoWidth = 1000;
     video.videoHeight = 500;
-    video.style = {};
+    video.style = { setProperty(name, value) { this[name] = value; } };
     const media = {
       dataset: {},
       getBoundingClientRect: () => ({ width: 800, height: 600 }),
@@ -497,6 +497,8 @@ test("Fit scale is applied to fitted media dimensions", () => {
           media,
           imageBaseMode: "fit",
           imageZoom: 1,
+          imagePanX: 0,
+          imagePanY: 0,
           fitButton: button(),
           nativeButton: button(),
           zoomOutButton: button(),

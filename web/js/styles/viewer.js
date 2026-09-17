@@ -48,8 +48,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       display: flex;
       align-items: center;
       gap: 10px;
-      min-height: 42px;
-      padding: 8px 12px;
+      height: 35px;
+      min-height: 35px;
+      max-height: 35px;
+      box-sizing: border-box;
+      padding: 0 12px;
       border-bottom: 1px solid var(--cmf-border);
       background: var(--cmf-viewer-bar-bg);
     }
@@ -691,17 +694,20 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     @media (max-width: 860px) {
-      .cmf-viewer-body[data-prompts="true"] {
+      .cmf-viewer-body[data-prompts="true"],
+      .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] {
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: minmax(0, 1fr) minmax(180px, 34vh);
       }
 
-      .cmf-viewer-body[data-prompts="true"] .cmf-viewer-main {
+      .cmf-viewer-body[data-prompts="true"] .cmf-viewer-main,
+      .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-viewer-main {
         grid-column: 1;
         grid-row: 1;
       }
 
-      .cmf-viewer-body[data-prompts="true"] .cmf-prompt-panel {
+      .cmf-viewer-body[data-prompts="true"] .cmf-prompt-panel,
+      .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-prompt-panel {
         grid-column: 1;
         grid-row: 2;
       }
@@ -754,5 +760,151 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-nav-next {
       right: 12px;
+    }
+
+    .cmf-viewer-bar .cmf-viewer-size-toggle { padding: 1px; }
+    .cmf-viewer-bar .cmf-viewer-size-toggle .cmf-viewer-zoom-text { height: 26px; }
+
+    .cmf-viewer-pane-bar {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 0 6px;
+    }
+
+    .cmf-viewer-pane-identity {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .cmf-viewer-pane-identity .cmf-viewer-title { flex: 1 1 auto; }
+    .cmf-viewer-pane-actions { display: flex; justify-content: flex-end; gap: 2px; }
+    .cmf-viewer-pane-bar .cmf-viewer-zoom-controls {
+      position: static;
+      transform: none;
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .cmf-viewer-pane-actions { grid-column: 3; grid-row: 1; }
+    .cmf-viewer-pane-identity { grid-column: 1; grid-row: 1; }
+    .cmf-viewer-more { position: relative; }
+    .cmf-viewer-more[hidden], .cmf-viewer-overflow-label { display: none; }
+    .cmf-viewer-more > summary { list-style: none; cursor: pointer; font-size: 22px; }
+    .cmf-viewer-more > summary::-webkit-details-marker { display: none; }
+    .cmf-viewer-more-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 10;
+      display: grid;
+      gap: 4px;
+      min-width: 160px;
+      padding: 6px;
+      border: 1px solid var(--cmf-border);
+      border-radius: 6px;
+      background: var(--cmf-viewer-bar-bg);
+      box-shadow: 0 4px 16px #0008;
+    }
+    .cmf-viewer-more-menu .cmf-button {
+      width: 100%;
+      justify-content: flex-start;
+      gap: 8px;
+      height: 32px;
+      white-space: nowrap;
+    }
+    .cmf-viewer-more-menu .cmf-viewer-overflow-label { display: inline; font-size: 12px; }
+    .cmf-viewer-pane-bar:has(.cmf-viewer-zoom-controls[hidden]) .cmf-viewer-more-menu
+      :is(.cmf-viewer-native, .cmf-viewer-zoom-in, .cmf-viewer-zoom-out) { display: none; }
+    .cmf-viewer-pane-bar[data-compact="true"] { gap: 4px; }
+    .cmf-viewer-pane-bar[data-compact="true"] .cmf-viewer-zoom-controls { gap: 3px; }
+    .cmf-viewer-pane-bar[data-compact="true"] .cmf-viewer-pane-actions > .cmf-icon-button,
+    .cmf-viewer-pane-bar[data-compact="true"] summary { width: 28px; min-width: 28px; }
+
+    .cmf-viewer-global-controls {
+      position: absolute;
+      right: 12px;
+      top: 0;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      padding-left: 8px;
+      border-left: 1px solid var(--cmf-border);
+    }
+
+    .cmf-viewer-global-controls svg { width: 18px; height: 18px; }
+    .cmf-viewer-global-controls [aria-pressed="true"] {
+      color: #fff;
+      background: #2878d4;
+    }
+
+    .cmf-viewer-pane {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .cmf-viewer-reference-bar[hidden],
+    .cmf-viewer-reference[hidden] { display: none; }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-main {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .cmf-viewer-reference-bar {
+      border-left: 1px solid var(--cmf-border);
+      padding-left: 6px;
+    }
+
+    .cmf-viewer-reference {
+      border-left: 1px solid var(--cmf-border);
+    }
+
+    .cmf-viewer-pin { display: flex; flex-shrink: 0; }
+    .cmf-viewer-pin svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .cmf-viewer-media video.cmf-zoomable-video {
+      transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
+      transform-origin: center;
+    }
+
+    .cmf-viewer-media[data-pannable="true"] video.cmf-zoomable-video {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    @media (max-width: 1000px) {
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume {
+        grid-template-columns: auto 45px;
+      }
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume input { width: 45px; }
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-controls {
+        grid-template-columns: 32px auto minmax(20px, 1fr) auto;
+      }
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume { grid-column: 1 / -1; }
     }
   `;

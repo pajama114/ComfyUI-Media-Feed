@@ -26,12 +26,17 @@ export function installViewerRender(context) {
     currentViewer.pendingMedia = null;
     currentViewer.item = item;
     currentViewer.mediaReadyItemId = "";
-    resetViewerImageView();
+    if (!currentViewer.comparing && !currentViewer.isComparisonPane) resetViewerImageView();
     currentViewer.title.textContent = item.filename;
+    currentViewer.title.title = item.filename;
     currentViewer.openLink.href = item.url;
     currentViewer.copyImageButton.hidden = item.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, item);
     syncViewerNav();
+    const layout = () => {
+      updateViewerImageLayout();
+      currentViewer.restoreView?.();
+    };
   
     if (item.kind === "image") {
       const image = document.createElement("img");
@@ -45,8 +50,9 @@ export function installViewerRender(context) {
         image.src = cached.currentSrc || cached.src;
         await decodeImageElement(image);
         if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+        currentViewer.media.querySelector("video, audio")?.pause();
         currentViewer.media.replaceChildren(image);
-        updateViewerImageLayout();
+        layout();
         rememberDecodedImage(item.url, image);
         rememberMediaDimensions(item, image);
         currentViewer.mediaReadyItemId = item.id;
@@ -59,8 +65,9 @@ export function installViewerRender(context) {
         image.src = thumbnail.currentSrc || thumbnail.src;
         await decodeImageElement(image);
         if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+        currentViewer.media.querySelector("video, audio")?.pause();
         currentViewer.media.replaceChildren(image);
-        updateViewerImageLayout();
+        layout();
         rememberDecodedImage(item.url, image);
         rememberMediaDimensions(item, image);
         currentViewer.mediaReadyItemId = item.id;
@@ -71,8 +78,9 @@ export function installViewerRender(context) {
       image.src = item.url;
       await decodeImageElement(image);
       if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+      currentViewer.media.querySelector("video, audio")?.pause();
       currentViewer.media.replaceChildren(image);
-      updateViewerImageLayout();
+      layout();
       rememberDecodedImage(item.url, image);
       rememberMediaDimensions(item, image);
       currentViewer.mediaReadyItemId = item.id;
@@ -82,7 +90,7 @@ export function installViewerRender(context) {
   
     if (item.kind === "video") {
       const video = document.createElement("video");
-      video.classList.add("cmf-zoomable-video");
+      prepareViewerImage(video);
       video.controls = true;
       video.playsInline = true;
       video.preload = "auto";
@@ -92,12 +100,12 @@ export function installViewerRender(context) {
       video.addEventListener("loadedmetadata", () => {
         rememberMediaDimensions(item, video);
         if (isCurrentViewerRender(currentViewer, requestId, item)) {
-          updateViewerImageLayout();
+          layout();
         }
       }, { once: true });
       video.src = item.url;
       currentViewer.pendingMedia = video;
-      video.play().catch(() => {});
+      if (!currentViewer.isComparisonPane) video.play().catch(() => {});
       await waitForMediaReady(video);
       if (!isCurrentViewerRender(currentViewer, requestId, item)) {
         if (currentViewer.pendingMedia === video) currentViewer.pendingMedia = null;
@@ -106,7 +114,7 @@ export function installViewerRender(context) {
       }
       currentViewer.pendingMedia = null;
       replaceViewerMedia(currentViewer, video);
-      updateViewerImageLayout();
+      layout();
       currentViewer.mediaReadyItemId = item.id;
       refreshViewerPromptPanelDetails();
       return;
@@ -128,7 +136,7 @@ export function installViewerRender(context) {
     audio.loop = state.loopAudio;
     audio.src = item.url;
     currentViewer.pendingMedia = audio;
-    audio.play().catch(() => {});
+    if (!currentViewer.isComparisonPane) audio.play().catch(() => {});
     await waitForMediaReady(audio);
     if (!isCurrentViewerRender(currentViewer, requestId, item)) {
       if (!reusingDisplayedAudio) {
@@ -142,7 +150,7 @@ export function installViewerRender(context) {
       replaceViewerMedia(currentViewer, presentation);
     }
     setupViewerAudioWaveform(currentViewer, audio, item.url);
-    updateViewerImageLayout();
+    layout();
     currentViewer.mediaReadyItemId = item.id;
   }
   

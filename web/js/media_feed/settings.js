@@ -184,10 +184,12 @@ export function installSettings(context) {
       }
     }
 
-    const viewerMedia = runtime.viewer?.media?.querySelector(selector);
-    if (viewerMedia) viewerMedia.loop = shouldLoop;
-    const pendingMedia = runtime.viewer?.pendingMedia;
-    if (String(pendingMedia?.tagName || "").toLowerCase() === selector) pendingMedia.loop = shouldLoop;
+    for (const pane of [runtime.viewer, runtime.viewer?.reference]) {
+      const viewerMedia = pane?.media?.querySelector(selector);
+      if (viewerMedia) viewerMedia.loop = shouldLoop;
+      const pendingMedia = pane?.pendingMedia;
+      if (String(pendingMedia?.tagName || "").toLowerCase() === selector) pendingMedia.loop = shouldLoop;
+    }
   }
 
   function setLoopVideos(nextValue) {

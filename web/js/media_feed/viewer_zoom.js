@@ -104,16 +104,8 @@ export function installViewerZoom(context) {
   
     const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
     const baseScale = runtime.viewer.imageBaseMode === "fit" ? fitScale * state.viewerFitScale / 100 : 1;
-    const layoutZoom = media instanceof HTMLVideoElement ? runtime.viewer.imageZoom : 1;
-    media.style.width = `${natural.width * baseScale * layoutZoom}px`;
-    media.style.height = `${natural.height * baseScale * layoutZoom}px`;
-  
-    if (media instanceof HTMLVideoElement) {
-      runtime.viewer.media.dataset.pannable = "false";
-      runtime.viewer.media.dataset.dragging = "false";
-      updateViewerImageControls(media);
-      return;
-    }
+    media.style.width = `${natural.width * baseScale}px`;
+    media.style.height = `${natural.height * baseScale}px`;
   
     const image = media;
     const bounds = constrainViewerImagePan(image);
@@ -134,10 +126,15 @@ export function installViewerZoom(context) {
     runtime.viewer.imageDrag = null;
     runtime.viewer.root.dataset.scaleMedia = String(runtime.viewer.imageBaseMode === "fit");
     updateViewerImageLayout();
+    runtime.viewer.onViewChange?.();
   }
   
   function setViewerImageBaseMode(baseMode) {
     if (!getViewerScalableMedia()) return;
+    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
+      resetViewerImageView(baseMode);
+      return;
+    }
     const scaleMedia = baseMode === "fit";
     const settingChanged = scaleMedia !== state.scaleViewerMedia;
     setScaleViewerMedia(scaleMedia, { syncSettings: true });
@@ -146,7 +143,7 @@ export function installViewerZoom(context) {
   
   function setViewerImageZoom(nextZoom, origin) {
     const media = getViewerScalableMedia();
-    const image = getViewerImage();
+    const image = media;
     if (!media || !runtime.viewer) return;
   
     const previousZoom = runtime.viewer.imageZoom;
@@ -164,10 +161,12 @@ export function installViewerZoom(context) {
   
     runtime.viewer.imageZoom = zoom;
     updateViewerImageLayout();
+    runtime.viewer.onViewChange?.();
   }
   
   function handleViewerImageDoubleClick(event) {
     if (!runtime.viewer || event.button !== 0) return;
+    if (event.currentTarget instanceof HTMLVideoElement && event.clientY >= event.currentTarget.getBoundingClientRect().bottom - 48) return;
     event.preventDefault();
     event.stopPropagation();
   
@@ -181,6 +180,7 @@ export function installViewerZoom(context) {
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
     const bounds = viewerImagePanBounds(image);
+    if (image instanceof HTMLVideoElement && event.clientY >= image.getBoundingClientRect().bottom - 48) return;
     if (event.button !== 0 || !canPanViewerImage(bounds)) return;
   
     event.preventDefault();
@@ -208,6 +208,7 @@ export function installViewerZoom(context) {
     runtime.viewer.imagePanX = drag.panX + deltaX;
     runtime.viewer.imagePanY = drag.panY + deltaY;
     updateViewerImageLayout();
+    runtime.viewer.onViewChange?.();
   }
   
   function finishViewerImageDrag(event) {
@@ -227,7 +228,7 @@ export function installViewerZoom(context) {
   }
   
   function prepareViewerImage(image) {
-    image.classList.add("cmf-zoomable-image");
+    image.classList.add(image instanceof HTMLVideoElement ? "cmf-zoomable-video" : "cmf-zoomable-image");
     image.addEventListener("dblclick", handleViewerImageDoubleClick);
     image.addEventListener("pointerdown", handleViewerImagePointerDown);
     image.addEventListener("pointermove", handleViewerImagePointerMove);
@@ -269,12 +270,14 @@ export function installViewerZoom(context) {
   }
   
   function handleViewerBackdropClick(event) {
+    if (runtime.viewer?.comparing) return;
     if (runtime.viewer?.suppressImageClick && event.target instanceof HTMLImageElement) {
       runtime.viewer.suppressImageClick = false;
       return;
     }
   
-    if (event.target === runtime.viewer?.root || event.target === runtime.viewer?.body || event.target === runtime.viewer?.main || event.target === runtime.viewer?.media) {
+    if (event.target === runtime.viewer?.root || event.target === runtime.viewer?.body || event.target === runtime.viewer?.main || event.target === runtime.viewer?.media
+      || event.target?.classList?.contains("cmf-viewer-pane")) {
       closeViewer();
       return;
     }
