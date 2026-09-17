@@ -4,6 +4,8 @@ import {
   AUDIO_EXTENSIONS,
 } from "./constants.js";
 
+import { displayEntries } from "./batch_entries.js";
+
 export function installMediaItems(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
 
@@ -135,6 +137,7 @@ export function installMediaItems(context) {
   
   function addItems(items) {
     const freshItems = [];
+    const previousEntryIds = new Set(displayEntries(filteredItems(), state.batchMode).map((entry) => entry.id));
   
     for (const item of items) {
       if (state.itemKeys.has(item.key)) {
@@ -155,9 +158,14 @@ export function installMediaItems(context) {
     saveSessionItems();
   
     const visibleFreshCount = freshItems.filter(itemMatchesFilters).length;
+    const nextEntries = state.batchMode ? displayEntries(filteredItems(), true) : [];
+    const firstOldEntry = nextEntries.findIndex((entry) => previousEntryIds.has(entry.id));
+    const prependedEntries = state.batchMode
+      ? firstOldEntry === -1 ? nextEntries.length : firstOldEntry
+      : visibleFreshCount;
     updateViews(
       visibleFreshCount > 0 && state.followLatest && !isViewerOpen(),
-      state.followLatest ? 0 : visibleFreshCount,
+      state.followLatest ? 0 : prependedEntries,
     );
     if (isViewerOpen() && state.showPrompts) {
       const newestItem = freshItems[0];

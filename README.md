@@ -18,6 +18,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 - **All your generated media in one feed** — Browse images, videos, and audio
   directly inside ComfyUI.
+- **Batch view** — Group the outputs of one queued generation into a grid card
+  and compare whole batches side by side.
 - **Full-screen media viewer** — Inspect images with zoom and pan, play videos
   and audio, and navigate between outputs.
 - **Generation metadata at a glance** — View and copy embedded prompts, seeds,
@@ -30,7 +32,12 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 ## Detailed Features
 
 - Shows newly generated images, videos, and audio in one feed, with filters for
-  each media type.
+  each media type. The **All** filter is labeled in the toolbar, next to a
+  separate grid button that toggles batch view.
+- Batch view groups media sharing a prompt ID. A feed card previews up to four
+  outputs in a 2×2 grid and shows a remaining count when there are more. The
+  viewer shows every output in a square grid; select a cell to inspect its
+  filename, metadata, and media actions. The choice is saved across reloads.
 - Compares images, videos, and audio side by side: the compare button pins the
   current item on the right while navigation continues on the left. Each pane
   has its own filename, favorites, download, and viewing controls in one header
@@ -39,7 +46,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   is independent, and the pinned video/audio starts paused. Press compare again
   to return to the left item in the normal viewer. Each side has its own
   metadata panel that can be shown or hidden independently; the left metadata
-  follows navigation while the right metadata stays pinned.
+  follows navigation while the right metadata stays pinned. In batch view, the
+  left grid navigates between batches and the right grid pins a batch.
 - Opens media in an overlay viewer, with actions to download or open the
   original file.
 - Copies output media to `output/favorites` from the star button in the viewer

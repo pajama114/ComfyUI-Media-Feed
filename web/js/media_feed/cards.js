@@ -169,6 +169,69 @@ export function installCards(context) {
     return card;
   }
 
+  function createBatchCard(batch) {
+    const card = document.createElement("div");
+    card.className = "cmf-card cmf-batch-card";
+    card.role = "button";
+    card.tabIndex = 0;
+    card.setAttribute("aria-label", `Open batch of ${batch.items.length} media`);
+    card.title = `${batch.items.length} media in batch`;
+
+    const grid = document.createElement("div");
+    grid.className = "cmf-batch-thumbnail-grid";
+    grid.dataset.count = String(Math.min(4, batch.items.length));
+    for (const [index, item] of batch.items.slice(0, 4).entries()) {
+      const cell = document.createElement("div");
+      cell.className = "cmf-batch-thumbnail-cell";
+      if (item.kind === "image") {
+        const image = document.createElement("img");
+        image.alt = "";
+        image.decoding = "async";
+        image.loading = "eager";
+        image.src = item.url;
+        image.addEventListener("load", () => rememberDecodedImage(item.url, image), { once: true });
+        image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
+        cell.append(image);
+      } else if (item.kind === "video") {
+        const video = document.createElement("video");
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.src = item.url;
+        video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
+        cell.addEventListener("mouseenter", () => {
+          if (window.matchMedia?.("(hover: hover)").matches === false) return;
+          video.muted = true;
+          video.play().catch(() => {});
+        });
+        cell.addEventListener("mouseleave", () => {
+          video.pause();
+          try { video.currentTime = 0; } catch { /* Metadata may still be loading. */ }
+        });
+        cell.append(video);
+      } else {
+        cell.classList.add("cmf-batch-audio-cell");
+        cell.innerHTML = ICONS.music;
+      }
+      if (index === 3 && batch.items.length > 4) {
+        const more = document.createElement("span");
+        more.className = "cmf-batch-more";
+        more.textContent = `+${batch.items.length - 4}`;
+        cell.append(more);
+      }
+      grid.append(cell);
+    }
+    card.append(grid);
+    card.addEventListener("click", () => openViewer(batch));
+    card.addEventListener("keydown", (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openViewer(batch);
+    });
+    return card;
+  }
+
   function setupVideoPreview(card, video, playButton, durationLabel) {
     let audiblePlayback = false;
 
@@ -301,6 +364,7 @@ export function installCards(context) {
   
   Object.assign(actions, {
     createCard,
+    createBatchCard,
     setupAudioPreview,
     setupAudioWaveform,
     setupVideoPreview,

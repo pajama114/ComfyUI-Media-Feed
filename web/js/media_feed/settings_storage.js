@@ -13,6 +13,7 @@ import {
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_BATCH_DIVIDERS,
+  DEFAULT_BATCH_MODE,
   DEFAULT_LOOP_AUDIO,
   DEFAULT_LOOP_VIDEOS,
   SESSION_ITEMS_STORAGE_KEY,
@@ -163,6 +164,15 @@ export function installSettingsStorage(context) {
     }
   }
 
+  function loadSavedBatchMode() {
+    try {
+      const value = window.localStorage?.getItem(STORAGE_KEYS.batchMode);
+      return value === null ? DEFAULT_BATCH_MODE : normalizeBooleanSetting(value);
+    } catch {
+      return DEFAULT_BATCH_MODE;
+    }
+  }
+
   function loadSavedLoopVideos() {
     try {
       const savedValue = window.localStorage?.getItem(STORAGE_KEYS.loopVideos);
@@ -308,6 +318,7 @@ export function installSettingsStorage(context) {
     if (!runtime.feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
     if (!runtime.mediaScopeSettingSeen) applyMediaScope(loadSavedMediaScope());
     if (!runtime.batchDividersSettingSeen) applyBatchDividers(loadSavedBatchDividers());
+    state.batchMode = loadSavedBatchMode();
     if (!runtime.loopVideosSettingSeen) applyLoopVideos(loadSavedLoopVideos());
     if (!runtime.loopAudioSettingSeen) applyLoopAudio(loadSavedLoopAudio());
     state.favoriteFiles = loadSavedFavoriteFiles();
@@ -463,6 +474,7 @@ export function installSettingsStorage(context) {
     loadSavedFeedStyle,
     loadSavedMediaScope,
     loadSavedBatchDividers,
+    loadSavedBatchMode,
     loadSavedLoopVideos,
     loadSavedLoopAudio,
     loadSavedFavoriteFiles,

@@ -185,8 +185,9 @@ export function installSettings(context) {
     }
 
     for (const pane of [runtime.viewer, runtime.viewer?.reference]) {
-      const viewerMedia = pane?.media?.querySelector(selector);
-      if (viewerMedia) viewerMedia.loop = shouldLoop;
+      const viewerMedia = pane?.media?.querySelectorAll?.(selector)
+        || [pane?.media?.querySelector?.(selector)].filter(Boolean);
+      for (const media of viewerMedia) media.loop = shouldLoop;
       const pendingMedia = pane?.pendingMedia;
       if (String(pendingMedia?.tagName || "").toLowerCase() === selector) pendingMedia.loop = shouldLoop;
     }

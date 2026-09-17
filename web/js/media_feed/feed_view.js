@@ -4,8 +4,10 @@ import {
   MIN_ITEM_HEIGHT,
   MAX_ITEM_HEIGHT,
   ITEM_GAP,
+  STORAGE_KEYS,
 } from "./constants.js";
 import { visibleItemRange } from "./virtualization.js";
+import { displayEntries, entrySignature } from "./batch_entries.js";
 
 export function installFeedView(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -27,6 +29,7 @@ export function installFeedView(context) {
   const discardStagedMedia = (...args) => actions.discardStagedMedia(...args);
   const syncFavoriteButton = (...args) => actions.syncFavoriteButton(...args);
   const createCard = (...args) => actions.createCard(...args);
+  const createBatchCard = (...args) => actions.createBatchCard(...args);
   const clearSessionItems = (...args) => actions.clearSessionItems(...args);
   function isBatchBoundary(item, nextItem) {
     const batchId = String(item?.promptId || "");
@@ -41,11 +44,12 @@ export function installFeedView(context) {
     root.innerHTML = `
       <div class="cmf-toolbar">
         <div class="cmf-filter" role="group" aria-label="Media filter">
-          <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media">${ICONS.grid}<span class="cmf-filter-count">0</span></button>
+          <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media"><span class="cmf-filter-all-label">All</span><span class="cmf-filter-count">0</span></button>
           <button type="button" data-filter="image" data-filter-label="Images" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}<span class="cmf-filter-count">0</span></button>
           <button type="button" data-filter="video" data-filter-label="Videos" aria-pressed="false" title="Videos" aria-label="Videos">${ICONS.video}<span class="cmf-filter-count">0</span></button>
           <button type="button" data-filter="audio" data-filter-label="Audio" aria-pressed="false" title="Audio" aria-label="Audio">${ICONS.music}<span class="cmf-filter-count">0</span></button>
         </div>
+        <button class="cmf-button cmf-icon-button cmf-batch-mode" type="button" title="Batch view" aria-label="Batch view" aria-pressed="${state.batchMode}">${ICONS.grid}</button>
         <div class="cmf-spacer"></div>
         <label class="cmf-size-control" title="Thumbnail size">
           <span>Size</span>
@@ -78,6 +82,8 @@ export function installFeedView(context) {
       gaps: new Map(),
       kind,
       lastRange: "",
+      entries: [],
+      entryIds: new Set(),
     };
   
     view.viewport.addEventListener("scroll", () => {
@@ -105,6 +111,24 @@ export function installFeedView(context) {
         filterButton.setAttribute("aria-pressed", String(filterButton === button));
       }
       updateViews(false);
+    });
+
+    root.querySelector(".cmf-batch-mode").addEventListener("click", () => {
+      state.batchMode = !state.batchMode;
+      try {
+        window.localStorage?.setItem(STORAGE_KEYS.batchMode, String(state.batchMode));
+      } catch {
+        // Keep the in-memory choice when storage is unavailable.
+      }
+      for (const currentView of state.views) {
+        for (const card of currentView.cards.values()) destroyCard(card);
+        currentView.cards.clear();
+        clearCachedCards(currentView);
+        for (const gap of currentView.gaps.values()) gap.remove();
+        currentView.gaps.clear();
+      }
+      updateViews(false);
+      actions.syncViewerItems();
     });
   
     root.querySelector(".cmf-clear").addEventListener("click", () => {
@@ -173,6 +197,11 @@ export function installFeedView(context) {
     view.root.dataset.showFavoriteButton = String(state.showFavoriteButton);
     view.root.dataset.feedStyle = state.feedStyle;
     view.root.dataset.batchDividers = state.batchDividers;
+    view.root.dataset.batchMode = String(state.batchMode);
+    view.root.querySelector(".cmf-batch-mode").setAttribute("aria-pressed", String(state.batchMode));
+    for (const button of view.root.querySelectorAll("button[data-filter]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.filter === state.filter));
+    }
     view.root.style.setProperty("--cmf-item-width", `${state.itemWidth}px`);
     view.root.style.setProperty("--cmf-item-height", `${state.itemHeight}px`);
     view.root.style.setProperty("--cmf-panel-height", `${fallbackPanelHeight()}px`);
@@ -253,7 +282,9 @@ export function installFeedView(context) {
   
   function updateView(view, scrollToLatest, prependedCount = 0, scrollPosition = null) {
     applyViewSizing(view);
-    const items = filteredItems();
+    const items = displayEntries(filteredItems(), state.batchMode);
+    view.entries = items;
+    view.entryIds = new Set(items.map((item) => item.id));
     const pitch = viewPitch(view);
     const vertical = isVerticalView(view);
   
@@ -319,7 +350,7 @@ export function installFeedView(context) {
     card.remove();
     view.cards.delete(id);
   
-    if (!state.items.some((item) => item.id === id)) {
+    if (!view.entryIds.has(id)) {
       destroyCard(card);
       return;
     }
@@ -331,11 +362,15 @@ export function installFeedView(context) {
     }
   }
   
-  function takeCachedCard(view, id) {
+  function takeCachedCard(view, id, entry) {
     const card = view.cardCache.get(id);
     if (!card) return null;
     view.cardCache.delete(id);
-    syncFavoriteButton(card.favoriteButton, state.items.find((item) => item.id === id));
+    if (card.dataset.entrySignature !== entrySignature(entry)) {
+      destroyCard(card);
+      return null;
+    }
+    if (card.favoriteButton) syncFavoriteButton(card.favoriteButton, entry);
     if (card.thumbnailResizeObserver && card.thumbnailPreview) {
       card.thumbnailResizeObserver.observe(card.thumbnailPreview);
     }
@@ -343,7 +378,7 @@ export function installFeedView(context) {
   }
   
   function renderVisibleItems(view) {
-    const items = filteredItems();
+    const items = view.entries;
     const vertical = isVerticalView(view);
     const viewportSize = vertical ? view.viewport.clientHeight || 1 : view.viewport.clientWidth || 1;
     const scrollOffset = vertical ? view.viewport.scrollTop : view.viewport.scrollLeft;
@@ -356,7 +391,7 @@ export function installFeedView(context) {
       pitch,
       railPadding,
     });
-    const rangeKey = `${state.filter}:${vertical ? "vertical" : "horizontal"}:${items.length}:${start}:${end}`;
+    const rangeKey = `${state.filter}:${state.batchMode}:${vertical ? "vertical" : "horizontal"}:${items.length}:${start}:${end}`;
   
     if (view.lastRange === rangeKey) return;
     view.lastRange = rangeKey;
@@ -368,8 +403,14 @@ export function installFeedView(context) {
       visibleIds.add(item.id);
   
       let card = view.cards.get(item.id);
+      if (card && card.dataset.entrySignature !== entrySignature(item)) {
+        destroyCard(card);
+        view.cards.delete(item.id);
+        card = null;
+      }
       if (!card) {
-        card = takeCachedCard(view, item.id) || createCard(item);
+        card = takeCachedCard(view, item.id, item) || (item.kind === "batch" ? createBatchCard(item) : createCard(item));
+        card.dataset.entrySignature = entrySignature(item);
         view.cards.set(item.id, card);
         view.rail.appendChild(card);
         card.activateAudioWaveform?.();
@@ -388,7 +429,7 @@ export function installFeedView(context) {
           view.gaps.set(item.id, gap);
           view.rail.appendChild(gap);
         }
-        gap.dataset.batchBoundary = String(isBatchBoundary(item, items[index + 1]));
+        gap.dataset.batchBoundary = String(!state.batchMode && isBatchBoundary(item, items[index + 1]));
         gap.style.width = `${vertical ? state.itemWidth : ITEM_GAP}px`;
         gap.style.height = `${vertical ? ITEM_GAP : state.itemHeight}px`;
         gap.style.transform = vertical

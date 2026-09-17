@@ -36,6 +36,11 @@ export function applyComparisonView(pane, controller, view, fitPercent) {
   controller.updateViewerImageLayout();
 }
 
+export function pinnedComparisonEntry(viewer) {
+  const entry = viewer.entry?.kind === "batch" ? viewer.entry : viewer.item;
+  return entry?.kind === "batch" ? { ...entry, items: [...entry.items] } : { ...entry };
+}
+
 export function installViewerCompare(context) {
   const { actions, runtime, state, ICONS } = context;
 
@@ -176,7 +181,7 @@ export function installViewerCompare(context) {
     });
 
     const reference = {
-      root: viewer.root, media, item: null, isComparisonPane: true,
+      root: viewer.root, media, item: null, entry: null, isComparisonPane: true,
       imageBaseMode: "fit", imageZoom: 1, imagePanX: 0, imagePanY: 0,
       renderRequestId: 0, pendingMedia: null,
       body: rightPane,
@@ -293,10 +298,13 @@ export function installViewerCompare(context) {
       reference.renderRequestId++;
       actions.clearViewerAudioWaveform(reference);
       actions.discardStagedMedia(reference.pendingMedia);
-      actions.discardStagedMedia(reference.media.querySelector("video, audio"));
+      reference.batchObserver?.disconnect();
+      reference.batchObserver = null;
+      for (const media of reference.media.querySelectorAll("video, audio")) actions.discardStagedMedia(media);
       reference.pendingMedia = null;
       reference.media.replaceChildren();
       reference.item = null;
+      reference.entry = null;
       reference.imageDrag = null;
       if (viewer.item?.kind === "video") {
         viewer.imagePanX = 0;
@@ -330,9 +338,14 @@ export function installViewerCompare(context) {
       reference.imageZoom = 1;
       reference.imagePanX = reference.imagePanY = 0;
       apply(viewer, actions, sharedView);
-      const playback = viewer.media.querySelector("video, audio");
+      const playback = viewer.entry?.kind === "batch" ? null : viewer.media.querySelector("video, audio");
       const playbackTime = playback?.currentTime || 0;
-      const rendering = controller.renderViewerItem({ ...viewer.item });
+      const pinnedEntry = pinnedComparisonEntry(viewer);
+      if (pinnedEntry.kind === "batch") {
+        reference.entry = pinnedEntry;
+        reference.item = viewer.item;
+      }
+      const rendering = controller.renderViewerItem(pinnedEntry);
       setComparisonMetadataVisible("right", state.showPrompts);
       const requestId = reference.renderRequestId;
       rendering.then(() => {

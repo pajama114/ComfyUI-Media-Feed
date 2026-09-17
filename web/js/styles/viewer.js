@@ -255,6 +255,66 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       overflow: hidden;
     }
 
+    .cmf-viewer-batch-viewport {
+      width: min(100%, 100vh);
+      max-height: 100%;
+      aspect-ratio: 1;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+
+    .cmf-viewer-batch-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
+      grid-template-rows: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
+      gap: 3px;
+      width: max(100%, calc(var(--cmf-batch-columns) * 96px));
+      aspect-ratio: 1;
+      background: var(--cmf-border);
+    }
+
+    .cmf-viewer-batch-cell {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--cmf-viewer-bg);
+      cursor: pointer;
+    }
+
+    .cmf-viewer-batch-cell[data-selected="true"] {
+      outline: 3px solid var(--cmf-accent);
+      outline-offset: -3px;
+    }
+
+    .cmf-viewer-batch-cell:focus-visible {
+      outline: 3px solid var(--cmf-text);
+      outline-offset: -3px;
+    }
+
+    .cmf-viewer-batch-cell img,
+    .cmf-viewer-batch-cell video {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: contain;
+    }
+
+    .cmf-viewer-batch-cell audio {
+      width: min(90%, 280px);
+      max-width: 100%;
+    }
+
+    .cmf-viewer-batch-audio-icon svg {
+      width: 40px;
+      height: 40px;
+      fill: none;
+      stroke: var(--cmf-text);
+      stroke-width: 1.7;
+    }
+
     .cmf-viewer-media img,
     .cmf-viewer-media video {
       display: block;

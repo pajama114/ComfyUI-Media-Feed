@@ -51,6 +51,7 @@ export const DEFAULT_SHOW_FAVORITE_BUTTON = true;
 export const DEFAULT_FEED_STYLE = "default";
 export const DEFAULT_MEDIA_SCOPE = "all";
 export const DEFAULT_BATCH_DIVIDERS = "line";
+export const DEFAULT_BATCH_MODE = false;
 export const DEFAULT_LOOP_VIDEOS = true;
 export const DEFAULT_LOOP_AUDIO = false;
 export const VIEWER_IMAGE_ZOOM_STEP = 0.25;
@@ -81,6 +82,7 @@ export const STORAGE_KEYS = {
   feedStyle: "comfyui-media-feed:feed-style",
   mediaScope: "comfyui-media-feed:media-scope",
   batchDividers: "comfyui-media-feed:batch-dividers",
+  batchMode: "comfyui-media-feed:batch-mode",
   loopVideos: "comfyui-media-feed:loop-videos",
   loopAudio: "comfyui-media-feed:loop-audio",
   favorites: "comfyui-media-feed:favorites",

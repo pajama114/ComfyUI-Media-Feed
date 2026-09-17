@@ -1,4 +1,5 @@
 import { installViewerCompare } from "./viewer_compare.js";
+import { displayEntries, entrySignature } from "./batch_entries.js";
 import {
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
@@ -208,6 +209,7 @@ export function installViewerShell(context) {
       mediaReadyItemId: "",
       pendingMedia: null,
       item: null,
+      entry: null,
       items: [],
       index: -1,
       imageBaseMode: state.scaleViewerMedia ? "fit" : "native",
@@ -272,9 +274,12 @@ export function installViewerShell(context) {
     runtime.viewer.promptPanel.hidden = true;
     discardStagedMedia(runtime.viewer.pendingMedia);
     runtime.viewer.pendingMedia = null;
-    runtime.viewer.media.querySelector("video, audio")?.pause();
+    for (const media of runtime.viewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
+    runtime.viewer.batchObserver?.disconnect();
+    runtime.viewer.batchObserver = null;
     runtime.viewer.media.replaceChildren();
     runtime.viewer.item = null;
+    runtime.viewer.entry = null;
     runtime.viewer.items = [];
     runtime.viewer.index = -1;
     resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
@@ -282,7 +287,7 @@ export function installViewerShell(context) {
   
   function openViewer(item, thumbnail) {
     const currentViewer = ensureViewer();
-    const items = filteredItems();
+    const items = displayEntries(filteredItems(), state.batchMode);
     const index = Math.max(0, items.findIndex((current) => current.key === item.key));
     currentViewer.items = items;
     currentViewer.index = index;
@@ -316,23 +321,34 @@ export function installViewerShell(context) {
   function syncViewerItems() {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true" || !runtime.viewer.item) return;
   
-    const items = filteredItems();
-    const index = items.findIndex((current) => current.key === runtime.viewer.item.key);
-    let replacedCurrentItem = false;
+    const items = displayEntries(filteredItems(), state.batchMode);
+    const previousEntry = runtime.viewer.entry || runtime.viewer.item;
+    let index = items.findIndex((current) => current.key === previousEntry.key);
+    if (index === -1) index = items.findIndex((current) => current.kind === "batch"
+      && current.items.some((member) => member.key === runtime.viewer.item.key));
+    if (index === -1) index = items.findIndex((current) => current.key === runtime.viewer.item.key);
     runtime.viewer.items = items;
     if (index !== -1) {
-      replacedCurrentItem = runtime.viewer.item.id !== items[index].id;
       runtime.viewer.index = index;
-      runtime.viewer.item = items[index];
+      const next = items[index];
+      const changed = previousEntry.key !== next.key
+        || entrySignature(previousEntry) !== entrySignature(next)
+        || !next.items && runtime.viewer.item.id !== next.id;
+      if (changed) {
+        if (next.kind === "batch" && previousEntry.key !== next.key) runtime.viewer.entry = next;
+        renderViewerItem(next);
+        updateViewerPromptPanel();
+      }
     } else {
       runtime.viewer.index = Math.min(runtime.viewer.index, Math.max(0, items.length - 1));
+      if (items.length) {
+        renderViewerItem(items[runtime.viewer.index]);
+        updateViewerPromptPanel();
+      } else {
+        closeViewer();
+      }
     }
     syncViewerNav();
-  
-    if (replacedCurrentItem) {
-      renderViewerItem(runtime.viewer.item);
-      updateViewerPromptPanel();
-    }
   }
   
   function handleViewerControlKeydown(event) {
@@ -350,7 +366,11 @@ export function installViewerShell(context) {
   }
 
   function toggleViewerMediaPlayback() {
-    const media = runtime.viewer?.media?.querySelector("video, audio");
+    const selectedMedia = [...(runtime.viewer?.media?.querySelectorAll?.("video, audio") || [])]
+      .find((element) => element.dataset?.mediaItemKey === runtime.viewer?.item?.key);
+    const media = selectedMedia || (runtime.viewer?.entry?.kind === "batch"
+      ? null
+      : runtime.viewer?.media?.querySelector("video, audio"));
     if (!media) return false;
 
     if (media.paused) {
@@ -386,6 +406,12 @@ export function installViewerShell(context) {
     }
 
     if (event.key === " " || event.key === "Spacebar" || event.code === "Space") {
+      if (event.target?.classList?.contains("cmf-viewer-batch-cell")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!event.repeat) event.target.click();
+        return;
+      }
       if (isViewerPlaybackShortcutControl(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -410,6 +436,7 @@ export function installViewerShell(context) {
   function handleViewerWheel(event) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
     if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
+    if (event.target instanceof Element && event.target.closest(".cmf-viewer-batch-viewport")) return;
   
     const image = actions.getViewerScalableMedia();
     if ((event.ctrlKey || event.metaKey) && image) {

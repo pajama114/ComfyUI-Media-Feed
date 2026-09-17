@@ -88,7 +88,10 @@ export function installViewerMetadata(context) {
   function prefetchAdjacentViewerPromptMetadata() {
     if (!runtime.viewer || !state.showPrompts || runtime.viewer.root.dataset.open !== "true") return;
     for (const index of [runtime.viewer.index - 1, runtime.viewer.index + 1]) {
-      if (index >= 0 && index < runtime.viewer.items.length) prefetchPromptMetadata(runtime.viewer.items[index]);
+      if (index >= 0 && index < runtime.viewer.items.length) {
+        const entry = runtime.viewer.items[index];
+        prefetchPromptMetadata(entry.kind === "batch" ? entry.items[0] : entry);
+      }
     }
   }
   

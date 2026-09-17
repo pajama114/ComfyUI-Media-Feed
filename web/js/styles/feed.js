@@ -219,6 +219,62 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       cursor: pointer;
     }
 
+    .cmf-batch-thumbnail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 2px;
+      width: 100%;
+      height: 100%;
+      background: var(--cmf-border);
+    }
+
+    .cmf-batch-thumbnail-grid[data-count="1"] {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+
+    .cmf-batch-thumbnail-grid[data-count="2"] {
+      grid-template-rows: 1fr;
+    }
+
+    .cmf-batch-thumbnail-cell {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: var(--cmf-view-bg);
+    }
+
+    .cmf-batch-thumbnail-cell img,
+    .cmf-batch-thumbnail-cell video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .cmf-batch-audio-cell svg {
+      width: 28px;
+      height: 28px;
+      fill: none;
+      stroke: var(--cmf-text);
+      stroke-width: 1.7;
+    }
+
+    .cmf-batch-more {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
     .cmf-feed-gap {
       position: absolute;
       top: var(--cmf-card-top-offset);
