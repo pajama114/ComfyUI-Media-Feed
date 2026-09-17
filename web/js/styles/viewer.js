@@ -158,7 +158,9 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-zoom-text {
-      min-width: 38px;
+      box-sizing: border-box;
+      flex: 0 0 42px;
+      width: 42px;
       height: 30px;
       border: 1px solid transparent;
       border-radius: 4px;
@@ -182,11 +184,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-zoom-level {
-      min-width: 43px;
+      flex: 0 0 72px;
+      width: 72px;
       color: var(--cmf-muted);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
       text-align: center;
+      white-space: nowrap;
     }
 
     .cmf-viewer-body {
