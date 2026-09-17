@@ -36,8 +36,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   separate grid button that toggles batch view.
 - Batch view groups media sharing a prompt ID. A feed card previews up to four
   outputs in a 2×2 grid and shows a remaining count when there are more. The
-  viewer shows every output in a square grid; select a cell to inspect its
-  filename, metadata, and media actions. The choice is saved across reloads.
+  viewer shows every output in a square grid that can be zoomed and panned as
+  one view. Batch zoom is relative to the fitted grid; the 1:1 control is
+  reserved for individual media. The choice is saved across reloads.
 - Compares images, videos, and audio side by side: the compare button pins the
   current item on the right while navigation continues on the left. Each pane
   has its own filename, favorites, download, and viewing controls in one header

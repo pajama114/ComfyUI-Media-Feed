@@ -10,13 +10,17 @@ export function installViewerZoom(context) {
 
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
   const closeViewer = (...args) => actions.closeViewer(...args);
+  const isBatchGrid = (element) => Boolean(element?.classList?.contains("cmf-viewer-batch-grid"));
   function getViewerImage() {
     const image = runtime.viewer?.media?.querySelector("img.cmf-zoomable-image");
     return image instanceof HTMLImageElement && image.dataset.mediaItemKey === runtime.viewer?.item?.key ? image : null;
   }
   
   function getViewerScalableMedia() {
-    if (runtime.viewer?.entry?.kind === "batch") return null;
+    if (runtime.viewer?.entry?.kind === "batch") {
+      const grid = runtime.viewer.media?.querySelector(".cmf-zoomable-batch");
+      return grid instanceof HTMLElement && grid.dataset.mediaItemKey === runtime.viewer.entry.key ? grid : null;
+    }
     const element = runtime.viewer?.media?.querySelector(
       "img.cmf-zoomable-image, video.cmf-zoomable-video",
     );
@@ -54,30 +58,29 @@ export function installViewerZoom(context) {
   
   function updateViewerImageControls(media = getViewerScalableMedia(), displayScale) {
     if (!runtime.viewer) return;
-    if (runtime.viewer.entry?.kind === "batch") {
-      runtime.viewer.zoomControls.hidden = true;
-      return;
-    }
-    const isScalableItem = runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
+    const batch = runtime.viewer.entry?.kind === "batch";
+    const isScalableItem = batch || runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
     // Keep the controls visually stable while the next image or video is
     // decoding. The previous scalable element remains mounted until the new
     // one is ready, even though its item key no longer matches the viewer.
     const displayedScalableMedia = runtime.viewer.media?.querySelector(
-      "img.cmf-zoomable-image, video.cmf-zoomable-video",
+      "img.cmf-zoomable-image, video.cmf-zoomable-video, .cmf-zoomable-batch",
     );
     const hasMedia = Boolean(media || displayedScalableMedia);
     runtime.viewer.zoomControls.hidden = !isScalableItem;
     if (!isScalableItem) return;
+
+    runtime.viewer.nativeButton.hidden = batch;
   
     const isBaseZoom = Math.abs(runtime.viewer.imageZoom - 1) < 0.001;
     runtime.viewer.fitButton.setAttribute("aria-pressed", String(runtime.viewer.imageBaseMode === "fit" && isBaseZoom));
     runtime.viewer.nativeButton.setAttribute("aria-pressed", String(runtime.viewer.imageBaseMode === "native" && isBaseZoom));
     runtime.viewer.fitButton.disabled = !hasMedia;
-    runtime.viewer.nativeButton.disabled = !hasMedia;
+    runtime.viewer.nativeButton.disabled = batch || !hasMedia;
     runtime.viewer.zoomOutButton.disabled = !hasMedia || runtime.viewer.imageZoom <= VIEWER_IMAGE_MIN_ZOOM + 0.001;
     runtime.viewer.zoomInButton.disabled = !hasMedia || runtime.viewer.imageZoom >= VIEWER_IMAGE_MAX_ZOOM - 0.001;
     if (media && Number.isFinite(displayScale) && displayScale > 0) {
-      const percent = displayScale * 100;
+      const percent = (batch ? runtime.viewer.imageZoom : displayScale) * 100;
       const precision = percent < 1 ? 2 : percent < 10 ? 1 : 0;
       const label = `${Number(percent.toFixed(precision))}%`;
       if (runtime.viewer.zoomLevel.textContent !== label) runtime.viewer.zoomLevel.textContent = label;
@@ -87,17 +90,6 @@ export function installViewerZoom(context) {
   }
   
   function updateViewerImageLayout() {
-    if (runtime.viewer?.entry?.kind === "batch") {
-      const frame = runtime.viewer.media?.getBoundingClientRect?.();
-      const viewport = runtime.viewer.media?.querySelector?.(".cmf-viewer-batch-viewport");
-      if (frame && viewport) {
-        const size = Math.max(0, Math.min(frame.width, frame.height));
-        viewport.style.width = `${size}px`;
-        viewport.style.height = `${size}px`;
-      }
-      updateViewerImageControls(null);
-      return;
-    }
     const audio = runtime.viewer?.media?.querySelector("audio.cmf-zoomable-audio");
     if (audio instanceof HTMLAudioElement && audio.dataset.mediaItemKey === runtime.viewer?.item?.key) {
       const frame = runtime.viewer.media.getBoundingClientRect();
@@ -150,7 +142,7 @@ export function installViewerZoom(context) {
   
   function resetViewerImageView(baseMode = runtime.viewer?.imageBaseMode || "native") {
     if (!runtime.viewer) return;
-    runtime.viewer.imageBaseMode = baseMode === "fit" ? "fit" : "native";
+    runtime.viewer.imageBaseMode = runtime.viewer.entry?.kind === "batch" || baseMode === "fit" ? "fit" : "native";
     runtime.viewer.imageZoom = 1;
     runtime.viewer.imagePanX = 0;
     runtime.viewer.imagePanY = 0;
@@ -162,7 +154,8 @@ export function installViewerZoom(context) {
   
   function setViewerImageBaseMode(baseMode) {
     if (!getViewerScalableMedia()) return;
-    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
+    if (runtime.viewer.entry?.kind === "batch" && baseMode !== "fit") return;
+    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane || runtime.viewer.entry?.kind === "batch") {
       resetViewerImageView(baseMode);
       return;
     }
@@ -197,7 +190,9 @@ export function installViewerZoom(context) {
   }
   
   function handleViewerImageDoubleClick(event) {
-    if (!runtime.viewer || event.button !== 0 || !(event.currentTarget instanceof HTMLImageElement)) return;
+    if (!runtime.viewer || event.button !== 0
+      || !(event.currentTarget instanceof HTMLImageElement || isBatchGrid(event.currentTarget))) return;
+    if (isBatchGrid(event.currentTarget) && event.target?.closest?.("video, audio, button, input")) return;
     event.preventDefault();
     event.stopPropagation();
   
@@ -210,6 +205,7 @@ export function installViewerZoom(context) {
   
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
+    if (isBatchGrid(image) && event.target?.closest?.("video, audio, button, input")) return;
     if (image instanceof HTMLVideoElement
       && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
     const bounds = viewerImagePanBounds(image);
@@ -261,8 +257,9 @@ export function installViewerZoom(context) {
   }
   
   function prepareViewerImage(image) {
-    image.classList.add(image instanceof HTMLVideoElement ? "cmf-zoomable-video" : "cmf-zoomable-image");
-    if (image instanceof HTMLImageElement) image.addEventListener("dblclick", handleViewerImageDoubleClick);
+    const batch = isBatchGrid(image);
+    image.classList.add(batch ? "cmf-zoomable-batch" : image instanceof HTMLVideoElement ? "cmf-zoomable-video" : "cmf-zoomable-image");
+    if (batch || image instanceof HTMLImageElement) image.addEventListener("dblclick", handleViewerImageDoubleClick);
     image.addEventListener("pointerdown", handleViewerImagePointerDown);
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);
@@ -271,6 +268,10 @@ export function installViewerZoom(context) {
   }
   
   function viewerMediaNaturalSize(element) {
+    if (isBatchGrid(element)) {
+      const size = Number(element.dataset.naturalSize) || 0;
+      return { width: size, height: size };
+    }
     if (element instanceof HTMLImageElement) {
       return { width: element.naturalWidth, height: element.naturalHeight };
     }
@@ -316,7 +317,7 @@ export function installViewerZoom(context) {
       return;
     }
 
-    if (event.target?.closest?.(".cmf-viewer-batch-viewport")) return;
+    if (event.target?.closest?.(".cmf-viewer-batch-grid")) return;
   
     if (!state.scaleViewerMedia || !runtime.viewer?.media) return;
   

@@ -18,43 +18,30 @@ export function installViewerRender(context) {
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
   const createViewerAudioPresentation = (...args) => actions.createViewerAudioPresentation(...args);
   const setupViewerAudioWaveform = (...args) => actions.setupViewerAudioWaveform(...args);
-  function selectBatchItem(currentViewer, item) {
-    currentViewer.item = item;
-    currentViewer.title.textContent = item.filename;
-    currentViewer.title.title = item.filename;
-    currentViewer.openLink.href = item.url;
-    currentViewer.copyImageButton.hidden = item.kind !== "image";
-    syncFavoriteButton(currentViewer.favoriteButton, item);
-    currentViewer.mediaReadyItemId = item.id;
-    for (const cell of currentViewer.media.querySelectorAll(".cmf-viewer-batch-cell")) {
-      cell.dataset.selected = String(cell.dataset.mediaItemKey === item.key);
-    }
-    actions.updateViewerPromptPanel?.();
-    refreshViewerPromptPanelDetails();
-  }
-
   function renderViewerBatch(currentViewer, batch) {
-    const viewport = document.createElement("div");
-    viewport.className = "cmf-viewer-batch-viewport";
     const grid = document.createElement("div");
     grid.className = "cmf-viewer-batch-grid";
-    grid.style.setProperty("--cmf-batch-columns", String(Math.ceil(Math.sqrt(batch.items.length))));
-    viewport.append(grid);
+    const columns = Math.ceil(Math.sqrt(batch.items.length));
+    grid.style.setProperty("--cmf-batch-columns", String(columns));
+    grid.dataset.mediaItemKey = batch.key;
+    grid.dataset.naturalSize = String(columns * 96);
+    grid.tabIndex = 0;
+    grid.setAttribute("role", "group");
+    grid.setAttribute("aria-label", `Batch of ${batch.items.length} media`);
+    prepareViewerImage(grid);
 
     const videos = [];
     for (const [index, item] of batch.items.entries()) {
       const cell = document.createElement("div");
       cell.className = "cmf-viewer-batch-cell";
       cell.dataset.mediaItemKey = item.key;
-      cell.dataset.selected = String(item.key === currentViewer.item.key);
-      cell.tabIndex = 0;
-      cell.setAttribute("role", "button");
-      cell.setAttribute("aria-label", `${index + 1} of ${batch.items.length}: ${item.filename}`);
+      cell.title = `${index + 1} of ${batch.items.length}: ${item.filename}`;
 
       if (item.kind === "image") {
         const image = document.createElement("img");
         image.alt = item.filename;
         image.dataset.mediaItemKey = item.key;
+        image.draggable = false;
         image.loading = "lazy";
         image.decoding = "async";
         image.src = item.url;
@@ -99,18 +86,12 @@ export function installViewerRender(context) {
         icon.innerHTML = ICONS.music;
         cell.append(icon, audio);
       }
-      cell.addEventListener("click", () => selectBatchItem(currentViewer, item));
-      cell.addEventListener("keydown", (event) => {
-        if (event.target !== cell || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        selectBatchItem(currentViewer, item);
-      });
       grid.append(cell);
     }
 
     currentViewer.batchObserver?.disconnect();
     for (const media of currentViewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
-    currentViewer.media.replaceChildren(viewport);
+    currentViewer.media.replaceChildren(grid);
     if (typeof IntersectionObserver === "function") {
       currentViewer.batchObserver = new IntersectionObserver((entries, observer) => {
         for (const entry of entries) {
@@ -119,7 +100,7 @@ export function installViewerRender(context) {
           video.src = video.dataset.src;
           observer.unobserve(video);
         }
-      }, { root: viewport, rootMargin: "120px" });
+      }, { root: currentViewer.media, rootMargin: "120px" });
       for (const [video, url] of videos) {
         video.dataset.src = url;
         currentViewer.batchObserver.observe(video);
@@ -132,13 +113,13 @@ export function installViewerRender(context) {
     currentViewer.media.dataset.dragging = "false";
     currentViewer.mediaReadyItemId = currentViewer.item.id;
     updateViewerImageLayout();
+    currentViewer.restoreView?.();
     refreshViewerPromptPanelDetails();
   }
 
   async function renderViewerItem(item, thumbnail) {
     const currentViewer = ensureViewer();
     const requestId = ++currentViewer.renderRequestId;
-    const previousSelection = currentViewer.entry?.key === item.key ? currentViewer.item?.key : null;
     if (currentViewer.entry?.kind === "batch") {
       currentViewer.batchObserver?.disconnect();
       for (const media of currentViewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
@@ -147,11 +128,11 @@ export function installViewerRender(context) {
     discardStagedMedia(currentViewer.pendingMedia);
     currentViewer.pendingMedia = null;
     currentViewer.entry = item;
-    currentViewer.item = item.kind === "batch"
-      ? item.items.find((member) => member.key === previousSelection) || item.items[0]
-      : item;
+    currentViewer.item = item.kind === "batch" ? item.items[0] : item;
     currentViewer.mediaReadyItemId = "";
-    if (!currentViewer.comparing && !currentViewer.isComparisonPane) resetViewerImageView();
+    if (!currentViewer.comparing && !currentViewer.isComparisonPane) {
+      resetViewerImageView(item.kind === "batch" ? "fit" : state.scaleViewerMedia ? "fit" : "native");
+    }
     currentViewer.title.textContent = currentViewer.item.filename;
     currentViewer.title.title = currentViewer.item.filename;
     currentViewer.openLink.href = currentViewer.item.url;

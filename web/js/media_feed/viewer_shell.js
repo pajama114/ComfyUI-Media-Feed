@@ -230,7 +230,7 @@ export function installViewerShell(context) {
   
   function syncViewerScaleMedia() {
     if (!runtime.viewer) return;
-    resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
+    resetViewerImageView(runtime.viewer.entry?.kind === "batch" || state.scaleViewerMedia ? "fit" : "native");
   }
 
   function syncViewerComfyProgress() {
@@ -406,12 +406,6 @@ export function installViewerShell(context) {
     }
 
     if (event.key === " " || event.key === "Spacebar" || event.code === "Space") {
-      if (event.target?.classList?.contains("cmf-viewer-batch-cell")) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (!event.repeat) event.target.click();
-        return;
-      }
       if (isViewerPlaybackShortcutControl(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -436,7 +430,6 @@ export function installViewerShell(context) {
   function handleViewerWheel(event) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
     if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
-    if (event.target instanceof Element && event.target.closest(".cmf-viewer-batch-viewport")) return;
   
     const image = actions.getViewerScalableMedia();
     if ((event.ctrlKey || event.metaKey) && image) {

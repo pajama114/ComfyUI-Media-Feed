@@ -170,6 +170,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       font-size: 12px;
     }
 
+    .cmf-viewer-native[hidden] {
+      display: none;
+    }
+
     .cmf-viewer-zoom-text[aria-pressed="true"] {
       border-color: #2878d4;
       background: #2878d4;
@@ -255,22 +259,18 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       overflow: hidden;
     }
 
-    .cmf-viewer-batch-viewport {
-      width: min(100%, 100vh);
-      max-height: 100%;
-      aspect-ratio: 1;
-      overflow: auto;
-      overscroll-behavior: contain;
-    }
-
     .cmf-viewer-batch-grid {
       display: grid;
       grid-template-columns: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
       grid-template-rows: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
       gap: 3px;
-      width: max(100%, calc(var(--cmf-batch-columns) * 96px));
       aspect-ratio: 1;
       background: var(--cmf-border);
+      transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
+      transform-origin: center;
+      user-select: none;
+      -webkit-user-select: none;
+      will-change: transform;
     }
 
     .cmf-viewer-batch-cell {
@@ -280,17 +280,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       min-height: 0;
       overflow: hidden;
       background: var(--cmf-viewer-bg);
-      cursor: pointer;
-    }
-
-    .cmf-viewer-batch-cell[data-selected="true"] {
-      outline: 3px solid var(--cmf-accent);
-      outline-offset: -3px;
-    }
-
-    .cmf-viewer-batch-cell:focus-visible {
-      outline: 3px solid var(--cmf-text);
-      outline-offset: -3px;
+      cursor: inherit;
     }
 
     .cmf-viewer-batch-cell img,
@@ -300,6 +290,17 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       max-width: none;
       max-height: none;
       object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .cmf-viewer-media[data-pannable="true"] .cmf-viewer-batch-grid {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .cmf-viewer-media[data-dragging="true"] .cmf-viewer-batch-grid {
+      cursor: grabbing;
     }
 
     .cmf-viewer-batch-cell audio {

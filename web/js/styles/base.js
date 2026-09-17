@@ -473,7 +473,7 @@ export function mediaFeedBaseStyles({
     .cmf-filter-all-label {
       font-size: 11px;
       font-weight: 700;
-      transform: translateY(-4px);
+      line-height: 12px;
     }
 
     .cmf-batch-mode {

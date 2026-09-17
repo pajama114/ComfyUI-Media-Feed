@@ -4,6 +4,8 @@ import test from "node:test";
 import { displayEntries, entrySignature } from "../web/js/media_feed/batch_entries.js";
 import { pinnedComparisonEntry } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
+import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
+import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 
 function media(id, promptId, kind = "image") {
   return { id, key: `${kind}:${id}`, promptId, kind, filename: `${id}.${kind === "image" ? "png" : kind === "video" ? "mp4" : "wav"}`, url: `/view?filename=${id}` };
@@ -41,7 +43,7 @@ test("comparison pins a batch snapshot while the browsing batch changes", () => 
   assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
 });
 
-test("batch viewer renders every output and retains the selected media when a batch grows", async () => {
+test("batch viewer renders every output as one grid without selectable cells", async () => {
   const originalDocument = globalThis.document;
   const originalObserver = globalThis.IntersectionObserver;
 
@@ -96,7 +98,6 @@ test("batch viewer renders every output and retains the selected media when a ba
       item: null,
       entry: null,
     };
-    let metadataUpdates = 0;
     const actions = {
       ensureViewer: () => viewer,
       clearViewerAudioWaveform() {},
@@ -104,9 +105,9 @@ test("batch viewer renders every output and retains the selected media when a ba
       resetViewerImageView() {},
       syncFavoriteButton() {},
       syncViewerNav() {},
+      prepareViewerImage() {},
       updateViewerImageLayout() {},
       refreshViewerPromptPanelDetails() {},
-      updateViewerPromptPanel() { metadataUpdates++; },
     };
     installViewerRender({
       app: {}, api: {}, ICONS: { music: "<svg></svg>" },
@@ -116,26 +117,154 @@ test("batch viewer renders every output and retains the selected media when a ba
 
     const items = [media("four", "p", "audio"), media("three", "p", "video"), media("two", "p"), media("one", "p")];
     await actions.renderViewerItem(displayEntries(items, true)[0]);
-    let grid = viewer.media.children[0].children[0];
+    let grid = viewer.media.children[0];
     assert.equal(grid.children.length, 4);
     assert.equal(grid.styles.get("--cmf-batch-columns"), "2");
     assert.equal(viewer.item.id, "one");
-
-    grid.children[2].click();
-    assert.equal(viewer.item.id, "three");
-    assert.equal(viewer.openLink.href, "/view?filename=three");
-    assert.equal(viewer.copyImageButton.hidden, true);
-    assert.equal(metadataUpdates, 1);
+    assert.equal(grid.children[2].listeners.has("click"), false);
 
     await actions.renderViewerItem(displayEntries([media("five", "p"), ...items], true)[0]);
-    grid = viewer.media.children[0].children[0];
+    grid = viewer.media.children[0];
     assert.equal(grid.children.length, 5);
     assert.equal(grid.styles.get("--cmf-batch-columns"), "3");
-    assert.equal(viewer.item.id, "three");
-    assert.equal(grid.children[2].dataset.selected, "true");
+    assert.equal(viewer.item.id, "one");
   } finally {
     globalThis.document = originalDocument;
     if (originalObserver === undefined) delete globalThis.IntersectionObserver;
     else globalThis.IntersectionObserver = originalObserver;
+  }
+});
+
+test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 size", () => {
+  const originalHTMLElement = globalThis.HTMLElement;
+  const originalHTMLImageElement = globalThis.HTMLImageElement;
+  const originalHTMLVideoElement = globalThis.HTMLVideoElement;
+  const originalHTMLAudioElement = globalThis.HTMLAudioElement;
+
+  class MockElement {
+    constructor() {
+      this.classes = new Set();
+      this.classList = {
+        add: (name) => this.classes.add(name),
+        contains: (name) => this.classes.has(name),
+      };
+      this.dataset = {};
+      this.properties = new Map();
+      this.style = { width: "", height: "", setProperty: (key, value) => this.properties.set(key, value) };
+      this.listeners = new Map();
+    }
+    get offsetWidth() { return Number.parseFloat(this.style.width) || 0; }
+    get offsetHeight() { return Number.parseFloat(this.style.height) || 0; }
+    addEventListener(name, callback) { this.listeners.set(name, callback); }
+    setPointerCapture() {}
+  }
+  class MockImage extends MockElement {}
+  class MockVideo extends MockElement {}
+  class MockAudio extends MockElement {}
+  globalThis.HTMLElement = MockElement;
+  globalThis.HTMLImageElement = MockImage;
+  globalThis.HTMLVideoElement = MockVideo;
+  globalThis.HTMLAudioElement = MockAudio;
+
+  try {
+    const grid = new MockElement();
+    grid.classList.add("cmf-viewer-batch-grid");
+    grid.dataset.mediaItemKey = "batch:p";
+    grid.dataset.naturalSize = "192";
+    const mediaFrame = {
+      dataset: {},
+      querySelector(selector) {
+        return selector.includes("cmf-zoomable-batch") ? grid : null;
+      },
+      getBoundingClientRect() { return { left: 0, top: 0, width: 400, height: 400 }; },
+    };
+    const button = () => ({ disabled: false, setAttribute() {} });
+    const viewer = {
+      entry: { kind: "batch", key: "batch:p" }, item: media("one", "p"),
+      media: mediaFrame, root: { dataset: {} },
+      imageBaseMode: "fit", imageZoom: 1, imagePanX: 0, imagePanY: 0,
+      zoomControls: { hidden: true }, fitButton: button(), nativeButton: button(),
+      zoomOutButton: button(), zoomInButton: button(), zoomLevel: { textContent: "—" },
+    };
+    const state = { viewerFitScale: 100, scaleViewerMedia: false };
+    const context = { app: {}, api: {}, ICONS: {}, state, runtime: { viewer }, actions: { setScaleViewerMedia() { throw new Error("Batch size must not change the single-media setting"); } } };
+    installViewerZoom(context);
+    context.actions.prepareViewerImage(grid);
+    context.actions.updateViewerImageLayout();
+
+    assert.equal(viewer.zoomControls.hidden, false);
+    assert.equal(viewer.nativeButton.hidden, true);
+    assert.equal(viewer.nativeButton.disabled, true);
+    assert.equal(grid.style.width, "400px");
+    assert.equal(viewer.zoomLevel.textContent, "100%");
+    context.actions.setViewerImageZoom(2);
+    assert.equal(grid.properties.get("--cmf-image-zoom"), "2");
+    assert.equal(mediaFrame.dataset.pannable, "true");
+
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: { closest: () => null }, button: 0,
+      pointerId: 1, clientX: 100, clientY: 100, preventDefault() {},
+    });
+    context.actions.handleViewerImagePointerMove({ pointerId: 1, clientX: 150, clientY: 70 });
+    assert.equal(viewer.imagePanX, 50);
+    assert.equal(viewer.imagePanY, -30);
+
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: { closest: () => null }, button: 0,
+      preventDefault() {}, stopPropagation() {},
+    });
+    assert.equal(viewer.imageZoom, 1);
+    assert.equal(viewer.imagePanX, 0);
+    context.actions.setViewerImageBaseMode("native");
+    assert.equal(viewer.imageBaseMode, "fit");
+    assert.equal(grid.style.width, "400px");
+    assert.equal(state.scaleViewerMedia, false);
+  } finally {
+    if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
+    else globalThis.HTMLElement = originalHTMLElement;
+    if (originalHTMLImageElement === undefined) delete globalThis.HTMLImageElement;
+    else globalThis.HTMLImageElement = originalHTMLImageElement;
+    if (originalHTMLVideoElement === undefined) delete globalThis.HTMLVideoElement;
+    else globalThis.HTMLVideoElement = originalHTMLVideoElement;
+    if (originalHTMLAudioElement === undefined) delete globalThis.HTMLAudioElement;
+    else globalThis.HTMLAudioElement = originalHTMLAudioElement;
+  }
+});
+
+test("wheel over a batch grid moves to the next batch", () => {
+  const originalElement = globalThis.Element;
+  const originalWindow = globalThis.window;
+  class MockElement { closest() { return null; } }
+  globalThis.Element = MockElement;
+  globalThis.window = { setTimeout() {} };
+
+  try {
+    const first = media("first", "a");
+    const second = media("second", "b");
+    const entries = displayEntries([first, second], true);
+    const viewer = {
+      root: { dataset: { open: "true" } }, entry: entries[0], item: entries[0].items[0],
+      items: entries, index: 0, prevButton: {}, nextButton: {},
+    };
+    const rendered = [];
+    const actions = {
+      filteredItems: () => [first, second],
+      renderViewerItem(entry) { rendered.push(entry.key); viewer.entry = entry; viewer.item = entry.items[0]; },
+      updateViewerPromptPanel() {},
+      getViewerScalableMedia: () => ({}),
+    };
+    installViewerShell({ app: {}, api: {}, ICONS: {}, state: { batchMode: true }, runtime: { viewer }, actions });
+    let prevented = 0;
+    actions.handleViewerWheel({
+      target: new MockElement(), deltaX: 0, deltaY: 40,
+      preventDefault() { prevented++; }, stopPropagation() {},
+    });
+    assert.deepEqual(rendered, ["batch:b"]);
+    assert.equal(viewer.index, 1);
+    assert.equal(prevented, 1);
+  } finally {
+    if (originalElement === undefined) delete globalThis.Element;
+    else globalThis.Element = originalElement;
+    globalThis.window = originalWindow;
   }
 });
