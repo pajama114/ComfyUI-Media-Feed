@@ -860,7 +860,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-global-controls svg { width: 18px; height: 18px; }
     .cmf-viewer-compare[aria-pressed="true"] {
       border-color: #000;
-      background: color-mix(in srgb, var(--cmf-accent) 30%, var(--cmf-button-bg));
+      background: #aad7ff;
       color: #000;
     }
 
