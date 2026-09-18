@@ -1,135 +1,79 @@
-# AGENTS.md
+# Media Feed: guidance for coding agents
 
-Guidance for AI coding agents working in this repository.
+## Project and working approach
 
-## Project
+Media Feed is a ComfyUI extension that displays newly generated images, videos,
+and audio in a floating canvas-edge feed. ComfyUI loads its browser ES modules
+directly from `web/js`; there is no build step or JavaScript package manager.
+The only Python runtime code is the favorites API in `__init__.py`. Work in WSL.
 
-Media Feed is a ComfyUI frontend extension that shows generated images, videos,
-and audio in a lightweight feed. It is intentionally small and has no runtime
-Python dependencies.
+Read the files relevant to the requested change, then complete the requested
+work and verify the affected behavior. Use judgment for routine implementation
+choices; ask when a missing product decision would materially change the result.
+Keep changes in the module that owns the behavior. Add dependencies or a build
+system only when the feature clearly requires them.
 
-## Repository Layout
+## Where to work
 
-- `__init__.py` exposes `WEB_DIRECTORY = "./web/js"` and the favorites routes.
-- `web/js/media_feed.js` is the small extension composition entrypoint.
-- `web/js/media_feed/` contains feed state, settings, cards, virtualization,
-  viewer controllers, floating placement, and ComfyUI integration.
-- `web/js/icons.js` contains shared inline SVG icons.
-- `web/js/metadata.js` is the public embedded metadata API.
-- `web/js/metadata/` contains bounded loading, extraction, graph inference, and
-  format-specific binary parsers. `web/js/metadata_parsers.js` re-exports the
-  parser API for compatibility.
-- `web/js/styles.js` installs the styles assembled from `web/js/styles/`.
-- `tests/` contains dependency-free Node characterization and unit tests.
-- `pyproject.toml` contains Comfy Registry metadata.
-- `README.md` is the public user-facing documentation.
-- `icon.png` is referenced by `[tool.comfy] Icon`.
-- `LICENSE` is MIT.
+- `web/js/media_feed.js` composes the extension. `web/js/media_feed/` owns feed
+  state, settings, cards, virtualization, the floating panel, viewer, and
+  ComfyUI event integration.
+- `web/js/metadata.js` is the public metadata API. `web/js/metadata/` owns
+  bounded loading, extraction, graph inference, and format parsers.
+  `web/js/metadata_parsers.js` preserves the parser API used elsewhere.
+- `web/js/styles.js` assembles CSS from `web/js/styles/`; `web/js/icons.js`
+  holds shared SVG icons. `locales/*/` contains translated setting text.
+- `__init__.py` registers the favorites routes and exposes `WEB_DIRECTORY`.
+  `tests/` contains dependency-free Node tests. `README.md` describes user
+  behavior; `pyproject.toml` holds Comfy Registry metadata.
 
-## Development Rules
+## Behavior to preserve when changing related code
 
-- Keep the extension frontend-only unless there is a clear need for backend
-  routes or custom nodes.
-- Prefer small, focused changes in the existing `web/js/*.js` module that owns
-  the behavior being edited.
-- Do not add npm, bundler, or Python runtime dependencies without a strong
-  reason. ComfyUI loads this file directly as browser JavaScript.
-- Preserve compatibility with older ComfyUI frontends: the fallback fixed panel
-  matters because some installs do not support bottom-panel tabs.
-- Keep UI performance bounded. The feed currently retains 256 items and
-  virtualizes visible cards. Do not replace virtualization with a full DOM list.
-- Keep media card positions identical between the Default and Frameless feed
-  styles for every placement. Hidden chrome and scrollbars must preserve the
-  equivalent layout space instead of shifting the media.
-- Avoid cache-busting media URLs. Image preview and full-screen view should reuse
-  the same `/view` URL where possible.
-- Keep embedded metadata scans bounded. Start with Range requests and do not
-  automatically download a large file in full; use the viewer's explicit full
-  metadata scan only when the initial scan cannot determine the result.
-- Preserve the full metadata scan path. Large generated videos may still need a
-  complete scan to recover embedded prompt and workflow data.
-- Be careful with keyboard handlers. When the viewer is open, arrow keys must not
-  leak to the ComfyUI canvas.
-- Be careful with focus. Viewer controls should not accidentally trigger ComfyUI
-  shortcuts such as Ctrl+Enter.
-- Do not commit logs or generated files. `startup.log` is ignored.
+- Keep feed history bounded by the configured limit and render visible cards
+  with overscan. Session storage contains media descriptors, not media files.
+  Reuse the same ComfyUI `/view` URL for an image thumbnail and its viewer when
+  possible so browser caching works.
+- Keep the floating feed usable on all four canvas edges. Default and
+  Frameless styles must place media cards identically; hidden controls and
+  scrollbars still occupy equivalent layout space.
+- Start embedded metadata reads with bounded Range requests. A server that
+  ignores Range must not trigger an automatic large download. Keep the viewer's
+  explicit full-file scan for inconclusive results, including large videos.
+- While the viewer is open, its navigation and playback keys must not reach
+  the ComfyUI canvas. Viewer controls must not steal ComfyUI's Ctrl+Enter
+  generation shortcut.
+- Favorites may copy only output media into `output/favorites`. Preserve path
+  validation, collision-safe copies, and deletion limited to favorite copies;
+  never delete the source output.
+- When changing registered settings or their labels, keep persisted values
+  compatible and update the corresponding locale entries. Update `README.md`
+  when user-visible behavior changes.
 
-## Checks
+## Verification
 
-Run these before committing:
+Run the Node tests relevant to the change; use the full suite for changes that
+cross modules or affect shared behavior. These tests use local fixtures and can
+be run and fixed without asking for approval:
 
 ```bash
+node --experimental-default-type=module --test tests/metadata.test.js
 node --experimental-default-type=module --test tests/*.test.js
-node --check web/js/media_feed.js
-node --check web/js/icons.js
-node --check web/js/metadata.js
-node --check web/js/metadata_parsers.js
-node --check web/js/styles.js
-python -m py_compile __init__.py
-python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"
-git diff --check
 ```
 
-Remove `__pycache__/` if `py_compile` creates it:
+The first command is an example of a focused test; select the test file that
+covers your change. For edited JavaScript, run `node --check` on the changed
+files. For edits to `__init__.py` or `pyproject.toml`, run the corresponding
+check below. Run `git diff --check` on edited work.
 
 ```bash
-rm -rf __pycache__
+python -c "import ast, pathlib; ast.parse(pathlib.Path('__init__.py').read_text())"
+python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"
 ```
 
-## Manual Test Checklist
+If a change depends on ComfyUI browser behavior, reload ComfyUI and exercise
+the affected flow when available; report any browser checks you could not run.
+Avoid repeating broader checks after they pass unless a later change or failure
+gives a reason.
 
-After browser reload in ComfyUI:
-
-- The console shows `[ComfyUI Media Feed] extension loaded`.
-- Generated images appear in the feed.
-- Many generated images do not make the UI sluggish.
-- Clicking an image opens the full-screen viewer.
-- Viewer next/previous works with side buttons, mouse wheel, and arrow keys.
-- Arrow keys in the viewer do not move selected nodes on the background canvas.
-- Ctrl+Enter still starts generation while the viewer is open and does not move
-  to another media item.
-- New media generated while the viewer is open becomes reachable without closing
-  the viewer.
-- Video thumbnails play muted on hover, switch to audible playback from their
-  bottom-left play button from the beginning, count down the remaining time,
-  and stop and re-mute when hover leaves.
-- Large video metadata is read with `/view` Range requests when the server
-  supports them.
-- When an initial metadata scan is inconclusive, `Read full file metadata`
-  appears and completes a full scan when selected.
-- Audio thumbnails show a two-row layout with a bottom-left play/pause button
-  and bottom-right duration that counts down during playback. Audio stops and
-  returns to the beginning when hover leaves the card.
-- Thumbnail size changes with the slider and persists after reload.
-- Switching between Default and Frameless does not move the media cards in any
-  placement.
-
-## Publishing Notes
-
-Comfy Registry metadata lives in `pyproject.toml`.
-
-Current package metadata:
-
-- Project name: `media-feed`
-- PublisherId: `pajama114`
-- DisplayName: `Media Feed`
-- Repository: `https://github.com/pajama114/ComfyUI-Media-Feed`
-
-Before publishing a release:
-
-- Ensure `README.md` is up to date.
-- Add or update screenshots/demo media if available.
-- Bump `version` in `pyproject.toml` when appropriate.
-- Commit with the correct Git identity:
-
-```bash
-git config user.name
-git config user.email
-```
-
-Expected identity:
-
-```text
-pajama114
-287429623+pajama114@users.noreply.github.com
-```
+When preparing a release, review the public README and Registry metadata in
+`pyproject.toml`, including the version. Do not commit transient logs or caches.
