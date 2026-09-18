@@ -292,7 +292,6 @@ export function installViewerShell(context) {
     currentViewer.items = items;
     currentViewer.index = index;
     resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
-    currentViewer.title.textContent = item.filename;
     currentViewer.root.dataset.open = "true";
     currentViewer.root.focus({ preventScroll: true });
     renderViewerItem(item, thumbnail);

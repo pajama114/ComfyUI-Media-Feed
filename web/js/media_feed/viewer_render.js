@@ -25,6 +25,34 @@ export function installViewerRender(context) {
     for (const media of currentViewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
   }
 
+  function updateViewerTitle(currentViewer, entry) {
+    const title = currentViewer.title;
+    if (entry.kind !== "batch") {
+      if (title.dataset) delete title.dataset.batch;
+      title.textContent = entry.filename;
+      title.title = entry.filename;
+      return;
+    }
+
+    const filenames = entry.items.map((item) => item.filename);
+    title.dataset.batch = "true";
+    title.title = filenames.join("\n");
+    if (filenames.length === 1) {
+      title.textContent = filenames[0];
+      return;
+    }
+
+    const first = document.createElement("span");
+    first.className = "cmf-viewer-title-endpoint";
+    first.textContent = filenames[0];
+    const separator = document.createElement("span");
+    separator.textContent = "\u00a0–\u00a0";
+    const last = document.createElement("span");
+    last.className = "cmf-viewer-title-endpoint";
+    last.textContent = filenames[filenames.length - 1];
+    title.replaceChildren(first, separator, last);
+  }
+
   async function renderViewerBatch(currentViewer, batch, requestId) {
     const grid = document.createElement("div");
     grid.className = "cmf-viewer-batch-grid";
@@ -159,8 +187,7 @@ export function installViewerRender(context) {
     if (!currentViewer.comparing && !currentViewer.isComparisonPane) {
       resetViewerImageView(item.kind === "batch" ? "fit" : state.scaleViewerMedia ? "fit" : "native");
     }
-    currentViewer.title.textContent = currentViewer.item.filename;
-    currentViewer.title.title = currentViewer.item.filename;
+    updateViewerTitle(currentViewer, item);
     currentViewer.openLink.href = currentViewer.item.url;
     currentViewer.copyImageButton.hidden = currentViewer.item.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, currentViewer.item);

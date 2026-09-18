@@ -111,7 +111,7 @@ test("batch viewer renders every output as one grid without selectable cells", a
     const viewer = {
       root: { dataset: { open: "true" } },
       media: new Element("div"),
-      title: { textContent: "", title: "" },
+      title: new Element("div"),
       openLink: { href: "" },
       copyImageButton: { hidden: true },
       favoriteButton: {},
@@ -145,6 +145,8 @@ test("batch viewer renders every output as one grid without selectable cells", a
     assert.equal(grid.children.length, 4);
     assert.equal(grid.styles.get("--cmf-batch-columns"), "2");
     assert.equal(viewer.item.id, "one");
+    assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "four.wav"]);
+    assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav");
     assert.equal(grid.children[2].listeners.has("click"), false);
 
     const rendering = actions.renderViewerItem(displayEntries([media("five", "p"), ...items], true)[0]);
@@ -158,6 +160,8 @@ test("batch viewer renders every output as one grid without selectable cells", a
     }
     assert.equal(grid.styles.get("--cmf-batch-columns"), "3");
     assert.equal(viewer.item.id, "one");
+    assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "five.png"]);
+    assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav\nfive.png");
 
     const staleRender = actions.renderViewerItem(displayEntries([media("stale", "p"), media("five", "p"), ...items], true)[0]);
     assert.equal(viewer.media.children[0], grid);

@@ -66,6 +66,22 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       white-space: nowrap;
     }
 
+    .cmf-viewer-title[data-batch="true"] {
+      display: flex;
+      align-items: center;
+    }
+
+    .cmf-viewer-title-endpoint {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cmf-viewer-title[data-batch="true"] > span:not(.cmf-viewer-title-endpoint) {
+      flex: none;
+    }
+
     .cmf-viewer-favorite,
     .cmf-viewer-download,
     .cmf-viewer-copy-image,
