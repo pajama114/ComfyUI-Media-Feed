@@ -212,6 +212,8 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     let pauses = 0;
     for (const player of grid.querySelectorAll("video, audio")) player.pause = () => { pauses++; };
     grid.dispatch("pointerdown", { ...pointer, target: videoCell.children[0] });
+    grid.dispatch("focusin", { target: videoCell.children[0] });
+    assert.equal(viewer.item.id, "one", "pointer focus waits for release before selecting");
     grid.dispatch("pointerup", { ...pointer, target: grid });
     assert.equal(viewer.item.id, "three");
     assert.equal(viewer.copyImageButton.hidden, true);
@@ -515,6 +517,62 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     });
     assert.equal(viewer.imageDrag, null);
     clearSuppression?.();
+
+    const audioPresentation = new MockElement();
+    const audioBackgroundTarget = {
+      closest(selector) {
+        if (selector === ".cmf-viewer-audio") return audioPresentation;
+        return null;
+      },
+    };
+    pointerDefaultPrevented = false;
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: audioBackgroundTarget, button: 0,
+      pointerId: 5, clientX: 100, clientY: 100,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, false, "an audio click remains native until it becomes a drag");
+    context.actions.handleViewerImagePointerMove({
+      currentTarget: grid, pointerId: 5, clientX: 100, clientY: 125,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, true, "moving over the audio background switches to batch panning");
+    context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 5 });
+    clickDefaultPrevented = false;
+    grid.listeners.get("click")({
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() {},
+    });
+    assert.equal(clickDefaultPrevented, true, "an audio drag must not toggle playback");
+    clearSuppression?.();
+
+    const audioTrackTarget = {
+      closest(selector) {
+        if (selector === ".cmf-viewer-audio") return audioPresentation;
+        if (selector.includes(".cmf-viewer-audio-track")) return new MockElement();
+        return null;
+      },
+    };
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: audioTrackTarget, button: 0,
+      pointerId: 6, clientX: 100, clientY: 100,
+      preventDefault() { throw new Error("the audio waveform must keep its seek gesture"); },
+    });
+    assert.equal(viewer.imageDrag, null);
+
+    const audioRangeTarget = {
+      closest(selector) {
+        if (selector === ".cmf-viewer-audio") return audioPresentation;
+        if (selector.startsWith("input,")) return new MockElement();
+        return null;
+      },
+    };
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: audioRangeTarget, button: 0,
+      pointerId: 7, clientX: 100, clientY: 100,
+      preventDefault() { throw new Error("audio range controls must keep their drag gestures"); },
+    });
+    assert.equal(viewer.imageDrag, null);
 
     context.actions.handleViewerImageDoubleClick({
       currentTarget: grid, target: { closest: () => null }, button: 0,

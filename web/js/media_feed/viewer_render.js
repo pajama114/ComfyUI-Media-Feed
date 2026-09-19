@@ -89,9 +89,10 @@ export function installViewerRender(context) {
       if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
     // Player controls can consume pointer events. Focus still identifies the
-    // media item being operated or tabbed into.
+    // media item being tabbed into, but pointer selection is committed on
+    // release so native video and custom audio controls behave consistently.
     grid.addEventListener("focusin", (event) => {
-      if (!isMediaControl(event.target)) return;
+      if (pointer || !isMediaControl(event.target)) return;
       const cell = cellAt(event.target);
       if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });

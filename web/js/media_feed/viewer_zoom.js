@@ -210,10 +210,12 @@ export function installViewerZoom(context) {
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
     let batchVideo = null;
+    let batchAudio = null;
     if (isBatchGrid(image)) {
-      if (event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
       batchVideo = event.target?.closest?.("video");
       if (batchVideo && isVideoControlPointer(event, batchVideo)) return;
+      batchAudio = event.target?.closest?.(".cmf-viewer-audio");
+      if (batchAudio && event.target?.closest?.("input, .cmf-viewer-audio-track, .cmf-viewer-audio-volume")) return;
     }
     if (image instanceof HTMLVideoElement
       && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
@@ -221,10 +223,10 @@ export function installViewerZoom(context) {
     if (image instanceof HTMLVideoElement && isVideoControlPointer(event, image)) return;
     if (event.button !== 0 || !canPanViewerImage(bounds)) return;
 
-    // Delay pointer capture over a batch video until movement becomes a drag.
+    // Delay pointer capture over a batch player until movement becomes a drag.
     // Otherwise a normal click is retargeted to the grid and cannot toggle the
     // native player.
-    const capturePending = Boolean(batchVideo);
+    const capturePending = Boolean(batchVideo || batchAudio);
     if (!capturePending) {
       event.preventDefault();
       image.setPointerCapture(event.pointerId);
