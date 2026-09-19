@@ -311,6 +311,11 @@ export function installViewerZoom(context) {
     event.preventDefault();
     event.stopPropagation();
     cancelPendingViewerVideoClick();
+    // A batch video's element fills its square cell, while object-fit can leave
+    // letterboxed space around the actual picture. Pointer selection has
+    // already selected the cell; only clicks on the rendered picture toggle
+    // playback.
+    if (!standaloneVideo && !isInsideContainedMedia(event, video)) return;
     if (event.detail > 1) return;
 
     const pending = {};

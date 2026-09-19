@@ -519,6 +519,8 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     runTimers();
 
     const video = new MockVideo();
+    video.videoWidth = 160;
+    video.videoHeight = 90;
     video.paused = true;
     let videoPlayCount = 0;
     let videoPauseCount = 0;
@@ -536,7 +538,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     let clickDefaultPrevented = false;
     let clickPropagationStopped = false;
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, detail: 1, clientY: 100,
+      target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 100,
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() { clickPropagationStopped = true; },
     });
@@ -550,7 +552,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
 
     clickDefaultPrevented = false;
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, detail: 1, clientY: 100,
+      target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 100,
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() {},
     });
@@ -560,12 +562,25 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     assert.equal(video.paused, true, "a second video-picture click pauses playback");
     assert.equal(videoPauseCount, 1);
 
+    clickDefaultPrevented = false;
+    clickPropagationStopped = false;
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, detail: 1, clientY: 100,
+      target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 20,
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() { clickPropagationStopped = true; },
+    });
+    assert.equal(clickDefaultPrevented, true, "letterboxed video space is handled by the batch grid");
+    assert.equal(clickPropagationStopped, true);
+    runTimers();
+    assert.equal(video.paused, true, "letterboxed video space selects without starting playback");
+    assert.equal(videoPlayCount, 1);
+
+    grid.listeners.get("click")({
+      target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 100,
       preventDefault() {}, stopPropagation() {},
     });
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, detail: 2, clientY: 100,
+      target: videoTarget, button: 0, detail: 2, clientX: 100, clientY: 100,
       preventDefault() {}, stopPropagation() {},
     });
     runTimers();
@@ -575,7 +590,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
 
     clickDefaultPrevented = false;
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, clientY: 180,
+      target: videoTarget, button: 0, clientX: 100, clientY: 180,
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() {},
     });

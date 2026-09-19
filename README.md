@@ -50,8 +50,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   selection frame without changing which output the viewer actions target;
   clicking a cell shows it again. Cells can also be focused with Tab and
   selected with Enter. Dragging pans without selecting; clicking a video's
-  picture toggles playback, while double-clicking an image or a video's picture
-  zooms the whole grid. Dragging over a video's picture or a non-scrubbable
+  picture toggles playback, while clicking letterboxed space inside its cell
+  only selects it. Double-clicking an image or a video's picture zooms the
+  whole grid. Dragging over a video's picture or a non-scrubbable
   audio area pans without starting playback, while playback, seeking, and volume
   controls remain usable. Each audio
   cell places a landscape detailed waveform above the same timeline, seeking,
