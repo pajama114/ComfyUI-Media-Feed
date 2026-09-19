@@ -74,11 +74,13 @@ export function installViewerRender(context) {
       if (pointer?.id !== event.pointerId) return;
       const selected = pointer;
       const dragged = selected.moved || moved(event);
+      const panned = runtime.viewer?.imageDrag?.pointerId === event.pointerId
+        && runtime.viewer.imageDrag.moved;
       pointer = null;
-      // Pointer capture retargets the release to the grid while panning. Keep
-      // the cell where the gesture started as the selection even when the
-      // pointer moved far enough to pan the grid.
-      selectViewerBatchItem(selected.cell.dataset.mediaItemKey);
+      // Panning changes the grid viewport, not its action/metadata target.
+      // Other drags, such as audio seeking and volume adjustment, still select
+      // the media whose control was operated.
+      if (!panned) selectViewerBatchItem(selected.cell.dataset.mediaItemKey);
       if (!dragged && !selected.nativeControl) selected.cell.focus({ preventScroll: true });
     }, true);
     // Keyboard/assistive clicks have no pointer sequence. Pointer selection is

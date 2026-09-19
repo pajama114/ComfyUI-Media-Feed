@@ -201,19 +201,26 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     const pointer = { button: 0, pointerId: 1, clientX: 50, clientY: 50 };
     grid.dispatch("pointerdown", { ...pointer, target: grid.children[0].children[0] });
     grid.dispatch("pointermove", { ...pointer, clientX: 70 });
-    // A swipe selects its starting cell, but moving back to the starting point
-    // must still keep it from receiving focus as a click.
+    viewer.imageDrag = { pointerId: 1, moved: true };
     grid.dispatch("pointerup", { ...pointer, target: grid });
-    assert.equal(viewer.item.id, "one");
-    assert.deepEqual(metadataTargets, ["two", "one"]);
+    viewer.imageDrag = null;
+    assert.equal(viewer.item.id, "two", "panning must not change the batch selection");
+    assert.deepEqual(metadataTargets, ["two"]);
     assert.notEqual(document.activeElement, grid.children[0]);
+
+    const audioControl = grid.children[3].children[0].children[0];
+    grid.dispatch("pointerdown", { ...pointer, target: audioControl });
+    grid.dispatch("pointermove", { ...pointer, clientX: 70 });
+    grid.dispatch("pointerup", { ...pointer, target: grid });
+    assert.equal(viewer.item.id, "four", "a non-pan control drag still selects its media");
+    actions.selectViewerBatchItem("image:two");
 
     const videoCell = grid.children[2];
     let pauses = 0;
     for (const player of grid.querySelectorAll("video, audio")) player.pause = () => { pauses++; };
     grid.dispatch("pointerdown", { ...pointer, target: videoCell.children[0] });
     grid.dispatch("focusin", { target: videoCell.children[0] });
-    assert.equal(viewer.item.id, "one", "pointer focus waits for release before selecting");
+    assert.equal(viewer.item.id, "two", "pointer focus waits for release before selecting");
     grid.dispatch("pointerup", { ...pointer, target: grid });
     assert.equal(viewer.item.id, "three");
     assert.equal(viewer.copyImageButton.hidden, true);
