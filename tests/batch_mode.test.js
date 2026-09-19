@@ -707,10 +707,33 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     standaloneVideo.videoWidth = 400;
     standaloneVideo.videoHeight = 200;
     standaloneVideo.dataset.mediaItemKey = "video:standalone";
+    standaloneVideo.paused = true;
+    let standalonePlayCount = 0;
+    let standalonePauseCount = 0;
+    standaloneVideo.play = () => {
+      standalonePlayCount++;
+      standaloneVideo.paused = false;
+      return Promise.resolve();
+    };
+    standaloneVideo.pause = () => {
+      standalonePauseCount++;
+      standaloneVideo.paused = true;
+    };
     viewer.entry = viewer.item = media("standalone", "", "video");
     mediaFrame.querySelector = (selector) => selector.includes("cmf-zoomable-video") ? standaloneVideo : null;
     context.actions.prepareViewerImage(standaloneVideo);
     context.actions.resetViewerImageView("fit");
+
+    let standaloneClickPrevented = false;
+    standaloneVideo.listeners.get("click")({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0, detail: 1, clientY: 100,
+      preventDefault() { standaloneClickPrevented = true; }, stopPropagation() {},
+    });
+    assert.equal(standaloneClickPrevented, true);
+    assert.equal(standalonePlayCount, 0, "standalone playback waits for a possible double-click");
+    runTimers();
+    assert.equal(standalonePlayCount, 1, "clicking a standalone video's picture starts playback");
+
     let standalonePrevented = false;
     standaloneVideo.listeners.get("dblclick")({
       currentTarget: standaloneVideo, target: standaloneVideo, button: 0,
@@ -719,6 +742,31 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     });
     assert.equal(standalonePrevented, true);
     assert.equal(viewer.imageZoom, 2, "double-clicking a standalone video's picture zooms it");
+    assert.equal(standaloneVideo.properties.get("--cmf-image-zoom"), "2");
+    assert.equal(mediaFrame.dataset.pannable, "true");
+
+    pointerDefaultPrevented = false;
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0,
+      pointerId: 8, clientX: 100, clientY: 100,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, false, "standalone video capture waits for drag movement");
+    context.actions.handleViewerImagePointerMove({
+      currentTarget: standaloneVideo, pointerId: 8, clientX: 130, clientY: 100,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, true);
+    assert.equal(viewer.imagePanX, 130);
+    context.actions.finishViewerImageDrag({ currentTarget: standaloneVideo, pointerId: 8 });
+    standaloneClickPrevented = false;
+    standaloneVideo.listeners.get("click")({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0, detail: 1, clientY: 100,
+      preventDefault() { standaloneClickPrevented = true; }, stopPropagation() {},
+    });
+    assert.equal(standaloneClickPrevented, true, "a standalone video pan must not toggle playback");
+    runTimers();
+    assert.equal(standalonePauseCount, 0);
 
     standalonePrevented = false;
     standaloneVideo.listeners.get("dblclick")({

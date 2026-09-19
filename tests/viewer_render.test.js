@@ -4,6 +4,50 @@ import test from "node:test";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
 
+test("standalone viewer videos disable native fullscreen for double-click zoom", async () => {
+  const originalDocument = globalThis.document;
+  const attributes = new Map();
+  const video = {
+    dataset: {},
+    classList: { add() {} },
+    addEventListener() {},
+    setAttribute(name, value) { attributes.set(name, value); },
+    play: () => Promise.resolve(),
+  };
+  globalThis.document = { createElement: (tagName) => tagName === "video" ? video : {} };
+
+  try {
+    const item = { id: "video-id", key: "video-key", kind: "video", filename: "clip.mp4", url: "/view/clip.mp4" };
+    const viewer = {
+      root: { dataset: { open: "true" } },
+      media: { querySelector: () => null },
+      title: { dataset: {}, textContent: "", title: "" },
+      openLink: {}, copyImageButton: {}, favoriteButton: {},
+      renderRequestId: 0, item: null, entry: null, pendingMedia: null,
+    };
+    const actions = {
+      ensureViewer: () => viewer,
+      clearViewerAudioWaveform() {}, discardStagedMedia() {}, resetViewerImageView() {},
+      syncFavoriteButton() {}, syncViewerNav() {}, prepareViewerImage() {},
+      rememberMediaDimensions() {}, updateViewerImageLayout() {}, refreshViewerPromptPanelDetails() {},
+      waitForMediaReady: async () => {},
+      isCurrentViewerRender: (currentViewer, requestId, currentItem) => currentViewer === viewer
+        && viewer.renderRequestId === requestId && viewer.item === currentItem,
+      replaceViewerMedia() {},
+    };
+    installViewerRender({
+      app: {}, api: {}, ICONS: {}, state: { scaleViewerMedia: true, loopVideos: false },
+      runtime: { viewer }, actions,
+    });
+
+    await actions.renderViewerItem(item);
+
+    assert.equal(attributes.get("controlslist"), "nofullscreen");
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
 test("viewer media replacement starts audio nested below its waveform", () => {
   let paused = 0;
   let played = 0;

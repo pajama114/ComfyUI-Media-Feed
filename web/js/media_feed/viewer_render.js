@@ -375,6 +375,9 @@ export function installViewerRender(context) {
       const video = document.createElement("video");
       prepareViewerImage(video);
       video.controls = true;
+      // Chromium can enter native fullscreen from the click sequence before
+      // the viewer's double-click zoom handler runs.
+      video.setAttribute("controlslist", "nofullscreen");
       video.playsInline = true;
       video.preload = "auto";
       video.loop = state.loopVideos;

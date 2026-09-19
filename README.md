@@ -104,11 +104,12 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   displayed metadata with visual copy confirmation.
 - Downloads all embedded JSON metadata as a formatted `.json` file.
 - Lets you place the metadata panel on either side of the viewer.
-- Provides Fit, actual-size, and zoom controls for images and videos. Zoomed
-  images and videos can be panned by dragging, and double-clicking zooms in
-  or returns to the selected Fit/actual-size view. The Fit scale can be adjusted
-  from 25% to 100% of the available viewer area. The zoom percentage always
-  shows the displayed size relative to the media's original dimensions.
+- Provides Fit, actual-size, and zoom controls for images and videos. Clicking
+  a video's picture toggles playback. Zoomed images and videos can be panned by
+  dragging, and double-clicking zooms in or returns to the selected
+  Fit/actual-size view. The Fit scale can be adjusted from 25% to 100% of the
+  available viewer area. The zoom percentage always shows the displayed size
+  relative to the media's original dimensions.
 - Uses ComfyUI theme colors when available.
 - Saves feed and viewer settings in browser `localStorage`.
 - Restores the latest feed after a page reload in the same browser tab.

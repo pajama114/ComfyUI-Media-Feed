@@ -123,27 +123,16 @@ export function installViewerZoom(context) {
   
     const fitScale = Math.min(frame.width / natural.width, frame.height / natural.height);
     const baseScale = runtime.viewer.imageBaseMode === "fit" ? fitScale * state.viewerFitScale / 100 : 1;
-    const comparison = runtime.viewer.comparing || runtime.viewer.isComparisonPane;
-    const normalVideo = media instanceof HTMLVideoElement && !comparison;
-    const layoutZoom = normalVideo ? runtime.viewer.imageZoom : 1;
-    media.style.width = `${natural.width * baseScale * layoutZoom}px`;
-    media.style.height = `${natural.height * baseScale * layoutZoom}px`;
-
-    if (normalVideo) {
-      runtime.viewer.media.dataset.pannable = "false";
-      runtime.viewer.media.dataset.dragging = "false";
-      updateViewerImageControls(media, baseScale * runtime.viewer.imageZoom);
-      return;
-    }
+    media.style.width = `${natural.width * baseScale}px`;
+    media.style.height = `${natural.height * baseScale}px`;
   
-    const image = media;
-    const bounds = constrainViewerImagePan(image);
-    image.style.setProperty("--cmf-image-zoom", String(runtime.viewer.imageZoom));
-    image.style.setProperty("--cmf-image-pan-x", `${runtime.viewer.imagePanX}px`);
-    image.style.setProperty("--cmf-image-pan-y", `${runtime.viewer.imagePanY}px`);
+    const bounds = constrainViewerImagePan(media);
+    media.style.setProperty("--cmf-image-zoom", String(runtime.viewer.imageZoom));
+    media.style.setProperty("--cmf-image-pan-x", `${runtime.viewer.imagePanX}px`);
+    media.style.setProperty("--cmf-image-pan-y", `${runtime.viewer.imagePanY}px`);
     runtime.viewer.media.dataset.pannable = String(canPanViewerImage(bounds));
     runtime.viewer.media.dataset.dragging = String(Boolean(runtime.viewer.imageDrag));
-    updateViewerImageControls(image, baseScale * runtime.viewer.imageZoom);
+    updateViewerImageControls(media, baseScale * runtime.viewer.imageZoom);
   }
   
   function resetViewerImageView(baseMode = runtime.viewer?.imageBaseMode || "native") {
@@ -173,15 +162,13 @@ export function installViewerZoom(context) {
   
   function setViewerImageZoom(nextZoom, origin) {
     const media = getViewerScalableMedia();
-    const image = media instanceof HTMLVideoElement
-      && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane ? null : media;
     if (!media || !runtime.viewer) return;
   
     const previousZoom = runtime.viewer.imageZoom;
     const zoom = clampViewerImageZoom(nextZoom);
     if (Math.abs(zoom - previousZoom) < 0.001) return;
   
-    if (origin && image) {
+    if (origin) {
       const frame = runtime.viewer.media.getBoundingClientRect();
       const pointX = origin.x - (frame.left + frame.width / 2) - runtime.viewer.imagePanX;
       const pointY = origin.y - (frame.top + frame.height / 2) - runtime.viewer.imagePanY;
@@ -202,11 +189,12 @@ export function installViewerZoom(context) {
       || !(target instanceof HTMLImageElement || standaloneVideo || isBatchGrid(target))) return;
     if (standaloneVideo) {
       if (isVideoControlPointer(event, target)) return;
+      cancelPendingViewerVideoClick();
     } else if (isBatchGrid(target)) {
       const video = event.target?.closest?.("video");
       if (video ? isVideoControlPointer(event, video)
         : event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
-      if (video) cancelPendingBatchVideoClick();
+      if (video) cancelPendingViewerVideoClick();
     }
     event.preventDefault();
     event.stopPropagation();
@@ -220,24 +208,21 @@ export function installViewerZoom(context) {
   
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
-    let batchVideo = null;
+    let pointerVideo = image instanceof HTMLVideoElement ? image : null;
     let batchAudio = null;
     if (isBatchGrid(image)) {
-      batchVideo = event.target?.closest?.("video");
-      if (batchVideo && isVideoControlPointer(event, batchVideo)) return;
+      pointerVideo = event.target?.closest?.("video");
       batchAudio = event.target?.closest?.(".cmf-viewer-audio");
       if (batchAudio && event.target?.closest?.("input, .cmf-viewer-audio-track, .cmf-viewer-audio-volume")) return;
     }
-    if (image instanceof HTMLVideoElement
-      && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
+    if (pointerVideo && isVideoControlPointer(event, pointerVideo)) return;
     const bounds = viewerImagePanBounds(image);
-    if (image instanceof HTMLVideoElement && isVideoControlPointer(event, image)) return;
     if (event.button !== 0 || !canPanViewerImage(bounds)) return;
 
-    // Delay pointer capture over a batch player until movement becomes a drag.
+    // Delay pointer capture over a player until movement becomes a drag.
     // Otherwise a normal click is retargeted to the grid and cannot toggle the
     // native player.
-    const capturePending = Boolean(batchVideo || batchAudio);
+    const capturePending = Boolean(pointerVideo || batchAudio);
     if (!capturePending) {
       event.preventDefault();
       image.setPointerCapture(event.pointerId);
@@ -294,14 +279,14 @@ export function installViewerZoom(context) {
     updateViewerImageLayout();
   }
 
-  function cancelPendingBatchVideoClick() {
-    const pending = runtime.viewer?.pendingBatchVideoClick;
+  function cancelPendingViewerVideoClick() {
+    const pending = runtime.viewer?.pendingViewerVideoClick;
     if (!pending) return;
     window.clearTimeout(pending.timer);
-    runtime.viewer.pendingBatchVideoClick = null;
+    runtime.viewer.pendingViewerVideoClick = null;
   }
 
-  function toggleBatchVideoPlayback(video) {
+  function toggleViewerVideoPlayback(video) {
     if (video.paused) {
       video.play()?.catch?.(() => {});
     } else {
@@ -309,29 +294,32 @@ export function installViewerZoom(context) {
     }
   }
 
-  function suppressBatchPanClick(event) {
-    if (runtime.viewer?.suppressBatchClick) {
-      runtime.viewer.suppressBatchClick = false;
+  function handleViewerVideoClick(event) {
+    const standaloneVideo = event.currentTarget instanceof HTMLVideoElement
+      ? event.currentTarget : null;
+    const suppressionKey = standaloneVideo ? "suppressImageClick" : "suppressBatchClick";
+    if (runtime.viewer?.[suppressionKey]) {
+      runtime.viewer[suppressionKey] = false;
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
-    const video = event.target?.closest?.("video");
+    const video = standaloneVideo || event.target?.closest?.("video");
     if (event.button !== 0 || !video || isVideoControlPointer(event, video)) return;
     event.preventDefault();
     event.stopPropagation();
-    cancelPendingBatchVideoClick();
+    cancelPendingViewerVideoClick();
     if (event.detail > 1) return;
 
     const pending = {};
     pending.timer = window.setTimeout(() => {
-      if (runtime.viewer?.pendingBatchVideoClick !== pending) return;
-      runtime.viewer.pendingBatchVideoClick = null;
+      if (runtime.viewer?.pendingViewerVideoClick !== pending) return;
+      runtime.viewer.pendingViewerVideoClick = null;
       if (video.isConnected === false) return;
-      toggleBatchVideoPlayback(video);
+      toggleViewerVideoPlayback(video);
     }, VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS);
-    runtime.viewer.pendingBatchVideoClick = pending;
+    runtime.viewer.pendingViewerVideoClick = pending;
   }
   
   function prepareViewerImage(image) {
@@ -346,7 +334,9 @@ export function installViewerZoom(context) {
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);
     image.addEventListener("pointercancel", finishViewerImageDrag);
-    if (batch) image.addEventListener("click", suppressBatchPanClick, true);
+    if (batch || image instanceof HTMLVideoElement) {
+      image.addEventListener("click", handleViewerVideoClick, true);
+    }
     image.addEventListener("dragstart", (event) => event.preventDefault());
   }
   
@@ -437,7 +427,7 @@ export function installViewerZoom(context) {
     handleViewerImagePointerDown,
     handleViewerImagePointerMove,
     finishViewerImageDrag,
-    suppressBatchPanClick,
+    handleViewerVideoClick,
     prepareViewerImage,
     viewerMediaNaturalSize,
     isInsideContainedMedia,

@@ -368,7 +368,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       height: 100%;
     }
 
-    .cmf-viewer-media img.cmf-zoomable-image {
+    .cmf-viewer-media img.cmf-zoomable-image,
+    .cmf-viewer-media video.cmf-zoomable-video {
       max-width: none;
       max-height: none;
       transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
@@ -383,12 +384,14 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       max-height: none;
     }
 
-    .cmf-viewer-media[data-pannable="true"] img.cmf-zoomable-image {
+    .cmf-viewer-media[data-pannable="true"] img.cmf-zoomable-image,
+    .cmf-viewer-media[data-pannable="true"] video.cmf-zoomable-video {
       cursor: grab;
       touch-action: none;
     }
 
-    .cmf-viewer-media[data-dragging="true"] img.cmf-zoomable-image {
+    .cmf-viewer-media[data-dragging="true"] img.cmf-zoomable-image,
+    .cmf-viewer-media[data-dragging="true"] video.cmf-zoomable-video {
       cursor: grabbing;
     }
 
