@@ -60,6 +60,7 @@ export const VIEWER_IMAGE_DOUBLE_CLICK_ZOOM = 2;
 export const VIEWER_IMAGE_MIN_ZOOM = 0.25;
 export const VIEWER_IMAGE_MAX_ZOOM = 8;
 export const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
+export const VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS = 250;
 export const VIEWER_METADATA_LOADING_DELAY_MS = 120;
 export const SIDE_PLACEMENTS = new Set(["left", "right"]);
 export const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);

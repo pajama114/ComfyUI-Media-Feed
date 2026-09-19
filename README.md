@@ -45,9 +45,10 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   around the media and stays two screen pixels wide while zooming. The first
   output starts selected; new outputs preserve the current selection. Each
   comparison pane has its own selection. Cells can also be focused with Tab
-  and selected with Enter. Dragging pans without selecting; double-clicking
-  an image still zooms the whole grid. Dragging over a video's picture or a
-  non-scrubbable audio area pans without starting playback, while player
+  and selected with Enter. Dragging pans without selecting; clicking a video's
+  picture toggles playback, while double-clicking an image or a video's picture
+  zooms the whole grid. Dragging over a video's picture or a non-scrubbable
+  audio area pans without starting playback, while playback, seeking, and volume
   controls remain usable. Each audio
   cell places a landscape detailed waveform above the same timeline, seeking,
   and volume controls as the single-item viewer. Batch-card audio

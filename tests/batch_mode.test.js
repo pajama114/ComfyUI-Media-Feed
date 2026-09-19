@@ -216,6 +216,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     actions.selectViewerBatchItem("image:two");
 
     const videoCell = grid.children[2];
+    assert.equal(videoCell.children[0].getAttribute("controlslist"), "nofullscreen");
     let pauses = 0;
     for (const player of grid.querySelectorAll("video, audio")) player.pause = () => { pauses++; };
     grid.dispatch("pointerdown", { ...pointer, target: videoCell.children[0] });
@@ -432,8 +433,17 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
   globalThis.HTMLImageElement = MockImage;
   globalThis.HTMLVideoElement = MockVideo;
   globalThis.HTMLAudioElement = MockAudio;
-  let clearSuppression;
-  globalThis.window = { setTimeout(callback) { clearSuppression = callback; } };
+  let nextTimerId = 0;
+  const timers = new Map();
+  const runTimers = () => {
+    const callbacks = [...timers.values()];
+    timers.clear();
+    for (const callback of callbacks) callback();
+  };
+  globalThis.window = {
+    setTimeout(callback) { const id = ++nextTimerId; timers.set(id, callback); return id; },
+    clearTimeout(id) { timers.delete(id); },
+  };
 
   try {
     const grid = new MockElement();
@@ -479,9 +489,14 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     assert.equal(viewer.imagePanX, 50);
     assert.equal(viewer.imagePanY, -30);
     context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 1 });
-    clearSuppression?.();
+    runTimers();
 
     const video = new MockVideo();
+    video.paused = true;
+    let videoPlayCount = 0;
+    let videoPauseCount = 0;
+    video.play = () => { videoPlayCount++; video.paused = false; return Promise.resolve(); };
+    video.pause = () => { videoPauseCount++; video.paused = true; };
     const videoTarget = { closest: (selector) => selector === "video" ? video : null };
     let pointerDefaultPrevented = false;
     context.actions.handleViewerImagePointerDown({
@@ -492,11 +507,53 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     assert.equal(pointerDefaultPrevented, false, "a video click remains native until it becomes a drag");
     context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 2 });
     let clickDefaultPrevented = false;
+    let clickPropagationStopped = false;
     grid.listeners.get("click")({
+      target: videoTarget, button: 0, detail: 1, clientY: 100,
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() { clickPropagationStopped = true; },
+    });
+    assert.equal(clickDefaultPrevented, true, "a video-picture click is handled by the batch grid");
+    assert.equal(clickPropagationStopped, true);
+    assert.equal(video.paused, true, "single-click playback waits for a possible double-click");
+    assert.equal(videoPlayCount, 0);
+    runTimers();
+    assert.equal(video.paused, false, "a video-picture click starts playback after the click delay");
+    assert.equal(videoPlayCount, 1);
+
+    clickDefaultPrevented = false;
+    grid.listeners.get("click")({
+      target: videoTarget, button: 0, detail: 1, clientY: 100,
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() {},
     });
-    assert.equal(clickDefaultPrevented, false, "a video click can toggle playback");
+    assert.equal(clickDefaultPrevented, true);
+    assert.equal(video.paused, false);
+    runTimers();
+    assert.equal(video.paused, true, "a second video-picture click pauses playback");
+    assert.equal(videoPauseCount, 1);
+
+    grid.listeners.get("click")({
+      target: videoTarget, button: 0, detail: 1, clientY: 100,
+      preventDefault() {}, stopPropagation() {},
+    });
+    grid.listeners.get("click")({
+      target: videoTarget, button: 0, detail: 2, clientY: 100,
+      preventDefault() {}, stopPropagation() {},
+    });
+    runTimers();
+    assert.equal(video.paused, true, "a double-click does not change video playback");
+    assert.equal(videoPlayCount, 1);
+    assert.equal(videoPauseCount, 1);
+
+    clickDefaultPrevented = false;
+    grid.listeners.get("click")({
+      target: videoTarget, button: 0, clientY: 180,
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() {},
+    });
+    assert.equal(clickDefaultPrevented, false, "native video controls keep their click behavior");
+    assert.equal(video.paused, true);
 
     context.actions.handleViewerImagePointerDown({
       currentTarget: grid, target: videoTarget, button: 0,
@@ -509,7 +566,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     });
     assert.equal(pointerDefaultPrevented, true, "moving over the video switches to batch panning");
     context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 3 });
-    let clickPropagationStopped = false;
+    clickPropagationStopped = false;
     grid.listeners.get("click")({
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() { clickPropagationStopped = true; },
@@ -523,7 +580,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
       preventDefault() { throw new Error("native video controls must remain interactive"); },
     });
     assert.equal(viewer.imageDrag, null);
-    clearSuppression?.();
+    runTimers();
 
     const audioPresentation = new MockElement();
     const audioBackgroundTarget = {
@@ -551,7 +608,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
       stopPropagation() {},
     });
     assert.equal(clickDefaultPrevented, true, "an audio drag must not toggle playback");
-    clearSuppression?.();
+    runTimers();
 
     const audioTrackTarget = {
       closest(selector) {
@@ -581,8 +638,29 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     });
     assert.equal(viewer.imageDrag, null);
 
+    context.actions.resetViewerImageView();
+    let videoDoubleClickPrevented = false;
+    let videoDoubleClickStopped = false;
     context.actions.handleViewerImageDoubleClick({
-      currentTarget: grid, target: { closest: () => null }, button: 0,
+      currentTarget: grid, target: videoTarget, button: 0, clientX: 100, clientY: 100,
+      preventDefault() { videoDoubleClickPrevented = true; },
+      stopPropagation() { videoDoubleClickStopped = true; },
+    });
+    assert.equal(videoDoubleClickPrevented, true, "double-clicking a video's picture suppresses native fullscreen");
+    assert.equal(videoDoubleClickStopped, true);
+    assert.equal(viewer.imageZoom, 2, "double-clicking a video's picture zooms the batch grid");
+
+    videoDoubleClickPrevented = false;
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: videoTarget, button: 0, clientX: 100, clientY: 180,
+      preventDefault() { videoDoubleClickPrevented = true; },
+      stopPropagation() {},
+    });
+    assert.equal(videoDoubleClickPrevented, false, "native video controls remain interactive");
+    assert.equal(viewer.imageZoom, 2);
+
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: videoTarget, button: 0, clientX: 100, clientY: 100,
       preventDefault() {}, stopPropagation() {},
     });
     assert.equal(viewer.imageZoom, 1);

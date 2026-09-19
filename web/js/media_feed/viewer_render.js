@@ -199,6 +199,10 @@ export function installViewerRender(context) {
       } else if (item.kind === "video") {
         const video = document.createElement("video");
         video.controls = true;
+        // Chromium recognizes fullscreen from the two click events before the
+        // grid's dblclick handler runs. Disable that native batch-only action;
+        // the grid handles picture clicks for playback and double-click zoom.
+        video.setAttribute("controlslist", "nofullscreen");
         video.playsInline = true;
         video.preload = "metadata";
         video.loop = state.loopVideos;

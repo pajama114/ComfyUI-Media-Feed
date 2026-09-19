@@ -3,6 +3,7 @@ import {
   VIEWER_IMAGE_MIN_ZOOM,
   VIEWER_IMAGE_MAX_ZOOM,
   VIEWER_IMAGE_DRAG_THRESHOLD,
+  VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS,
 } from "./constants.js";
 
 export function installViewerZoom(context) {
@@ -196,7 +197,12 @@ export function installViewerZoom(context) {
   function handleViewerImageDoubleClick(event) {
     if (!runtime.viewer || event.button !== 0
       || !(event.currentTarget instanceof HTMLImageElement || isBatchGrid(event.currentTarget))) return;
-    if (isBatchGrid(event.currentTarget) && event.target?.closest?.("video, audio, button, input, .cmf-viewer-audio")) return;
+    if (isBatchGrid(event.currentTarget)) {
+      const video = event.target?.closest?.("video");
+      if (video ? isVideoControlPointer(event, video)
+        : event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
+      if (video) cancelPendingBatchVideoClick();
+    }
     event.preventDefault();
     event.stopPropagation();
   
@@ -283,11 +289,44 @@ export function installViewerZoom(context) {
     updateViewerImageLayout();
   }
 
+  function cancelPendingBatchVideoClick() {
+    const pending = runtime.viewer?.pendingBatchVideoClick;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    runtime.viewer.pendingBatchVideoClick = null;
+  }
+
+  function toggleBatchVideoPlayback(video) {
+    if (video.paused) {
+      video.play()?.catch?.(() => {});
+    } else {
+      video.pause();
+    }
+  }
+
   function suppressBatchPanClick(event) {
-    if (!runtime.viewer?.suppressBatchClick) return;
-    runtime.viewer.suppressBatchClick = false;
+    if (runtime.viewer?.suppressBatchClick) {
+      runtime.viewer.suppressBatchClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    const video = event.target?.closest?.("video");
+    if (event.button !== 0 || !video || isVideoControlPointer(event, video)) return;
     event.preventDefault();
     event.stopPropagation();
+    cancelPendingBatchVideoClick();
+    if (event.detail > 1) return;
+
+    const pending = {};
+    pending.timer = window.setTimeout(() => {
+      if (runtime.viewer?.pendingBatchVideoClick !== pending) return;
+      runtime.viewer.pendingBatchVideoClick = null;
+      if (video.isConnected === false) return;
+      toggleBatchVideoPlayback(video);
+    }, VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS);
+    runtime.viewer.pendingBatchVideoClick = pending;
   }
   
   function prepareViewerImage(image) {
