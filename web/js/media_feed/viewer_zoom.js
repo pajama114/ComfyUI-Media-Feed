@@ -11,6 +11,7 @@ export function installViewerZoom(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
 
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
+  const setViewerBatchSelectionVisible = (...args) => actions.setViewerBatchSelectionVisible?.(...args);
   const closeViewer = (...args) => actions.closeViewer(...args);
   const isBatchGrid = (element) => Boolean(element?.classList?.contains("cmf-viewer-batch-grid"));
   const isVideoControlPointer = (event, video) => {
@@ -382,6 +383,11 @@ export function installViewerZoom(context) {
     if (runtime.viewer?.suppressImageClick && event.target instanceof HTMLImageElement) {
       runtime.viewer.suppressImageClick = false;
       return;
+    }
+
+    if (!event.target?.closest?.(".cmf-viewer-batch-cell")) {
+      setViewerBatchSelectionVisible(false);
+      if (runtime.viewer?.reference) setViewerBatchSelectionVisible(false, runtime.viewer.reference);
     }
   
     if (event.target === runtime.viewer?.root || event.target === runtime.viewer?.body || event.target === runtime.viewer?.main || event.target === runtime.viewer?.media

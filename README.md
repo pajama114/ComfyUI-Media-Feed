@@ -46,8 +46,10 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   opening the original, and metadata. A thin frame occupies reserved space
   around the media and stays two screen pixels wide while zooming. The first
   output starts selected; new outputs preserve the current selection. Each
-  comparison pane has its own selection. Cells can also be focused with Tab
-  and selected with Enter. Dragging pans without selecting; clicking a video's
+  comparison pane has its own selection. Clicking outside the media hides the
+  selection frame without changing which output the viewer actions target;
+  clicking a cell shows it again. Cells can also be focused with Tab and
+  selected with Enter. Dragging pans without selecting; clicking a video's
   picture toggles playback, while double-clicking an image or a video's picture
   zooms the whole grid. Dragging over a video's picture or a non-scrubbable
   audio area pans without starting playback, while playback, seeking, and volume

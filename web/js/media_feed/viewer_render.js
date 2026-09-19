@@ -22,10 +22,18 @@ export function installViewerRender(context) {
   const createViewerAudioPresentation = (...args) => actions.createViewerAudioPresentation(...args);
   const setupViewerAudioWaveform = (...args) => actions.setupViewerAudioWaveform(...args);
 
+  function setViewerBatchSelectionVisible(visible, currentViewer = runtime.viewer) {
+    if (!currentViewer) return;
+    currentViewer.batchSelectionVisible = Boolean(visible);
+    const grid = currentViewer.media?.querySelector?.(".cmf-viewer-batch-grid");
+    if (grid) grid.dataset.selectionVisible = String(currentViewer.batchSelectionVisible);
+  }
+
   function syncViewerSelection(currentViewer) {
     currentViewer.openLink.href = currentViewer.item.url;
     currentViewer.copyImageButton.hidden = currentViewer.item.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, currentViewer.item);
+    setViewerBatchSelectionVisible(currentViewer.batchSelectionVisible !== false, currentViewer);
     for (const cell of currentViewer.media.querySelectorAll(".cmf-viewer-batch-cell")) {
       const selected = cell.dataset.mediaItemKey === currentViewer.item.key;
       cell.dataset.selected = String(selected);
@@ -40,7 +48,9 @@ export function installViewerRender(context) {
     const grid = currentViewer.media.querySelector(".cmf-viewer-batch-grid");
     if (grid?.dataset.mediaItemKey !== batch.key) return;
     const item = batch.items.find((member) => member.key === key);
-    if (!item || currentViewer.item?.id === item.id) return;
+    if (!item) return;
+    setViewerBatchSelectionVisible(true, currentViewer);
+    if (currentViewer.item?.id === item.id) return;
 
     // Selection changes the action/metadata target without remounting media.
     currentViewer.item = item;
@@ -95,9 +105,10 @@ export function installViewerRender(context) {
     // media item being tabbed into, but pointer selection is committed on
     // release so native video and custom audio controls behave consistently.
     grid.addEventListener("focusin", (event) => {
-      if (pointer || !isMediaControl(event.target)) return;
       const cell = cellAt(event.target);
-      if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
+      if (!cell) return;
+      setViewerBatchSelectionVisible(true);
+      if (!pointer && isMediaControl(event.target)) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
     grid.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
@@ -293,12 +304,15 @@ export function installViewerRender(context) {
     currentViewer.pendingMedia = null;
     const previousBatchPresentation = isBatchPresentation(currentViewer.entry);
     const sameBatch = item.kind === "batch" && currentViewer.entry?.key === item.key;
+    const batchPresentation = isBatchPresentation(item);
+    if (!sameBatch || previousBatchPresentation !== batchPresentation) {
+      currentViewer.batchSelectionVisible = true;
+    }
     const selectedKey = sameBatch ? currentViewer.item?.key : null;
     currentViewer.entry = item;
     currentViewer.item = item.kind === "batch"
       ? item.items.find((member) => member.key === selectedKey) || item.items[0]
       : item;
-    const batchPresentation = isBatchPresentation(item);
     const mediaItem = currentViewer.item;
     currentViewer.mediaReadyItemId = "";
     if ((!sameBatch || previousBatchPresentation !== batchPresentation)
@@ -445,5 +459,6 @@ export function installViewerRender(context) {
   Object.assign(actions, {
     renderViewerItem,
     selectViewerBatchItem,
+    setViewerBatchSelectionVisible,
   });
 }

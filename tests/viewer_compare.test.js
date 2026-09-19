@@ -144,14 +144,46 @@ test("clicking the comparison backdrop closes the viewer", () => {
   globalThis.HTMLImageElement = class {};
   try {
     let closed = 0;
+    const visibilityChanges = [];
     const runtime = { viewer: { comparing: true, root: {}, body: {}, main: {}, media: {} } };
     const context = {
       state: {}, runtime,
-      actions: { closeViewer: () => { closed++; } },
+      actions: {
+        closeViewer: () => { closed++; },
+        setViewerBatchSelectionVisible: (visible, viewer) => visibilityChanges.push([visible, viewer]),
+      },
     };
     installViewerZoom(context);
     context.actions.handleViewerBackdropClick({ target: { classList: { contains: (name) => name === "cmf-viewer-media-stage" } } });
     assert.equal(closed, 1);
+    assert.deepEqual(visibilityChanges, [[false, undefined]]);
+  } finally {
+    if (originalImageElement === undefined) delete globalThis.HTMLImageElement;
+    else globalThis.HTMLImageElement = originalImageElement;
+  }
+});
+
+test("clicking viewer chrome hides batch selection frames without closing the viewer", () => {
+  const originalImageElement = globalThis.HTMLImageElement;
+  globalThis.HTMLImageElement = class {};
+  try {
+    let closed = 0;
+    const reference = {};
+    const visibilityChanges = [];
+    const runtime = { viewer: { root: {}, body: {}, main: {}, media: {}, reference } };
+    const context = {
+      state: {}, runtime,
+      actions: {
+        closeViewer: () => { closed++; },
+        setViewerBatchSelectionVisible: (visible, viewer) => visibilityChanges.push([visible, viewer]),
+      },
+    };
+    installViewerZoom(context);
+    context.actions.handleViewerBackdropClick({
+      target: { closest: () => null, classList: { contains: () => false } },
+    });
+    assert.equal(closed, 0);
+    assert.deepEqual(visibilityChanges, [[false, undefined], [false, reference]]);
   } finally {
     if (originalImageElement === undefined) delete globalThis.HTMLImageElement;
     else globalThis.HTMLImageElement = originalImageElement;

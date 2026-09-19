@@ -195,6 +195,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "four.wav"]);
     assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav");
     assert.deepEqual(grid.children.map((cell) => cell.dataset.selected), ["true", "false", "false", "false"]);
+    assert.equal(grid.dataset.selectionVisible, "true");
     assert.equal(grid.children[0].getAttribute("aria-current"), "true");
     assert.equal(grid.children[1].tabIndex, 0);
     assert.equal(grid.children[3].children[0].className, "cmf-viewer-audio cmf-viewer-batch-audio");
@@ -213,6 +214,16 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     assert.equal(favoriteTargets.at(-1), "two");
     assert.equal(viewer.media.children[0], grid);
     assert.deepEqual(grid.children.map((cell) => cell.dataset.selected), ["false", "true", "false", "false"]);
+
+    actions.setViewerBatchSelectionVisible(false);
+    assert.equal(viewer.item.id, "two", "hiding the frame preserves the internal selection");
+    assert.equal(grid.children[1].dataset.selected, "true");
+    assert.equal(grid.children[1].getAttribute("aria-current"), "true");
+    assert.equal(grid.dataset.selectionVisible, "false");
+    grid.dispatch("pointerdown", { button: 0, pointerId: 9, clientX: 10, clientY: 10, target: grid.children[1] });
+    grid.dispatch("pointerup", { button: 0, pointerId: 9, clientX: 10, clientY: 10, target: grid.children[1] });
+    assert.equal(viewer.item.id, "two");
+    assert.equal(grid.dataset.selectionVisible, "true", "clicking the selected media restores its frame");
 
     const pointer = { button: 0, pointerId: 1, clientX: 50, clientY: 50 };
     grid.dispatch("pointerdown", { ...pointer, target: grid.children[0].children[0] });

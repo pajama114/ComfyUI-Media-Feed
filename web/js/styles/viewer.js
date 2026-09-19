@@ -320,11 +320,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       pointer-events: none;
     }
 
-    .cmf-viewer-batch-cell[data-selected="true"]::after {
+    .cmf-viewer-batch-grid[data-selection-visible="true"] .cmf-viewer-batch-cell[data-selected="true"]::after {
       border-color: var(--cmf-accent);
     }
 
-    .cmf-viewer-batch-cell:focus-visible::after {
+    .cmf-viewer-batch-grid[data-selection-visible="true"] .cmf-viewer-batch-cell:focus-visible::after {
       border-color: var(--cmf-accent);
       border-style: dashed;
     }
