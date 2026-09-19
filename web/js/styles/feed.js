@@ -256,14 +256,6 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       object-fit: contain;
     }
 
-    .cmf-batch-audio-cell svg {
-      width: 28px;
-      height: 28px;
-      fill: none;
-      stroke: var(--cmf-text);
-      stroke-width: 1.7;
-    }
-
     .cmf-batch-more {
       position: absolute;
       inset: 0;
@@ -423,6 +415,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
     }
 
     .cmf-audio-preview {
+      box-sizing: border-box;
       display: grid;
       grid-template-rows: 1fr auto;
       gap: 6px;

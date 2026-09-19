@@ -220,8 +220,13 @@ export function installAudioWaveforms(context) {
     currentViewer?.audioWaveformCleanup?.();
     if (!currentViewer) return;
     currentViewer.audioWaveformCleanup = null;
-    const waveform = currentViewer.media?.querySelector?.(".cmf-viewer-audio-waveform");
-    const playhead = currentViewer.media?.querySelector?.(".cmf-viewer-audio-playhead");
+    const root = currentViewer.media || currentViewer;
+    for (const cell of root.querySelectorAll?.(".cmf-viewer-batch-cell") || []) {
+      cell.audioWaveformCleanup?.();
+      cell.audioWaveformCleanup = null;
+    }
+    const waveform = root.querySelector?.(".cmf-viewer-audio-waveform");
+    const playhead = root.querySelector?.(".cmf-viewer-audio-playhead");
     if (waveform) {
       renderAudioWaveform(waveform, new Float32Array(VIEWER_AUDIO_WAVEFORM_BAR_COUNT));
       waveform.dataset.state = "loading";

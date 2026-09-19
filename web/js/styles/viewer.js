@@ -278,9 +278,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-batch-grid {
       display: grid;
       grid-template-columns: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
-      grid-template-rows: repeat(var(--cmf-batch-columns), minmax(0, 1fr));
-      gap: 3px;
-      aspect-ratio: 1;
+      grid-template-rows: repeat(var(--cmf-batch-row-count), minmax(0, 1fr));
+      gap: 0;
       background: var(--cmf-border);
       transform: translate(var(--cmf-image-pan-x, 0px), var(--cmf-image-pan-y, 0px)) scale(var(--cmf-image-zoom, 1));
       transform-origin: center;
@@ -296,6 +295,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       place-items: center;
       min-width: 0;
       min-height: 0;
+      border: 1.5px solid var(--cmf-border);
       /* Reserve the stroke's space even when unselected; media never shifts
          or sits beneath the selection indicator. */
       padding: calc(2px / var(--cmf-image-zoom, 1));
@@ -340,6 +340,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       -webkit-user-drag: none;
     }
 
+    .cmf-viewer-batch-cell[data-media-kind="audio"] {
+      container-type: size;
+    }
+
     .cmf-viewer-media[data-pannable="true"] .cmf-viewer-batch-grid {
       cursor: grab;
       touch-action: none;
@@ -347,19 +351,6 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-media[data-dragging="true"] .cmf-viewer-batch-grid {
       cursor: grabbing;
-    }
-
-    .cmf-viewer-batch-cell audio {
-      width: min(90%, 280px);
-      max-width: 100%;
-    }
-
-    .cmf-viewer-batch-audio-icon svg {
-      width: 40px;
-      height: 40px;
-      fill: none;
-      stroke: var(--cmf-text);
-      stroke-width: 1.7;
     }
 
     .cmf-viewer-media img,
@@ -526,6 +517,34 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-audio > audio {
       display: none;
+    }
+
+    .cmf-viewer-batch-cell .cmf-viewer-batch-audio {
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: min(14px, 6%);
+      width: 90%;
+      height: min(90%, 286px);
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .cmf-viewer-batch-cell .cmf-viewer-audio-graph {
+      height: auto;
+      min-height: 0;
+      padding: min(14px, 4%);
+    }
+
+    @container (max-width: 480px) {
+      .cmf-viewer-batch-cell .cmf-viewer-audio-controls {
+        grid-template-columns: 32px auto minmax(20px, 1fr) auto;
+        gap: 5px;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-volume {
+        grid-column: 1 / -1;
+        grid-template-columns: auto minmax(0, 80px);
+        justify-self: end;
+      }
     }
 
     .cmf-prompt-panel {

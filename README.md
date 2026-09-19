@@ -36,8 +36,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   separate grid button that toggles batch view.
 - Batch view groups media sharing a prompt ID. A feed card previews up to four
   outputs in a 2×2 grid and shows a remaining count when there are more. The
-  viewer shows every output in a square grid that can be zoomed and panned as
-  one view. Batch zoom is relative to the fitted grid; the 1:1 control is
+  viewer shows every output in a grid of uniform square cells that can be
+  zoomed and panned as one view.
+  Batch zoom is relative to the fitted grid; the 1:1 control is
   reserved for individual media. The choice is saved across reloads.
 - Click a batch cell to select an output for favorites, download, image copy,
   opening the original, and metadata. A thin frame occupies reserved space
@@ -45,10 +46,14 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   output starts selected; new outputs preserve the current selection. Each
   comparison pane has its own selection. Cells can also be focused with Tab
   and selected with Enter. Dragging pans without selecting; double-clicking
-  an image still zooms the whole grid. Video/audio controls remain usable and
-  playing a media item selects it. Selection itself does not start or stop
-  playback. Space pauses playing media in the focused pane, or starts its
-  selected video/audio when nothing is playing; focused player controls keep
+  an image still zooms the whole grid. Video controls remain usable. Each audio
+  cell places a landscape detailed waveform above the same timeline, seeking,
+  and volume controls as the single-item viewer. Batch-card audio
+  previews use the compact waveform and remaining-time display from individual
+  feed thumbnails. Both types select their media item when playback starts;
+  selection itself does not start or stop playback. Space pauses playing media
+  in the focused pane, or starts its selected video/audio when nothing is
+  playing; focused player controls keep
   their native keyboard behavior.
 - Compares images, videos, and audio side by side: the compare button pins the
   current item on the right while navigation continues on the left. Each pane

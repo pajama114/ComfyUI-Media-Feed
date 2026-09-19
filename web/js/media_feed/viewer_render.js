@@ -52,6 +52,9 @@ export function installViewerRender(context) {
   function prepareBatchSelection(grid) {
     let pointer = null;
     const cellAt = (target) => target?.closest?.(".cmf-viewer-batch-cell");
+    const isMediaControl = (target) => Boolean(
+      target?.closest?.("video, audio") || target?.closest?.(".cmf-viewer-audio"),
+    );
     const moved = (event) => Math.abs(event.clientX - pointer.x) >= VIEWER_IMAGE_DRAG_THRESHOLD
       || Math.abs(event.clientY - pointer.y) >= VIEWER_IMAGE_DRAG_THRESHOLD;
     grid.addEventListener("pointerdown", (event) => {
@@ -60,7 +63,7 @@ export function installViewerRender(context) {
       if (event.button !== 0 || event.isPrimary === false || !cell) return;
       pointer = {
         id: event.pointerId, cell, x: event.clientX, y: event.clientY, moved: false,
-        nativeControl: Boolean(event.target.closest?.("video, audio")),
+        nativeControl: isMediaControl(event.target),
       };
     }, true);
     grid.addEventListener("pointermove", (event) => {
@@ -83,10 +86,10 @@ export function installViewerRender(context) {
       const cell = cellAt(event.target);
       if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
-    // Native player controls can consume pointer events inside their shadow
-    // tree. Focus still identifies the player being operated or tabbed into.
+    // Player controls can consume pointer events. Focus still identifies the
+    // media item being operated or tabbed into.
     grid.addEventListener("focusin", (event) => {
-      if (!event.target.closest?.("video, audio")) return;
+      if (!isMediaControl(event.target)) return;
       const cell = cellAt(event.target);
       if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
@@ -139,9 +142,12 @@ export function installViewerRender(context) {
     const grid = document.createElement("div");
     grid.className = "cmf-viewer-batch-grid";
     const columns = Math.ceil(Math.sqrt(batch.items.length));
+    const rows = Math.ceil(batch.items.length / columns);
     grid.style.setProperty("--cmf-batch-columns", String(columns));
+    grid.style.setProperty("--cmf-batch-row-count", String(rows));
     grid.dataset.mediaItemKey = batch.key;
-    grid.dataset.naturalSize = String(columns * 96);
+    grid.dataset.naturalWidth = String(columns * 96);
+    grid.dataset.naturalHeight = String(rows * 96);
     grid.tabIndex = 0;
     grid.setAttribute("role", "group");
     grid.setAttribute("aria-label", `Batch of ${batch.items.length} media`);
@@ -206,8 +212,8 @@ export function installViewerRender(context) {
         cell.append(video);
       } else {
         const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.preload = "none";
+        audio.controls = false;
+        audio.preload = "metadata";
         audio.loop = state.loopAudio;
         audio.src = item.url;
         audio.dataset.mediaItemKey = item.key;
@@ -217,10 +223,9 @@ export function installViewerRender(context) {
             if (other !== audio) other.pause();
           }
         });
-        const icon = document.createElement("span");
-        icon.className = "cmf-viewer-batch-audio-icon";
-        icon.innerHTML = ICONS.music;
-        cell.append(icon, audio);
+        const presentation = createViewerAudioPresentation(audio);
+        presentation.classList.add("cmf-viewer-batch-audio");
+        cell.append(presentation);
       }
       cells.push(cell);
     }
@@ -238,6 +243,10 @@ export function installViewerRender(context) {
     }
     for (const media of currentViewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
     currentViewer.media.replaceChildren(grid);
+    for (const cell of cells) {
+      const audio = cell.querySelector("audio");
+      if (audio) setupViewerAudioWaveform(cell, audio, cell.dataset.mediaUrl);
+    }
     syncViewerSelection(currentViewer);
     if (focused && grid.contains(focused)) focused.focus({ preventScroll: true });
     if (typeof IntersectionObserver === "function") {

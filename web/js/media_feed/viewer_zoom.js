@@ -192,7 +192,7 @@ export function installViewerZoom(context) {
   function handleViewerImageDoubleClick(event) {
     if (!runtime.viewer || event.button !== 0
       || !(event.currentTarget instanceof HTMLImageElement || isBatchGrid(event.currentTarget))) return;
-    if (isBatchGrid(event.currentTarget) && event.target?.closest?.("video, audio, button, input")) return;
+    if (isBatchGrid(event.currentTarget) && event.target?.closest?.("video, audio, button, input, .cmf-viewer-audio")) return;
     event.preventDefault();
     event.stopPropagation();
   
@@ -205,7 +205,7 @@ export function installViewerZoom(context) {
   
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
-    if (isBatchGrid(image) && event.target?.closest?.("video, audio, button, input")) return;
+    if (isBatchGrid(image) && event.target?.closest?.("video, audio, button, input, .cmf-viewer-audio")) return;
     if (image instanceof HTMLVideoElement
       && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
     const bounds = viewerImagePanBounds(image);
@@ -269,8 +269,10 @@ export function installViewerZoom(context) {
   
   function viewerMediaNaturalSize(element) {
     if (isBatchGrid(element)) {
-      const size = Number(element.dataset.naturalSize) || 0;
-      return { width: size, height: size };
+      return {
+        width: Number(element.dataset.naturalWidth) || 0,
+        height: Number(element.dataset.naturalHeight) || 0,
+      };
     }
     if (element instanceof HTMLImageElement) {
       return { width: element.naturalWidth, height: element.naturalHeight };

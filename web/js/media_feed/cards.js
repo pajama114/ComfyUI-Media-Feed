@@ -57,6 +57,36 @@ export function installCards(context) {
     };
   }
 
+  function createAudioPreview(item, owner) {
+    const audioPreview = document.createElement("div");
+    audioPreview.className = "cmf-audio-preview";
+    const audioMain = document.createElement("div");
+    audioMain.className = "cmf-audio-main";
+    const waveform = createAudioWaveform("cmf-audio-waveform", AUDIO_WAVEFORM_BAR_COUNT);
+    audioMain.appendChild(waveform);
+    const controls = document.createElement("div");
+    const playButton = document.createElement("button");
+    const duration = document.createElement("span");
+    controls.className = "cmf-media-controls cmf-audio-controls";
+    playButton.className = "cmf-button cmf-icon-button cmf-media-play cmf-audio-play";
+    playButton.type = "button";
+    playButton.setAttribute("aria-label", "Play audio preview");
+    playButton.innerHTML = ICONS.play;
+    duration.className = "cmf-media-duration cmf-audio-duration";
+    duration.hidden = true;
+    controls.append(playButton, duration);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.loop = state.loopAudio;
+    audio.src = item.url;
+    audio.dataset.mediaItemKey = item.key;
+    audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
+    audioPreview.append(audioMain, controls, audio);
+    setupAudioPreview(audioPreview, audio, owner);
+    setupAudioWaveform(owner, waveform, item.url);
+    return audioPreview;
+  }
+
   function createCard(item) {
     const card = document.createElement("div");
     card.className = "cmf-card";
@@ -119,27 +149,7 @@ export function installCards(context) {
         window.requestAnimationFrame(() => fitThumbnailMedia(video, preview));
       }
     } else {
-      const audioPreview = document.createElement("div");
-      audioPreview.className = "cmf-audio-preview";
-      const audioMain = document.createElement("div");
-      audioMain.className = "cmf-audio-main";
-      const waveform = createAudioWaveform("cmf-audio-waveform", AUDIO_WAVEFORM_BAR_COUNT);
-      audioMain.appendChild(waveform);
-      const controls = document.createElement("div");
-      controls.className = "cmf-media-controls cmf-audio-controls";
-      controls.innerHTML = `
-        <button class="cmf-button cmf-icon-button cmf-media-play cmf-audio-play" type="button" aria-label="Play audio preview">${ICONS.play}</button>
-        <span class="cmf-media-duration cmf-audio-duration" hidden></span>
-      `;
-      const audio = document.createElement("audio");
-      audio.preload = "metadata";
-      audio.loop = state.loopAudio;
-      audio.src = item.url;
-      audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      audioPreview.append(audioMain, controls, audio);
-      setupAudioPreview(audioPreview, audio, card);
-      setupAudioWaveform(card, waveform, item.url);
-      preview.appendChild(audioPreview);
+      preview.appendChild(createAudioPreview(item, card));
     }
   
     const favoriteButton = document.createElement("button");
@@ -202,8 +212,7 @@ export function installCards(context) {
       });
       cell.append(video);
     } else {
-      cell.classList.add("cmf-batch-audio-cell");
-      cell.innerHTML = ICONS.music;
+      cell.append(createAudioPreview(item, cell));
     }
     return cell;
   }
@@ -237,16 +246,20 @@ export function installCards(context) {
     if (card.batchRenderRequestId !== requestId) return;
     for (const cell of grid.children) {
       if (cells.includes(cell)) continue;
-      const video = cell.querySelector("video");
-      if (video) {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
+      cell.deactivateAudioWaveform?.();
+      const media = cell.querySelector("video, audio");
+      if (media) {
+        media.pause();
+        media.removeAttribute("src");
+        media.load();
       }
     }
     setBatchThumbnailMore(cells, batch.items.length);
     grid.dataset.count = String(cells.length);
     grid.replaceChildren(...cells);
+    if (card.audioWaveformsActive) {
+      for (const cell of cells) cell.activateAudioWaveform?.();
+    }
   }
 
   function createBatchCard(batch) {
@@ -256,6 +269,7 @@ export function installCards(context) {
     card.tabIndex = 0;
     card.batch = batch;
     card.batchRenderRequestId = 0;
+    card.audioWaveformsActive = false;
     card.setAttribute("aria-label", `Open batch of ${batch.items.length} media`);
     card.title = `${batch.items.length} media in batch`;
 
@@ -266,6 +280,14 @@ export function installCards(context) {
     setBatchThumbnailMore(cells, batch.items.length);
     grid.append(...cells);
     card.append(grid);
+    card.activateAudioWaveform = () => {
+      card.audioWaveformsActive = true;
+      for (const cell of grid.children) cell.activateAudioWaveform?.();
+    };
+    card.deactivateAudioWaveform = () => {
+      card.audioWaveformsActive = false;
+      for (const cell of grid.children) cell.deactivateAudioWaveform?.();
+    };
     card.addEventListener("click", () => openViewer(card.batch));
     card.addEventListener("keydown", (event) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -353,7 +375,7 @@ export function installCards(context) {
     updateThumbnailRemainingTime(video, durationLabel);
   }
   
-  function setupAudioPreview(audioPreview, audio, card = audioPreview) {
+  function setupAudioPreview(audioPreview, audio, resetTarget = audioPreview) {
     const playButton = audioPreview.querySelector(".cmf-audio-play");
     const durationLabel = audioPreview.querySelector(".cmf-audio-duration");
   
@@ -401,7 +423,7 @@ export function installCards(context) {
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("durationchange", updateDuration);
     audio.addEventListener("timeupdate", updateDuration);
-    card.addEventListener("mouseleave", resetPreview);
+    resetTarget?.addEventListener("mouseleave", resetPreview);
     updatePlayButton();
     updateDuration();
   }

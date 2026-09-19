@@ -84,6 +84,45 @@ test("audio playback progress remains within the waveform", () => {
   assert.equal(audioPlaybackProgress(1, Number.NaN), 0);
 });
 
+test("clearing viewer audio releases every batch-cell waveform", () => {
+  const context = { ICONS: {}, runtime: {}, actions: {} };
+  installAudioWaveforms(context);
+  let viewerCleanups = 0;
+  let detailedCellCleanups = 0;
+  const cells = [0, 1].map(() => ({
+    audioWaveformCleanup() { detailedCellCleanups++; },
+  }));
+  const waveform = {
+    dataset: { state: "ready" },
+    setAttribute() {},
+    querySelector: () => ({ setAttribute() {} }),
+  };
+  const playhead = { style: { left: "50%" } };
+  const viewer = {
+    audioWaveformCleanup() { viewerCleanups++; },
+    media: {
+      querySelectorAll(selector) {
+        if (selector === ".cmf-viewer-batch-cell") return cells;
+        return [];
+      },
+      querySelector(selector) {
+        if (selector === ".cmf-viewer-audio-waveform") return waveform;
+        if (selector === ".cmf-viewer-audio-playhead") return playhead;
+        return null;
+      },
+    },
+  };
+
+  context.actions.clearViewerAudioWaveform(viewer);
+
+  assert.equal(viewerCleanups, 1);
+  assert.equal(detailedCellCleanups, 2);
+  assert.equal(viewer.audioWaveformCleanup, null);
+  assert.deepEqual(cells.map((cell) => cell.audioWaveformCleanup), [null, null]);
+  assert.equal(waveform.dataset.state, "loading");
+  assert.equal(playhead.style.left, "0%");
+});
+
 test("viewer audio playhead follows playback and stops updating after cleanup", () => {
   const originalWindow = globalThis.window;
   const animationFrames = new Map();

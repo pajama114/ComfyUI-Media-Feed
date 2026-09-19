@@ -58,6 +58,7 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
       this.attributes = new Map();
       this.styles = new Map();
       this.style = { setProperty: (key, value) => this.styles.set(key, value) };
+      this.classList = { add: (name) => { this.className += `${this.className ? " " : ""}${name}`; } };
     }
 
     append(...children) {
@@ -95,6 +96,7 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
         ? element.className.split(" ").includes("cmf-viewer-batch-cell")
         : selector === ".cmf-viewer-batch-grid" && element.className === "cmf-viewer-batch-grid"
           || selector === "video" && element.tagName === "VIDEO"
+          || selector === "audio" && element.tagName === "AUDIO"
           || selector === "video, audio" && ["VIDEO", "AUDIO"].includes(element.tagName);
       const result = [];
       const visit = (element) => {
@@ -119,6 +121,7 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
   try {
     const metadataTargets = [];
     const favoriteTargets = [];
+    const audioPresentations = [];
     const viewer = {
       root: { dataset: { open: "true" } },
       media: new Element("div"),
@@ -143,6 +146,19 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
         : image.src.includes("stale") ? staleImageReady : Promise.resolve(),
       updateViewerImageLayout() {},
       refreshViewerPromptPanelDetails() {},
+      createViewerAudioPresentation(audio) {
+        const presentation = new Element("div");
+        presentation.className = "cmf-viewer-audio";
+        presentation.append(audio);
+        return presentation;
+      },
+      setupViewerAudioWaveform(owner, audio, url) {
+        audioPresentations.push({
+          itemKey: audio.dataset.mediaItemKey,
+          ownerKey: owner.dataset.mediaItemKey,
+          url,
+        });
+      },
     };
     installViewerRender({
       app: {}, api: {}, ICONS: { music: "<svg></svg>" },
@@ -156,12 +172,21 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
     const originalCells = [...grid.children];
     assert.equal(grid.children.length, 4);
     assert.equal(grid.styles.get("--cmf-batch-columns"), "2");
+    assert.equal(grid.styles.get("--cmf-batch-row-count"), "2");
+    assert.equal(grid.dataset.naturalWidth, "192");
+    assert.equal(grid.dataset.naturalHeight, "192");
     assert.equal(viewer.item.id, "one");
     assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "four.wav"]);
     assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav");
     assert.deepEqual(grid.children.map((cell) => cell.dataset.selected), ["true", "false", "false", "false"]);
     assert.equal(grid.children[0].getAttribute("aria-current"), "true");
     assert.equal(grid.children[1].tabIndex, 0);
+    assert.equal(grid.children[3].children[0].className, "cmf-viewer-audio cmf-viewer-batch-audio");
+    assert.deepEqual(audioPresentations, [{
+      itemKey: "audio:four",
+      ownerKey: "audio:four",
+      url: "/view?filename=four",
+    }]);
 
     grid.dispatch("click", { target: grid.children[1], detail: 0 });
     assert.equal(viewer.item.id, "two");
@@ -226,6 +251,9 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
       assert.equal(grid.children[index], originalCells[index]);
     }
     assert.equal(grid.styles.get("--cmf-batch-columns"), "3");
+    assert.equal(grid.styles.get("--cmf-batch-row-count"), "2");
+    assert.equal(grid.dataset.naturalWidth, "288");
+    assert.equal(grid.dataset.naturalHeight, "192");
     assert.equal(viewer.item.id, "two");
     assert.equal(viewer.mediaReadyItemId, "two");
     assert.equal(document.activeElement, focused);
@@ -237,6 +265,9 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
     const staleRender = actions.renderViewerItem(displayEntries([media("stale", "p"), media("five", "p"), ...items], true)[0]);
     assert.equal(viewer.media.children[0], grid);
     await actions.renderViewerItem(displayEntries([media("q", "q", "audio")], true)[0]);
+    assert.equal(viewer.media.children[0].styles.get("--cmf-batch-row-count"), "1");
+    assert.equal(viewer.media.children[0].dataset.naturalWidth, "96");
+    assert.equal(viewer.media.children[0].dataset.naturalHeight, "96");
     grid.dispatch("click", { target: grid.children[0], detail: 0 });
     assert.equal(viewer.item.id, "q");
     finishStaleImage();
@@ -256,7 +287,7 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
   }
 });
 
-test("batch thumbnail keeps displayed images while a new image is decoded", async () => {
+test("batch thumbnail preserves decoded images and uses compact audio previews", async () => {
   const originalDocument = globalThis.document;
   class Element {
     constructor(tagName) {
@@ -266,15 +297,28 @@ test("batch thumbnail keeps displayed images while a new image is decoded", asyn
       this.className = "";
       this.classList = { add: (name) => { this.className += ` ${name}`; } };
       this.listeners = new Map();
+      if (this.tagName === "AUDIO") {
+        this.paused = true;
+        this.ended = false;
+        this.currentTime = 0;
+        this.duration = Number.NaN;
+      }
     }
     append(...children) { this.children.push(...children); }
+    appendChild(child) { this.append(child); return child; }
     replaceChildren(...children) { this.children = children; }
     setAttribute() {}
     addEventListener(name, listener) { this.listeners.set(name, listener); }
+    pause() { this.paused = true; }
+    load() {}
+    removeAttribute(name) { delete this[name]; }
     querySelector(selector) {
       const matches = (element) => selector === "img" && element.tagName === "IMG"
+        || selector === "audio" && element.tagName === "AUDIO"
+        || selector === "video, audio" && ["VIDEO", "AUDIO"].includes(element.tagName)
         || selector === ".cmf-batch-thumbnail-grid" && element.className === "cmf-batch-thumbnail-grid"
-        || selector === ".cmf-batch-more" && element.className === "cmf-batch-more";
+        || selector === ".cmf-batch-more" && element.className === "cmf-batch-more"
+        || selector.startsWith(".") && element.className.split(" ").includes(selector.slice(1));
       const visit = (element) => {
         for (const child of element.children) {
           if (matches(child)) return child;
@@ -293,12 +337,25 @@ test("batch thumbnail keeps displayed images while a new image is decoded", asyn
 
   try {
     const opened = [];
+    let waveformSubscriptions = 0;
     const actions = {
       rememberDecodedImage() {},
       decodeImageElement: (image) => image.src.includes("three") ? newImageReady : Promise.resolve(),
       openViewer: (batch) => opened.push(batch.items.length),
+      createAudioWaveform(className) {
+        const waveform = new Element("svg");
+        waveform.className = className;
+        waveform.dataset.state = "loading";
+        return waveform;
+      },
+      subscribeAudioWaveform() {
+        waveformSubscriptions++;
+        return () => {};
+      },
+      formatMediaDuration() { return ""; },
+      removeMissingMediaItem() {},
     };
-    installCards({ app: {}, api: {}, ICONS: {}, state: {}, runtime: {}, actions });
+    installCards({ app: {}, api: {}, ICONS: { play: "play", pause: "pause" }, state: { loopAudio: false }, runtime: {}, actions });
     const initial = displayEntries([media("two", "p"), media("one", "p")], true)[0];
     const card = actions.createBatchCard(initial);
     const grid = card.children[0];
@@ -314,6 +371,18 @@ test("batch thumbnail keeps displayed images while a new image is decoded", asyn
     assert.equal(grid.children.length, 3);
     assert.equal(grid.children[0], oldCells[0]);
     assert.equal(grid.children[1], oldCells[1]);
+
+    const audioBatch = displayEntries([media("sound", "audio-prompt", "audio")], true)[0];
+    const audioCard = actions.createBatchCard(audioBatch);
+    const audioCell = audioCard.children[0].children[0];
+    assert.ok(audioCell.querySelector(".cmf-audio-preview"));
+    assert.ok(audioCell.querySelector(".cmf-audio-waveform"));
+    assert.ok(audioCell.querySelector(".cmf-audio-play"));
+    assert.ok(audioCell.querySelector(".cmf-audio-duration"));
+    assert.ok(audioCell.querySelector("audio"));
+    assert.equal(waveformSubscriptions, 0);
+    audioCard.activateAudioWaveform();
+    assert.equal(waveformSubscriptions, 1);
   } finally {
     globalThis.document = originalDocument;
   }
@@ -354,7 +423,8 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     const grid = new MockElement();
     grid.classList.add("cmf-viewer-batch-grid");
     grid.dataset.mediaItemKey = "batch:p";
-    grid.dataset.naturalSize = "192";
+    grid.dataset.naturalWidth = "192";
+    grid.dataset.naturalHeight = "192";
     const mediaFrame = {
       dataset: {},
       querySelector(selector) {
