@@ -44,7 +44,7 @@ test("comparison pins a batch snapshot while the browsing batch changes", () => 
   assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
 });
 
-test("batch selection follows clicks and keyboard, survives updates, and ignores drags and stale grids", async () => {
+test("batch selection follows clicks, drags, and keyboard and survives updates and stale grids", async () => {
   const originalDocument = globalThis.document;
   const originalObserver = globalThis.IntersectionObserver;
 
@@ -201,10 +201,12 @@ test("batch selection follows clicks and keyboard, survives updates, and ignores
     const pointer = { button: 0, pointerId: 1, clientX: 50, clientY: 50 };
     grid.dispatch("pointerdown", { ...pointer, target: grid.children[0].children[0] });
     grid.dispatch("pointermove", { ...pointer, clientX: 70 });
-    // Moving back to the starting point must still count as a drag.
+    // A swipe selects its starting cell, but moving back to the starting point
+    // must still keep it from receiving focus as a click.
     grid.dispatch("pointerup", { ...pointer, target: grid });
-    assert.equal(viewer.item.id, "two");
-    assert.deepEqual(metadataTargets, ["two"]);
+    assert.equal(viewer.item.id, "one");
+    assert.deepEqual(metadataTargets, ["two", "one"]);
+    assert.notEqual(document.activeElement, grid.children[0]);
 
     const videoCell = grid.children[2];
     let pauses = 0;

@@ -75,9 +75,11 @@ export function installViewerRender(context) {
       const selected = pointer;
       const dragged = selected.moved || moved(event);
       pointer = null;
-      if (dragged) return;
+      // Pointer capture retargets the release to the grid while panning. Keep
+      // the cell where the gesture started as the selection even when the
+      // pointer moved far enough to pan the grid.
       selectViewerBatchItem(selected.cell.dataset.mediaItemKey);
-      if (!selected.nativeControl) selected.cell.focus({ preventScroll: true });
+      if (!dragged && !selected.nativeControl) selected.cell.focus({ preventScroll: true });
     }, true);
     // Keyboard/assistive clicks have no pointer sequence. Pointer selection is
     // handled above because panning captures the pointer on the whole grid.
