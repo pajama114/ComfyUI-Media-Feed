@@ -1,3 +1,5 @@
+import { VIEWER_IMAGE_DRAG_THRESHOLD } from "./constants.js";
+
 export function installViewerRender(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
 
@@ -18,6 +20,86 @@ export function installViewerRender(context) {
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
   const createViewerAudioPresentation = (...args) => actions.createViewerAudioPresentation(...args);
   const setupViewerAudioWaveform = (...args) => actions.setupViewerAudioWaveform(...args);
+
+  function syncViewerSelection(currentViewer) {
+    currentViewer.openLink.href = currentViewer.item.url;
+    currentViewer.copyImageButton.hidden = currentViewer.item.kind !== "image";
+    syncFavoriteButton(currentViewer.favoriteButton, currentViewer.item);
+    for (const cell of currentViewer.media.querySelectorAll(".cmf-viewer-batch-cell")) {
+      const selected = cell.dataset.mediaItemKey === currentViewer.item.key;
+      cell.dataset.selected = String(selected);
+      cell.setAttribute("aria-current", String(selected));
+    }
+  }
+
+  function selectViewerBatchItem(key) {
+    const currentViewer = runtime.viewer;
+    const batch = currentViewer?.entry;
+    if (batch?.kind !== "batch" || currentViewer.root.dataset.open !== "true") return;
+    const grid = currentViewer.media.querySelector(".cmf-viewer-batch-grid");
+    if (grid?.dataset.mediaItemKey !== batch.key) return;
+    const item = batch.items.find((member) => member.key === key);
+    if (!item || currentViewer.item?.id === item.id) return;
+
+    // Selection changes the action/metadata target without remounting media.
+    currentViewer.item = item;
+    currentViewer.mediaReadyItemId = item.id;
+    currentViewer.pendingPromptMetadataResult = null;
+    syncViewerSelection(currentViewer);
+    actions.updateViewerPromptPanel();
+  }
+
+  function prepareBatchSelection(grid) {
+    let pointer = null;
+    const cellAt = (target) => target?.closest?.(".cmf-viewer-batch-cell");
+    const moved = (event) => Math.abs(event.clientX - pointer.x) >= VIEWER_IMAGE_DRAG_THRESHOLD
+      || Math.abs(event.clientY - pointer.y) >= VIEWER_IMAGE_DRAG_THRESHOLD;
+    grid.addEventListener("pointerdown", (event) => {
+      pointer = null;
+      const cell = cellAt(event.target);
+      if (event.button !== 0 || event.isPrimary === false || !cell) return;
+      pointer = {
+        id: event.pointerId, cell, x: event.clientX, y: event.clientY, moved: false,
+        nativeControl: Boolean(event.target.closest?.("video, audio")),
+      };
+    }, true);
+    grid.addEventListener("pointermove", (event) => {
+      if (pointer?.id === event.pointerId) pointer.moved ||= moved(event);
+    }, true);
+    grid.addEventListener("pointercancel", () => { pointer = null; }, true);
+    grid.addEventListener("pointerup", (event) => {
+      if (pointer?.id !== event.pointerId) return;
+      const selected = pointer;
+      const dragged = selected.moved || moved(event);
+      pointer = null;
+      if (dragged) return;
+      selectViewerBatchItem(selected.cell.dataset.mediaItemKey);
+      if (!selected.nativeControl) selected.cell.focus({ preventScroll: true });
+    }, true);
+    // Keyboard/assistive clicks have no pointer sequence. Pointer selection is
+    // handled above because panning captures the pointer on the whole grid.
+    grid.addEventListener("click", (event) => {
+      if (event.detail !== 0) return;
+      const cell = cellAt(event.target);
+      if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
+    });
+    // Native player controls can consume pointer events inside their shadow
+    // tree. Focus still identifies the player being operated or tabbed into.
+    grid.addEventListener("focusin", (event) => {
+      if (!event.target.closest?.("video, audio")) return;
+      const cell = cellAt(event.target);
+      if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
+    });
+    grid.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      const cell = cellAt(event.target);
+      if (!cell || event.target !== cell) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectViewerBatchItem(cell.dataset.mediaItemKey);
+    });
+  }
+
   function discardDisplayedBatchMedia(currentViewer) {
     if (!currentViewer.media.querySelector(".cmf-viewer-batch-grid")) return;
     currentViewer.batchObserver?.disconnect();
@@ -64,6 +146,7 @@ export function installViewerRender(context) {
     grid.setAttribute("role", "group");
     grid.setAttribute("aria-label", `Batch of ${batch.items.length} media`);
     prepareViewerImage(grid);
+    prepareBatchSelection(grid);
 
     const displayedGrid = currentViewer.media.querySelector(".cmf-viewer-batch-grid");
     const displayedCells = new Map([...(displayedGrid?.children || [])].map((cell) => [cell.dataset.mediaItemKey, cell]));
@@ -83,6 +166,8 @@ export function installViewerRender(context) {
       cell.dataset.mediaUrl = item.url;
       cell.dataset.mediaKind = item.kind;
       cell.title = `${index + 1} of ${batch.items.length}: ${item.filename}`;
+      cell.tabIndex = 0;
+      cell.setAttribute("role", "group");
 
       if (item.kind === "image") {
         const image = document.createElement("img");
@@ -112,6 +197,7 @@ export function installViewerRender(context) {
           if (currentViewer.item?.key === item.key) refreshViewerPromptPanelDetails();
         }, { once: true });
         video.addEventListener("play", () => {
+          selectViewerBatchItem(item.key);
           for (const other of currentViewer.media.querySelectorAll("video, audio")) {
             if (other !== video) other.pause();
           }
@@ -126,6 +212,7 @@ export function installViewerRender(context) {
         audio.src = item.url;
         audio.dataset.mediaItemKey = item.key;
         audio.addEventListener("play", () => {
+          selectViewerBatchItem(item.key);
           for (const other of currentViewer.media.querySelectorAll("video, audio")) {
             if (other !== audio) other.pause();
           }
@@ -143,12 +230,16 @@ export function installViewerRender(context) {
       || currentViewer.entry !== batch
       || currentViewer.root.dataset.open !== "true") return;
     currentViewer.batchObserver?.disconnect();
+    const focused = displayedGrid?.contains(document.activeElement) ? document.activeElement : null;
     for (const [index, cell] of cells.entries()) {
       cell.title = `${index + 1} of ${batch.items.length}: ${batch.items[index].filename}`;
+      cell.setAttribute("aria-label", cell.title);
       grid.append(cell);
     }
     for (const media of currentViewer.media.querySelectorAll("video, audio")) discardStagedMedia(media);
     currentViewer.media.replaceChildren(grid);
+    syncViewerSelection(currentViewer);
+    if (focused && grid.contains(focused)) focused.focus({ preventScroll: true });
     if (typeof IntersectionObserver === "function") {
       currentViewer.batchObserver = new IntersectionObserver((entries, observer) => {
         for (const entry of entries) {
@@ -181,10 +272,14 @@ export function installViewerRender(context) {
     clearViewerAudioWaveform(currentViewer);
     discardStagedMedia(currentViewer.pendingMedia);
     currentViewer.pendingMedia = null;
+    const sameBatch = item.kind === "batch" && currentViewer.entry?.key === item.key;
+    const selectedKey = sameBatch ? currentViewer.item?.key : null;
     currentViewer.entry = item;
-    currentViewer.item = item.kind === "batch" ? item.items[0] : item;
+    currentViewer.item = item.kind === "batch"
+      ? item.items.find((member) => member.key === selectedKey) || item.items[0]
+      : item;
     currentViewer.mediaReadyItemId = "";
-    if (!currentViewer.comparing && !currentViewer.isComparisonPane) {
+    if (!sameBatch && !currentViewer.comparing && !currentViewer.isComparisonPane) {
       resetViewerImageView(item.kind === "batch" ? "fit" : state.scaleViewerMedia ? "fit" : "native");
     }
     updateViewerTitle(currentViewer, item);
@@ -323,5 +418,6 @@ export function installViewerRender(context) {
   
   Object.assign(actions, {
     renderViewerItem,
+    selectViewerBatchItem,
   });
 }

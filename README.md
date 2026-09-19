@@ -39,6 +39,17 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   viewer shows every output in a square grid that can be zoomed and panned as
   one view. Batch zoom is relative to the fitted grid; the 1:1 control is
   reserved for individual media. The choice is saved across reloads.
+- Click a batch cell to select an output for favorites, download, image copy,
+  opening the original, and metadata. A thin frame occupies reserved space
+  around the media and stays two screen pixels wide while zooming. The first
+  output starts selected; new outputs preserve the current selection. Each
+  comparison pane has its own selection. Cells can also be focused with Tab
+  and selected with Enter. Dragging pans without selecting; double-clicking
+  an image still zooms the whole grid. Video/audio controls remain usable and
+  playing a media item selects it. Selection itself does not start or stop
+  playback. Space pauses playing media in the focused pane, or starts its
+  selected video/audio when nothing is playing; focused player controls keep
+  their native keyboard behavior.
 - Compares images, videos, and audio side by side: the compare button pins the
   current item on the right while navigation continues on the left. Each pane
   has its own filename, favorites, download, and viewing controls in one header

@@ -44,7 +44,7 @@ test("comparison pins a batch snapshot while the browsing batch changes", () => 
   assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
 });
 
-test("batch viewer renders every output as one grid without selectable cells", async () => {
+test("batch selection follows clicks and keyboard, survives updates, and ignores drags and stale grids", async () => {
   const originalDocument = globalThis.document;
   const originalObserver = globalThis.IntersectionObserver;
 
@@ -55,6 +55,7 @@ test("batch viewer renders every output as one grid without selectable cells", a
       this.dataset = {};
       this.className = "";
       this.listeners = new Map();
+      this.attributes = new Map();
       this.styles = new Map();
       this.style = { setProperty: (key, value) => this.styles.set(key, value) };
     }
@@ -73,14 +74,22 @@ test("batch viewer renders every output as one grid without selectable cells", a
       this.children = [];
       this.append(...children);
     }
-    setAttribute() {}
+    setAttribute(name, value) { this.attributes.set(name, value); }
+    getAttribute(name) { return this.attributes.get(name); }
+    contains(element) { return element === this || this.children.some((child) => child.contains(element)); }
+    closest(selector) {
+      if (selector === ".cmf-viewer-batch-cell" && this.className === "cmf-viewer-batch-cell"
+        || selector === "video, audio" && ["VIDEO", "AUDIO"].includes(this.tagName)) return this;
+      return this.parentElement?.closest(selector) || null;
+    }
+    focus() { document.activeElement = this; }
     hasAttribute(name) { return name === "src" && Boolean(this.src); }
     addEventListener(type, listener) {
       const listeners = this.listeners.get(type) || [];
       listeners.push(listener);
       this.listeners.set(type, listeners);
     }
-    click() { for (const listener of this.listeners.get("click") || []) listener({ target: this }); }
+    dispatch(type, event) { for (const listener of this.listeners.get(type) || []) listener(event); }
     querySelectorAll(selector) {
       const matches = (element) => selector === ".cmf-viewer-batch-cell"
         ? element.className.split(" ").includes("cmf-viewer-batch-cell")
@@ -108,6 +117,8 @@ test("batch viewer renders every output as one grid without selectable cells", a
   const staleImageReady = new Promise((resolve) => { finishStaleImage = resolve; });
 
   try {
+    const metadataTargets = [];
+    const favoriteTargets = [];
     const viewer = {
       root: { dataset: { open: "true" } },
       media: new Element("div"),
@@ -124,7 +135,8 @@ test("batch viewer renders every output as one grid without selectable cells", a
       clearViewerAudioWaveform() {},
       discardStagedMedia() {},
       resetViewerImageView() {},
-      syncFavoriteButton() {},
+      syncFavoriteButton(button, item) { favoriteTargets.push(item.id); },
+      updateViewerPromptPanel() { metadataTargets.push(viewer.item.id); },
       syncViewerNav() {},
       prepareViewerImage() {},
       decodeImageElement: (image) => image.src.includes("five") ? newImageReady
@@ -147,10 +159,65 @@ test("batch viewer renders every output as one grid without selectable cells", a
     assert.equal(viewer.item.id, "one");
     assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "four.wav"]);
     assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav");
-    assert.equal(grid.children[2].listeners.has("click"), false);
+    assert.deepEqual(grid.children.map((cell) => cell.dataset.selected), ["true", "false", "false", "false"]);
+    assert.equal(grid.children[0].getAttribute("aria-current"), "true");
+    assert.equal(grid.children[1].tabIndex, 0);
+
+    grid.dispatch("click", { target: grid.children[1], detail: 0 });
+    assert.equal(viewer.item.id, "two");
+    assert.equal(viewer.openLink.href, "/view?filename=two");
+    assert.equal(viewer.mediaReadyItemId, "two");
+    assert.equal(viewer.copyImageButton.hidden, false);
+    assert.deepEqual(metadataTargets, ["two"]);
+    assert.equal(favoriteTargets.at(-1), "two");
+    assert.equal(viewer.media.children[0], grid);
+    assert.deepEqual(grid.children.map((cell) => cell.dataset.selected), ["false", "true", "false", "false"]);
+
+    const pointer = { button: 0, pointerId: 1, clientX: 50, clientY: 50 };
+    grid.dispatch("pointerdown", { ...pointer, target: grid.children[0].children[0] });
+    grid.dispatch("pointermove", { ...pointer, clientX: 70 });
+    // Moving back to the starting point must still count as a drag.
+    grid.dispatch("pointerup", { ...pointer, target: grid });
+    assert.equal(viewer.item.id, "two");
+    assert.deepEqual(metadataTargets, ["two"]);
+
+    const videoCell = grid.children[2];
+    let pauses = 0;
+    for (const player of grid.querySelectorAll("video, audio")) player.pause = () => { pauses++; };
+    grid.dispatch("pointerdown", { ...pointer, target: videoCell.children[0] });
+    grid.dispatch("pointerup", { ...pointer, target: grid });
+    assert.equal(viewer.item.id, "three");
+    assert.equal(viewer.copyImageButton.hidden, true);
+    assert.equal(pauses, 0);
+
+    grid.dispatch("pointerdown", { ...pointer, target: grid.children[0] });
+    grid.dispatch("pointercancel", pointer);
+    grid.dispatch("pointerup", { ...pointer, target: grid });
+    assert.equal(viewer.item.id, "three");
+
+    const enter = { key: "Enter", target: grid.children[3], preventDefault() {}, stopPropagation() {} };
+    grid.dispatch("keydown", { ...enter, ctrlKey: true });
+    assert.equal(viewer.item.id, "three");
+    grid.dispatch("keydown", enter);
+    assert.equal(viewer.item.id, "four");
+    assert.equal(pauses, 0);
+    grid.dispatch("focusin", { target: videoCell.children[0] });
+    assert.equal(viewer.item.id, "three");
+    assert.equal(pauses, 0, "focusing a native player only changes selection");
+    grid.dispatch("focusin", { target: grid.children[1] });
+    assert.equal(viewer.item.id, "three", "focusing a cell waits for Enter");
+    grid.dispatch("keydown", enter);
+    videoCell.children[0].dispatch("play", {});
+    assert.equal(viewer.item.id, "three");
+    assert.equal(pauses, 1);
 
     const rendering = actions.renderViewerItem(displayEntries([media("five", "p"), ...items], true)[0]);
     assert.equal(viewer.media.children[0], grid);
+    assert.equal(viewer.item.id, "three");
+    // Selection can change while a new output is still decoding.
+    grid.dispatch("pointerdown", { ...pointer, target: grid.children[1] });
+    grid.dispatch("pointerup", { ...pointer, target: grid });
+    const focused = document.activeElement;
     finishNewImage();
     await rendering;
     grid = viewer.media.children[0];
@@ -159,16 +226,29 @@ test("batch viewer renders every output as one grid without selectable cells", a
       assert.equal(grid.children[index], originalCells[index]);
     }
     assert.equal(grid.styles.get("--cmf-batch-columns"), "3");
-    assert.equal(viewer.item.id, "one");
+    assert.equal(viewer.item.id, "two");
+    assert.equal(viewer.mediaReadyItemId, "two");
+    assert.equal(document.activeElement, focused);
+    assert.equal(grid.children[1].dataset.selected, "true");
+    assert.equal(grid.children[4].getAttribute("aria-label"), "5 of 5: five.png");
     assert.deepEqual(viewer.title.children.map((part) => part.textContent), ["one.png", "\u00a0–\u00a0", "five.png"]);
     assert.equal(viewer.title.title, "one.png\ntwo.png\nthree.mp4\nfour.wav\nfive.png");
 
     const staleRender = actions.renderViewerItem(displayEntries([media("stale", "p"), media("five", "p"), ...items], true)[0]);
     assert.equal(viewer.media.children[0], grid);
     await actions.renderViewerItem(displayEntries([media("q", "q", "audio")], true)[0]);
+    grid.dispatch("click", { target: grid.children[0], detail: 0 });
+    assert.equal(viewer.item.id, "q");
     finishStaleImage();
     await staleRender;
     assert.equal(viewer.media.children[0].dataset.mediaItemKey, "batch:q");
+    assert.equal(viewer.media.children[0].children[0].dataset.selected, "true");
+
+    await actions.renderViewerItem(displayEntries(items, true)[0]);
+    actions.selectViewerBatchItem("image:two");
+    await actions.renderViewerItem(displayEntries(items.filter((item) => item.id !== "two"), true)[0]);
+    assert.equal(viewer.item.id, "one");
+    assert.equal(viewer.media.children[0].children[0].dataset.selected, "true");
   } finally {
     globalThis.document = originalDocument;
     if (originalObserver === undefined) delete globalThis.IntersectionObserver;
@@ -371,4 +451,61 @@ test("wheel over a batch grid moves to the next batch", () => {
     else globalThis.Element = originalElement;
     globalThis.window = originalWindow;
   }
+});
+
+test("batch Space pauses playback or plays the selection in the focused comparison pane", () => {
+  const player = (key) => ({
+    dataset: { mediaItemKey: key }, paused: true, plays: 0, pauses: 0,
+    play() { this.paused = false; this.plays++; return Promise.resolve(); },
+    pause() { this.paused = true; this.pauses++; },
+  });
+  const leftPlayer = player("video:left");
+  const rightPlayer = player("audio:right");
+  const pane = (media) => ({
+    entry: { kind: "batch" }, item: { key: media.dataset.mediaItemKey },
+    media: { querySelectorAll: () => [media] },
+  });
+  const viewer = { ...pane(leftPlayer), comparing: true, reference: pane(rightPlayer) };
+  const context = { state: {}, runtime: { viewer }, actions: { isViewerOpen: () => true } };
+  installViewerShell(context);
+  let prevented = 0;
+  let stopped = 0;
+  const space = {
+    key: " ", code: "Space", target: { closest: () => null },
+    preventDefault() { prevented++; }, stopImmediatePropagation() { stopped++; },
+  };
+  context.actions.handleViewerGlobalKeydown(space);
+  assert.equal(leftPlayer.plays, 1);
+  viewer.item = { key: "image:still" };
+  context.actions.handleViewerGlobalKeydown(space);
+  assert.equal(leftPlayer.pauses, 1);
+  context.actions.handleViewerGlobalKeydown(space);
+  assert.equal(leftPlayer.plays, 1);
+
+  context.actions.handleViewerGlobalKeydown({
+    ...space,
+    target: { closest: (selector) => selector === ".cmf-viewer-reference, .cmf-viewer-reference-bar" ? {} : null },
+  });
+  assert.equal(rightPlayer.plays, 1);
+  assert.equal(leftPlayer.paused, true);
+  assert.equal(prevented, 4);
+  assert.equal(stopped, 4);
+
+  for (const key of [" ", "ArrowRight"]) {
+    const nativeEvent = {
+      ...space, key,
+      target: { closest: (selector) => selector === "video, audio" ? {} : null },
+      stopPropagation() { stopped++; },
+    };
+    context.actions.handleViewerGlobalKeydown(nativeEvent);
+    assert.equal(prevented, 4, "capture must let the native controls handle the key");
+    context.actions.handleViewerNativeMediaKeydown(nativeEvent);
+  }
+  assert.equal(prevented, 4, "native player defaults are not cancelled");
+  assert.equal(stopped, 6, "native player keys cannot reach the canvas");
+  assert.equal(rightPlayer.pauses, 0);
+
+  context.actions.handleViewerGlobalKeydown({ ...space, key: "Enter", code: "Enter", ctrlKey: true });
+  assert.equal(prevented, 4);
+  assert.equal(stopped, 6);
 });

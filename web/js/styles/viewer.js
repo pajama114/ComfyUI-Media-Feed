@@ -290,13 +290,43 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-batch-cell {
+      position: relative;
+      box-sizing: border-box;
       display: grid;
       place-items: center;
       min-width: 0;
       min-height: 0;
+      /* Reserve the stroke's space even when unselected; media never shifts
+         or sits beneath the selection indicator. */
+      padding: calc(2px / var(--cmf-image-zoom, 1));
       overflow: hidden;
       background: var(--cmf-viewer-bg);
       cursor: inherit;
+      outline: none;
+    }
+
+    .cmf-viewer-batch-cell::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: calc(100% * var(--cmf-image-zoom, 1));
+      height: calc(100% * var(--cmf-image-zoom, 1));
+      box-sizing: border-box;
+      border: 2px solid transparent;
+      /* Cancel grid magnification so the frame stays two screen pixels wide. */
+      transform: scale(calc(1 / var(--cmf-image-zoom, 1)));
+      transform-origin: top left;
+      pointer-events: none;
+    }
+
+    .cmf-viewer-batch-cell[data-selected="true"]::after {
+      border-color: var(--cmf-accent);
+    }
+
+    .cmf-viewer-batch-cell:focus-visible::after {
+      border-color: var(--cmf-accent);
+      border-style: dashed;
     }
 
     .cmf-viewer-batch-cell img,

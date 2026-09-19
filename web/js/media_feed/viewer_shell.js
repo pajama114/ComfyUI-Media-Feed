@@ -153,6 +153,7 @@ export function installViewerShell(context) {
       setViewerImageZoom(runtime.viewer?.imageZoom + VIEWER_IMAGE_ZOOM_STEP);
     });
     root.addEventListener("keydown", handleViewerControlKeydown, true);
+    root.addEventListener("keydown", handleViewerNativeMediaKeydown);
     for (const button of root.querySelectorAll(".cmf-nav-button")) {
       button.addEventListener("mousedown", (event) => event.preventDefault());
     }
@@ -364,12 +365,25 @@ export function installViewerShell(context) {
     return Boolean(target?.closest?.("button, a, input, textarea, select, [contenteditable='true'], [role='button']"));
   }
 
-  function toggleViewerMediaPlayback() {
-    const selectedMedia = [...(runtime.viewer?.media?.querySelectorAll?.("video, audio") || [])]
-      .find((element) => element.dataset?.mediaItemKey === runtime.viewer?.item?.key);
-    const media = selectedMedia || (runtime.viewer?.entry?.kind === "batch"
+  function isViewerNativeMediaKey(event) {
+    return Boolean(event.target?.closest?.("video, audio"))
+      && (event.key === " " || event.key === "Spacebar" || event.code === "Space" || event.key.startsWith("Arrow"));
+  }
+
+  function handleViewerNativeMediaKeydown(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey || !isViewerNativeMediaKey(event)) return;
+    // Let the player's own controls receive the event before stopping it from
+    // bubbling out of the viewer to the canvas. Do not cancel its default.
+    event.stopPropagation();
+  }
+
+  function toggleViewerMediaPlayback(pane = runtime.viewer) {
+    const playable = [...(pane?.media?.querySelectorAll?.("video, audio") || [])];
+    const selectedMedia = playable.find((element) => element.dataset?.mediaItemKey === pane?.item?.key);
+    const playing = pane?.entry?.kind === "batch" ? playable.find((element) => !element.paused) : null;
+    const media = playing || selectedMedia || (pane?.entry?.kind === "batch"
       ? null
-      : runtime.viewer?.media?.querySelector("video, audio"));
+      : pane?.media?.querySelector("video, audio"));
     if (!media) return false;
 
     if (media.paused) {
@@ -396,6 +410,8 @@ export function installViewerShell(context) {
   
     if (event.ctrlKey || event.metaKey || event.altKey) return;
 
+    if (isViewerNativeMediaKey(event)) return;
+
     // Arrow keys on native queue controls must neither navigate viewer media
     // nor reach the background canvas.
     if (inProgressPanel && event.key.startsWith("Arrow")) {
@@ -408,7 +424,10 @@ export function installViewerShell(context) {
       if (isViewerPlaybackShortcutControl(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (!event.repeat) toggleViewerMediaPlayback();
+      const pane = runtime.viewer?.comparing
+        && event.target?.closest?.(".cmf-viewer-reference, .cmf-viewer-reference-bar")
+        ? runtime.viewer.reference : runtime.viewer;
+      if (!event.repeat) toggleViewerMediaPlayback(pane);
       return;
     }
   
@@ -470,6 +489,7 @@ export function installViewerShell(context) {
     syncViewerItems,
     handleViewerControlKeydown,
     isViewerPlaybackShortcutControl,
+    handleViewerNativeMediaKeydown,
     toggleViewerMediaPlayback,
     handleViewerGlobalKeydown,
     handleViewerWheel,
