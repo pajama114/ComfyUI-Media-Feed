@@ -219,6 +219,7 @@ export function installViewerShell(context) {
       imagePanY: 0,
       imageDrag: null,
       suppressImageClick: false,
+      suppressBatchClick: false,
       audioWaveformCleanup: null,
     };
     actions.setupViewerComparison(runtime.viewer);

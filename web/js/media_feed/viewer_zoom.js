@@ -11,6 +11,10 @@ export function installViewerZoom(context) {
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
   const closeViewer = (...args) => actions.closeViewer(...args);
   const isBatchGrid = (element) => Boolean(element?.classList?.contains("cmf-viewer-batch-grid"));
+  const isVideoControlPointer = (event, video) => {
+    const rect = video?.getBoundingClientRect?.();
+    return Boolean(rect && event.clientY >= rect.bottom - 48);
+  };
   function getViewerImage() {
     const image = runtime.viewer?.media?.querySelector("img.cmf-zoomable-image");
     return image instanceof HTMLImageElement && image.dataset.mediaItemKey === runtime.viewer?.item?.key ? image : null;
@@ -205,15 +209,26 @@ export function installViewerZoom(context) {
   
   function handleViewerImagePointerDown(event) {
     const image = event.currentTarget;
-    if (isBatchGrid(image) && event.target?.closest?.("video, audio, button, input, .cmf-viewer-audio")) return;
+    let batchVideo = null;
+    if (isBatchGrid(image)) {
+      if (event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
+      batchVideo = event.target?.closest?.("video");
+      if (batchVideo && isVideoControlPointer(event, batchVideo)) return;
+    }
     if (image instanceof HTMLVideoElement
       && !runtime.viewer?.comparing && !runtime.viewer?.isComparisonPane) return;
     const bounds = viewerImagePanBounds(image);
-    if (image instanceof HTMLVideoElement && event.clientY >= image.getBoundingClientRect().bottom - 48) return;
+    if (image instanceof HTMLVideoElement && isVideoControlPointer(event, image)) return;
     if (event.button !== 0 || !canPanViewerImage(bounds)) return;
-  
-    event.preventDefault();
-    image.setPointerCapture(event.pointerId);
+
+    // Delay pointer capture over a batch video until movement becomes a drag.
+    // Otherwise a normal click is retargeted to the grid and cannot toggle the
+    // native player.
+    const capturePending = Boolean(batchVideo);
+    if (!capturePending) {
+      event.preventDefault();
+      image.setPointerCapture(event.pointerId);
+    }
     runtime.viewer.imageDrag = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -221,8 +236,9 @@ export function installViewerZoom(context) {
       panX: runtime.viewer.imagePanX,
       panY: runtime.viewer.imagePanY,
       moved: false,
+      capturePending,
     };
-    updateViewerImageLayout();
+    if (!capturePending) updateViewerImageLayout();
   }
   
   function handleViewerImagePointerMove(event) {
@@ -232,8 +248,14 @@ export function installViewerZoom(context) {
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
     if (Math.abs(deltaX) >= VIEWER_IMAGE_DRAG_THRESHOLD || Math.abs(deltaY) >= VIEWER_IMAGE_DRAG_THRESHOLD) {
+      if (drag.capturePending) {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.capturePending = false;
+      }
       drag.moved = true;
     }
+    if (drag.capturePending) return;
     runtime.viewer.imagePanX = drag.panX + deltaX;
     runtime.viewer.imagePanY = drag.panY + deltaY;
     updateViewerImageLayout();
@@ -248,12 +270,22 @@ export function installViewerZoom(context) {
     if (image.hasPointerCapture?.(event.pointerId)) image.releasePointerCapture(event.pointerId);
     runtime.viewer.imageDrag = null;
     if (drag.moved) {
-      runtime.viewer.suppressImageClick = true;
+      if (isBatchGrid(image)) runtime.viewer.suppressBatchClick = true;
+      else runtime.viewer.suppressImageClick = true;
       window.setTimeout(() => {
-        if (runtime.viewer) runtime.viewer.suppressImageClick = false;
+        if (!runtime.viewer) return;
+        runtime.viewer.suppressImageClick = false;
+        runtime.viewer.suppressBatchClick = false;
       }, 0);
     }
     updateViewerImageLayout();
+  }
+
+  function suppressBatchPanClick(event) {
+    if (!runtime.viewer?.suppressBatchClick) return;
+    runtime.viewer.suppressBatchClick = false;
+    event.preventDefault();
+    event.stopPropagation();
   }
   
   function prepareViewerImage(image) {
@@ -264,6 +296,7 @@ export function installViewerZoom(context) {
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);
     image.addEventListener("pointercancel", finishViewerImageDrag);
+    if (batch) image.addEventListener("click", suppressBatchPanClick, true);
     image.addEventListener("dragstart", (event) => event.preventDefault());
   }
   
@@ -354,6 +387,7 @@ export function installViewerZoom(context) {
     handleViewerImagePointerDown,
     handleViewerImagePointerMove,
     finishViewerImageDrag,
+    suppressBatchPanClick,
     prepareViewerImage,
     viewerMediaNaturalSize,
     isInsideContainedMedia,

@@ -395,6 +395,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
   const originalHTMLImageElement = globalThis.HTMLImageElement;
   const originalHTMLVideoElement = globalThis.HTMLVideoElement;
   const originalHTMLAudioElement = globalThis.HTMLAudioElement;
+  const originalWindow = globalThis.window;
 
   class MockElement {
     constructor() {
@@ -412,6 +413,8 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     get offsetHeight() { return Number.parseFloat(this.style.height) || 0; }
     addEventListener(name, callback) { this.listeners.set(name, callback); }
     setPointerCapture() {}
+    hasPointerCapture() { return false; }
+    getBoundingClientRect() { return { left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200 }; }
   }
   class MockImage extends MockElement {}
   class MockVideo extends MockElement {}
@@ -420,6 +423,8 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
   globalThis.HTMLImageElement = MockImage;
   globalThis.HTMLVideoElement = MockVideo;
   globalThis.HTMLAudioElement = MockAudio;
+  let clearSuppression;
+  globalThis.window = { setTimeout(callback) { clearSuppression = callback; } };
 
   try {
     const grid = new MockElement();
@@ -464,6 +469,52 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     context.actions.handleViewerImagePointerMove({ pointerId: 1, clientX: 150, clientY: 70 });
     assert.equal(viewer.imagePanX, 50);
     assert.equal(viewer.imagePanY, -30);
+    context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 1 });
+    clearSuppression?.();
+
+    const video = new MockVideo();
+    const videoTarget = { closest: (selector) => selector === "video" ? video : null };
+    let pointerDefaultPrevented = false;
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: videoTarget, button: 0,
+      pointerId: 2, clientX: 100, clientY: 100,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, false, "a video click remains native until it becomes a drag");
+    context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 2 });
+    let clickDefaultPrevented = false;
+    grid.listeners.get("click")({
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() {},
+    });
+    assert.equal(clickDefaultPrevented, false, "a video click can toggle playback");
+
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: videoTarget, button: 0,
+      pointerId: 3, clientX: 100, clientY: 100,
+      preventDefault() {},
+    });
+    context.actions.handleViewerImagePointerMove({
+      currentTarget: grid, pointerId: 3, clientX: 125, clientY: 100,
+      preventDefault() { pointerDefaultPrevented = true; },
+    });
+    assert.equal(pointerDefaultPrevented, true, "moving over the video switches to batch panning");
+    context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 3 });
+    let clickPropagationStopped = false;
+    grid.listeners.get("click")({
+      preventDefault() { clickDefaultPrevented = true; },
+      stopPropagation() { clickPropagationStopped = true; },
+    });
+    assert.equal(clickDefaultPrevented, true, "a video drag must not toggle playback");
+    assert.equal(clickPropagationStopped, true);
+
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: videoTarget, button: 0,
+      pointerId: 4, clientX: 100, clientY: 180,
+      preventDefault() { throw new Error("native video controls must remain interactive"); },
+    });
+    assert.equal(viewer.imageDrag, null);
+    clearSuppression?.();
 
     context.actions.handleViewerImageDoubleClick({
       currentTarget: grid, target: { closest: () => null }, button: 0,
@@ -484,6 +535,8 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     else globalThis.HTMLVideoElement = originalHTMLVideoElement;
     if (originalHTMLAudioElement === undefined) delete globalThis.HTMLAudioElement;
     else globalThis.HTMLAudioElement = originalHTMLAudioElement;
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
   }
 });
 
