@@ -5,6 +5,7 @@ import {
   VIEWER_IMAGE_DRAG_THRESHOLD,
   VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS,
 } from "./constants.js";
+import { isBatchPresentation } from "./batch_entries.js";
 
 export function installViewerZoom(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -22,7 +23,7 @@ export function installViewerZoom(context) {
   }
   
   function getViewerScalableMedia() {
-    if (runtime.viewer?.entry?.kind === "batch") {
+    if (isBatchPresentation(runtime.viewer?.entry)) {
       const grid = runtime.viewer.media?.querySelector(".cmf-zoomable-batch");
       return grid instanceof HTMLElement && grid.dataset.mediaItemKey === runtime.viewer.entry.key ? grid : null;
     }
@@ -63,7 +64,7 @@ export function installViewerZoom(context) {
   
   function updateViewerImageControls(media = getViewerScalableMedia(), displayScale) {
     if (!runtime.viewer) return;
-    const batch = runtime.viewer.entry?.kind === "batch";
+    const batch = isBatchPresentation(runtime.viewer.entry);
     const isScalableItem = batch || runtime.viewer.item?.kind === "image" || runtime.viewer.item?.kind === "video";
     // Keep the controls visually stable while the next image or video is
     // decoding. The previous scalable element remains mounted until the new
@@ -147,7 +148,7 @@ export function installViewerZoom(context) {
   
   function resetViewerImageView(baseMode = runtime.viewer?.imageBaseMode || "native") {
     if (!runtime.viewer) return;
-    runtime.viewer.imageBaseMode = runtime.viewer.entry?.kind === "batch" || baseMode === "fit" ? "fit" : "native";
+    runtime.viewer.imageBaseMode = isBatchPresentation(runtime.viewer.entry) || baseMode === "fit" ? "fit" : "native";
     runtime.viewer.imageZoom = 1;
     runtime.viewer.imagePanX = 0;
     runtime.viewer.imagePanY = 0;
@@ -159,8 +160,8 @@ export function installViewerZoom(context) {
   
   function setViewerImageBaseMode(baseMode) {
     if (!getViewerScalableMedia()) return;
-    if (runtime.viewer.entry?.kind === "batch" && baseMode !== "fit") return;
-    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane || runtime.viewer.entry?.kind === "batch") {
+    if (isBatchPresentation(runtime.viewer.entry) && baseMode !== "fit") return;
+    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane || isBatchPresentation(runtime.viewer.entry)) {
       resetViewerImageView(baseMode);
       return;
     }
@@ -195,9 +196,13 @@ export function installViewerZoom(context) {
   }
   
   function handleViewerImageDoubleClick(event) {
+    const target = event.currentTarget;
+    const standaloneVideo = target instanceof HTMLVideoElement && !isBatchGrid(target);
     if (!runtime.viewer || event.button !== 0
-      || !(event.currentTarget instanceof HTMLImageElement || isBatchGrid(event.currentTarget))) return;
-    if (isBatchGrid(event.currentTarget)) {
+      || !(target instanceof HTMLImageElement || standaloneVideo || isBatchGrid(target))) return;
+    if (standaloneVideo) {
+      if (isVideoControlPointer(event, target)) return;
+    } else if (isBatchGrid(target)) {
       const video = event.target?.closest?.("video");
       if (video ? isVideoControlPointer(event, video)
         : event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
@@ -332,7 +337,11 @@ export function installViewerZoom(context) {
   function prepareViewerImage(image) {
     const batch = isBatchGrid(image);
     image.classList.add(batch ? "cmf-zoomable-batch" : image instanceof HTMLVideoElement ? "cmf-zoomable-video" : "cmf-zoomable-image");
-    if (batch || image instanceof HTMLImageElement) image.addEventListener("dblclick", handleViewerImageDoubleClick);
+    if (batch || image instanceof HTMLImageElement || image instanceof HTMLVideoElement) {
+      // Handle standalone videos during capture so their native double-click
+      // fullscreen action can be cancelled before applying viewer zoom.
+      image.addEventListener("dblclick", handleViewerImageDoubleClick, image instanceof HTMLVideoElement);
+    }
     image.addEventListener("pointerdown", handleViewerImagePointerDown);
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);

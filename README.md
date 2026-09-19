@@ -39,7 +39,9 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   viewer shows every output in a grid of uniform square cells that can be
   zoomed and panned as one view.
   Batch zoom is relative to the fitted grid; the 1:1 control is
-  reserved for individual media. The choice is saved across reloads.
+  reserved for individual media. A batch containing only one output uses the
+  same viewer layout and zoom controls as individual view. The choice is saved
+  across reloads.
 - Click a batch cell to select an output for favorites, download, image copy,
   opening the original, and metadata. A thin frame occupies reserved space
   around the media and stays two screen pixels wide while zooming. The first

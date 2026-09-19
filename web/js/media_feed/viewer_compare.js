@@ -3,6 +3,7 @@ import { installViewerSupport } from "./viewer_support.js";
 import { installViewerRender } from "./viewer_render.js";
 import { installViewerMetadata } from "./viewer_metadata.js";
 import { VIEWER_IMAGE_ZOOM_STEP, VIEWER_IMAGE_WHEEL_ZOOM_FACTOR } from "./constants.js";
+import { isBatchPresentation } from "./batch_entries.js";
 
 // Store zoom relative to the fitted size and pan as fractions of the media,
 // so different resolutions and aspect ratios can share a viewing position.
@@ -338,7 +339,7 @@ export function installViewerCompare(context) {
       reference.imageZoom = 1;
       reference.imagePanX = reference.imagePanY = 0;
       apply(viewer, actions, sharedView);
-      const playback = viewer.entry?.kind === "batch" ? null : viewer.media.querySelector("video, audio");
+      const playback = isBatchPresentation(viewer.entry) ? null : viewer.media.querySelector("video, audio");
       const playbackTime = playback?.currentTime || 0;
       const pinnedEntry = pinnedComparisonEntry(viewer);
       if (pinnedEntry.kind === "batch") {

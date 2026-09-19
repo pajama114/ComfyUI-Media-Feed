@@ -1,4 +1,5 @@
 import { VIEWER_IMAGE_DRAG_THRESHOLD } from "./constants.js";
+import { isBatchPresentation } from "./batch_entries.js";
 
 export function installViewerRender(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -290,22 +291,26 @@ export function installViewerRender(context) {
     clearViewerAudioWaveform(currentViewer);
     discardStagedMedia(currentViewer.pendingMedia);
     currentViewer.pendingMedia = null;
+    const previousBatchPresentation = isBatchPresentation(currentViewer.entry);
     const sameBatch = item.kind === "batch" && currentViewer.entry?.key === item.key;
     const selectedKey = sameBatch ? currentViewer.item?.key : null;
     currentViewer.entry = item;
     currentViewer.item = item.kind === "batch"
       ? item.items.find((member) => member.key === selectedKey) || item.items[0]
       : item;
+    const batchPresentation = isBatchPresentation(item);
+    const mediaItem = currentViewer.item;
     currentViewer.mediaReadyItemId = "";
-    if (!sameBatch && !currentViewer.comparing && !currentViewer.isComparisonPane) {
-      resetViewerImageView(item.kind === "batch" ? "fit" : state.scaleViewerMedia ? "fit" : "native");
+    if ((!sameBatch || previousBatchPresentation !== batchPresentation)
+      && !currentViewer.comparing && !currentViewer.isComparisonPane) {
+      resetViewerImageView(batchPresentation || state.scaleViewerMedia ? "fit" : "native");
     }
-    updateViewerTitle(currentViewer, item);
-    currentViewer.openLink.href = currentViewer.item.url;
-    currentViewer.copyImageButton.hidden = currentViewer.item.kind !== "image";
-    syncFavoriteButton(currentViewer.favoriteButton, currentViewer.item);
+    updateViewerTitle(currentViewer, batchPresentation ? item : mediaItem);
+    currentViewer.openLink.href = mediaItem.url;
+    currentViewer.copyImageButton.hidden = mediaItem.kind !== "image";
+    syncFavoriteButton(currentViewer.favoriteButton, mediaItem);
     syncViewerNav();
-    if (item.kind === "batch") {
+    if (batchPresentation) {
       return renderViewerBatch(currentViewer, item, requestId);
     }
     const layout = () => {
@@ -313,60 +318,60 @@ export function installViewerRender(context) {
       currentViewer.restoreView?.();
     };
   
-    if (item.kind === "image") {
+    if (mediaItem.kind === "image") {
       const image = document.createElement("img");
-      image.alt = item.filename;
+      image.alt = mediaItem.filename;
       image.decoding = "async";
-      image.dataset.mediaItemKey = item.key;
+      image.dataset.mediaItemKey = mediaItem.key;
       prepareViewerImage(image);
   
-      const cached = runtime.decodedImageCache.get(item.url);
+      const cached = runtime.decodedImageCache.get(mediaItem.url);
       if (cached?.complete) {
         image.src = cached.currentSrc || cached.src;
         await decodeImageElement(image);
-        if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+        if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) return;
         discardDisplayedBatchMedia(currentViewer);
         currentViewer.media.querySelector("video, audio")?.pause();
         currentViewer.media.replaceChildren(image);
         layout();
-        rememberDecodedImage(item.url, image);
-        rememberMediaDimensions(item, image);
-        currentViewer.mediaReadyItemId = item.id;
+        rememberDecodedImage(mediaItem.url, image);
+        rememberMediaDimensions(mediaItem, image);
+        currentViewer.mediaReadyItemId = mediaItem.id;
         refreshViewerPromptPanelDetails();
         return;
       }
   
       if (thumbnail?.complete) {
-        rememberDecodedImage(item.url, thumbnail);
+        rememberDecodedImage(mediaItem.url, thumbnail);
         image.src = thumbnail.currentSrc || thumbnail.src;
         await decodeImageElement(image);
-        if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+        if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) return;
         discardDisplayedBatchMedia(currentViewer);
         currentViewer.media.querySelector("video, audio")?.pause();
         currentViewer.media.replaceChildren(image);
         layout();
-        rememberDecodedImage(item.url, image);
-        rememberMediaDimensions(item, image);
-        currentViewer.mediaReadyItemId = item.id;
+        rememberDecodedImage(mediaItem.url, image);
+        rememberMediaDimensions(mediaItem, image);
+        currentViewer.mediaReadyItemId = mediaItem.id;
         refreshViewerPromptPanelDetails();
         return;
       }
   
-      image.src = item.url;
+      image.src = mediaItem.url;
       await decodeImageElement(image);
-      if (!isCurrentViewerRender(currentViewer, requestId, item)) return;
+      if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) return;
       discardDisplayedBatchMedia(currentViewer);
       currentViewer.media.querySelector("video, audio")?.pause();
       currentViewer.media.replaceChildren(image);
       layout();
-      rememberDecodedImage(item.url, image);
-      rememberMediaDimensions(item, image);
-      currentViewer.mediaReadyItemId = item.id;
+      rememberDecodedImage(mediaItem.url, image);
+      rememberMediaDimensions(mediaItem, image);
+      currentViewer.mediaReadyItemId = mediaItem.id;
       refreshViewerPromptPanelDetails();
       return;
     }
   
-    if (item.kind === "video") {
+    if (mediaItem.kind === "video") {
       const video = document.createElement("video");
       prepareViewerImage(video);
       video.controls = true;
@@ -374,18 +379,18 @@ export function installViewerRender(context) {
       video.preload = "auto";
       video.loop = state.loopVideos;
       video.muted = true;
-      video.dataset.mediaItemKey = item.key;
+      video.dataset.mediaItemKey = mediaItem.key;
       video.addEventListener("loadedmetadata", () => {
-        rememberMediaDimensions(item, video);
-        if (isCurrentViewerRender(currentViewer, requestId, item)) {
+        rememberMediaDimensions(mediaItem, video);
+        if (isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
           layout();
         }
       }, { once: true });
-      video.src = item.url;
+      video.src = mediaItem.url;
       currentViewer.pendingMedia = video;
       if (!currentViewer.isComparisonPane) video.play().catch(() => {});
       await waitForMediaReady(video);
-      if (!isCurrentViewerRender(currentViewer, requestId, item)) {
+      if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
         if (currentViewer.pendingMedia === video) currentViewer.pendingMedia = null;
         discardStagedMedia(video);
         return;
@@ -394,7 +399,7 @@ export function installViewerRender(context) {
       discardDisplayedBatchMedia(currentViewer);
       replaceViewerMedia(currentViewer, video);
       layout();
-      currentViewer.mediaReadyItemId = item.id;
+      currentViewer.mediaReadyItemId = mediaItem.id;
       refreshViewerPromptPanelDetails();
       return;
     }
@@ -411,13 +416,13 @@ export function installViewerRender(context) {
       audio.preload = "auto";
       audio.muted = true;
     }
-    audio.dataset.mediaItemKey = item.key;
+    audio.dataset.mediaItemKey = mediaItem.key;
     audio.loop = state.loopAudio;
-    audio.src = item.url;
+    audio.src = mediaItem.url;
     currentViewer.pendingMedia = audio;
     if (!currentViewer.isComparisonPane) audio.play().catch(() => {});
     await waitForMediaReady(audio);
-    if (!isCurrentViewerRender(currentViewer, requestId, item)) {
+    if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
       if (!reusingDisplayedAudio) {
         if (currentViewer.pendingMedia === audio) currentViewer.pendingMedia = null;
         discardStagedMedia(audio);
@@ -429,9 +434,9 @@ export function installViewerRender(context) {
       discardDisplayedBatchMedia(currentViewer);
       replaceViewerMedia(currentViewer, presentation);
     }
-    setupViewerAudioWaveform(currentViewer, audio, item.url);
+    setupViewerAudioWaveform(currentViewer, audio, mediaItem.url);
     layout();
-    currentViewer.mediaReadyItemId = item.id;
+    currentViewer.mediaReadyItemId = mediaItem.id;
   }
   
   Object.assign(actions, {

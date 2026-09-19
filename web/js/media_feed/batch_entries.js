@@ -23,3 +23,7 @@ export function displayEntries(items, batchMode) {
 export function entrySignature(entry) {
   return entry.kind === "batch" ? entry.items.map((item) => item.id).join("|") : entry.id;
 }
+
+export function isBatchPresentation(entry) {
+  return entry?.kind === "batch" && entry.items?.length > 1;
+}

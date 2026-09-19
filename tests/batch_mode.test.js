@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { displayEntries, entrySignature } from "../web/js/media_feed/batch_entries.js";
+import { displayEntries, entrySignature, isBatchPresentation } from "../web/js/media_feed/batch_entries.js";
 import { pinnedComparisonEntry } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
@@ -28,6 +28,8 @@ test("batch view groups prompt outputs in output order and leaves ungrouped medi
   assert.deepEqual(entries[0].items.map((item) => item.id), ["a1", "a2", "a3"]);
   assert.deepEqual(entries[1].items.map((item) => item.id), ["b1", "b2"]);
   assert.equal(entries[2], items[3]);
+  assert.equal(isBatchPresentation(entries[0]), true);
+  assert.equal(isBatchPresentation(displayEntries([media("only", "only")], true)[0]), false);
 
   const replaced = displayEntries([{ ...items[0], id: "a3-new" }, ...items.slice(1)], true);
   assert.notEqual(entrySignature(entries[0]), entrySignature(replaced[0]));
@@ -133,15 +135,20 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
       item: null,
       entry: null,
     };
+    const resetModes = [];
     const actions = {
       ensureViewer: () => viewer,
       clearViewerAudioWaveform() {},
       discardStagedMedia() {},
-      resetViewerImageView() {},
+      resetViewerImageView(mode) { resetModes.push(mode); },
       syncFavoriteButton(button, item) { favoriteTargets.push(item.id); },
       updateViewerPromptPanel() { metadataTargets.push(viewer.item.id); },
       syncViewerNav() {},
       prepareViewerImage() {},
+      rememberDecodedImage() {},
+      rememberMediaDimensions() {},
+      isCurrentViewerRender: (currentViewer, requestId, item) => currentViewer === viewer
+        && viewer.renderRequestId === requestId && viewer.item?.key === item.key,
       decodeImageElement: (image) => image.src.includes("five") ? newImageReady
         : image.src.includes("stale") ? staleImageReady : Promise.resolve(),
       updateViewerImageLayout() {},
@@ -163,8 +170,17 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     installViewerRender({
       app: {}, api: {}, ICONS: { music: "<svg></svg>" },
       state: { loopVideos: false, loopAudio: false },
-      runtime: { viewer }, actions,
+      runtime: { viewer, decodedImageCache: new Map() }, actions,
     });
+
+    const single = displayEntries([media("only", "only")], true)[0];
+    await actions.renderViewerItem(single);
+    assert.equal(viewer.entry, single, "the grouped entry remains available for navigation");
+    assert.equal(viewer.item, single.items[0]);
+    assert.equal(viewer.media.children[0].tagName, "IMG");
+    assert.equal(viewer.media.querySelector(".cmf-viewer-batch-grid"), null);
+    assert.equal(viewer.title.dataset.batch, undefined);
+    assert.equal(resetModes.at(-1), "native");
 
     const items = [media("four", "p", "audio"), media("three", "p", "video"), media("two", "p"), media("one", "p")];
     await actions.renderViewerItem(displayEntries(items, true)[0]);
@@ -276,9 +292,9 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
 
     const staleRender = actions.renderViewerItem(displayEntries([media("stale", "p"), media("five", "p"), ...items], true)[0]);
     assert.equal(viewer.media.children[0], grid);
-    await actions.renderViewerItem(displayEntries([media("q", "q", "audio")], true)[0]);
+    await actions.renderViewerItem(displayEntries([media("q2", "q", "audio"), media("q", "q", "audio")], true)[0]);
     assert.equal(viewer.media.children[0].styles.get("--cmf-batch-row-count"), "1");
-    assert.equal(viewer.media.children[0].dataset.naturalWidth, "96");
+    assert.equal(viewer.media.children[0].dataset.naturalWidth, "192");
     assert.equal(viewer.media.children[0].dataset.naturalHeight, "96");
     grid.dispatch("click", { target: grid.children[0], detail: 0 });
     assert.equal(viewer.item.id, "q");
@@ -460,7 +476,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     };
     const button = () => ({ disabled: false, setAttribute() {} });
     const viewer = {
-      entry: { kind: "batch", key: "batch:p" }, item: media("one", "p"),
+      entry: { kind: "batch", key: "batch:p", items: [media("one", "p"), media("two", "p")] }, item: media("one", "p"),
       media: mediaFrame, root: { dataset: {} },
       imageBaseMode: "fit", imageZoom: 1, imagePanX: 0, imagePanY: 0,
       zoomControls: { hidden: true }, fitButton: button(), nativeButton: button(),
@@ -669,6 +685,56 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     assert.equal(viewer.imageBaseMode, "fit");
     assert.equal(grid.style.width, "400px");
     assert.equal(state.scaleViewerMedia, false);
+
+    const singleImage = new MockImage();
+    singleImage.naturalWidth = 200;
+    singleImage.naturalHeight = 100;
+    singleImage.dataset.mediaItemKey = "image:only";
+    context.actions.prepareViewerImage(singleImage);
+    viewer.entry = { kind: "batch", key: "batch:only", items: [media("only", "only")] };
+    viewer.item = viewer.entry.items[0];
+    mediaFrame.querySelector = (selector) => selector.includes("cmf-zoomable-image") ? singleImage : null;
+    context.actions.resetViewerImageView("native");
+
+    assert.equal(viewer.imageBaseMode, "native");
+    assert.equal(viewer.nativeButton.hidden, false);
+    assert.equal(viewer.nativeButton.disabled, false);
+    assert.equal(singleImage.style.width, "200px");
+    assert.equal(singleImage.style.height, "100px");
+    assert.equal(viewer.zoomLevel.textContent, "100%");
+
+    const standaloneVideo = new MockVideo();
+    standaloneVideo.videoWidth = 400;
+    standaloneVideo.videoHeight = 200;
+    standaloneVideo.dataset.mediaItemKey = "video:standalone";
+    viewer.entry = viewer.item = media("standalone", "", "video");
+    mediaFrame.querySelector = (selector) => selector.includes("cmf-zoomable-video") ? standaloneVideo : null;
+    context.actions.prepareViewerImage(standaloneVideo);
+    context.actions.resetViewerImageView("fit");
+    let standalonePrevented = false;
+    standaloneVideo.listeners.get("dblclick")({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0,
+      clientX: 100, clientY: 100,
+      preventDefault() { standalonePrevented = true; }, stopPropagation() {},
+    });
+    assert.equal(standalonePrevented, true);
+    assert.equal(viewer.imageZoom, 2, "double-clicking a standalone video's picture zooms it");
+
+    standalonePrevented = false;
+    standaloneVideo.listeners.get("dblclick")({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0,
+      clientX: 100, clientY: 180,
+      preventDefault() { standalonePrevented = true; }, stopPropagation() {},
+    });
+    assert.equal(standalonePrevented, false, "standalone video controls remain interactive");
+    assert.equal(viewer.imageZoom, 2);
+
+    standaloneVideo.listeners.get("dblclick")({
+      currentTarget: standaloneVideo, target: standaloneVideo, button: 0,
+      clientX: 100, clientY: 100,
+      preventDefault() {}, stopPropagation() {},
+    });
+    assert.equal(viewer.imageZoom, 1, "a second picture double-click restores the base view");
   } finally {
     if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
     else globalThis.HTMLElement = originalHTMLElement;
@@ -730,7 +796,7 @@ test("batch Space pauses playback or plays the selection in the focused comparis
   const leftPlayer = player("video:left");
   const rightPlayer = player("audio:right");
   const pane = (media) => ({
-    entry: { kind: "batch" }, item: { key: media.dataset.mediaItemKey },
+    entry: { kind: "batch", items: [{}, {}] }, item: { key: media.dataset.mediaItemKey },
     media: { querySelectorAll: () => [media] },
   });
   const viewer = { ...pane(leftPlayer), comparing: true, reference: pane(rightPlayer) };

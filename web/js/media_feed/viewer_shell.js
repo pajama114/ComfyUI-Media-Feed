@@ -1,5 +1,5 @@
 import { installViewerCompare } from "./viewer_compare.js";
-import { displayEntries, entrySignature } from "./batch_entries.js";
+import { displayEntries, entrySignature, isBatchPresentation } from "./batch_entries.js";
 import {
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
@@ -232,7 +232,7 @@ export function installViewerShell(context) {
   
   function syncViewerScaleMedia() {
     if (!runtime.viewer) return;
-    resetViewerImageView(runtime.viewer.entry?.kind === "batch" || state.scaleViewerMedia ? "fit" : "native");
+    resetViewerImageView(isBatchPresentation(runtime.viewer.entry) || state.scaleViewerMedia ? "fit" : "native");
   }
 
   function syncViewerComfyProgress() {
@@ -381,8 +381,9 @@ export function installViewerShell(context) {
   function toggleViewerMediaPlayback(pane = runtime.viewer) {
     const playable = [...(pane?.media?.querySelectorAll?.("video, audio") || [])];
     const selectedMedia = playable.find((element) => element.dataset?.mediaItemKey === pane?.item?.key);
-    const playing = pane?.entry?.kind === "batch" ? playable.find((element) => !element.paused) : null;
-    const media = playing || selectedMedia || (pane?.entry?.kind === "batch"
+    const batchPresentation = isBatchPresentation(pane?.entry);
+    const playing = batchPresentation ? playable.find((element) => !element.paused) : null;
+    const media = playing || selectedMedia || (batchPresentation
       ? null
       : pane?.media?.querySelector("video, audio"));
     if (!media) return false;
