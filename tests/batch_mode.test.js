@@ -539,6 +539,36 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     context.actions.prepareViewerImage(grid);
     context.actions.updateViewerImageLayout();
 
+    const checkRepeatedDoubleClicks = (element, target) => {
+      context.actions.resetViewerImageView();
+      const dispatch = (type, detail, overrides = {}) => element.listeners.get(type)({
+        type, detail, currentTarget: element, target, button: 0,
+        clientX: 100, clientY: 100, preventDefault() {}, stopPropagation() {}, ...overrides,
+      });
+      dispatch("click", 1);
+      dispatch("click", 2);
+      assert.equal(viewer.imageZoom, 1, "the initial pair waits for native dblclick");
+      dispatch("dblclick", 2);
+      assert.equal(viewer.imageZoom, 2);
+      for (const [detail, expected] of [[3, 2], [4, 1], [5, 1], [6, 2]]) {
+        dispatch("click", detail);
+        assert.equal(viewer.imageZoom, expected, `click ${detail} handles the repeated pair`);
+      }
+      dispatch("dblclick", 6);
+      assert.equal(viewer.imageZoom, 2, "a duplicate native dblclick must not toggle again");
+      dispatch("click", 8, { button: 2 });
+      assert.equal(viewer.imageZoom, 2, "secondary clicks do not zoom");
+      viewer[element === grid ? "suppressBatchClick" : "suppressImageClick"] = true;
+      dispatch("click", 8);
+      assert.equal(viewer.imageZoom, 2, "a drag-suppressed click must not zoom");
+      dispatch("click", 1);
+      dispatch("click", 2);
+      dispatch("dblclick", 2);
+      assert.equal(viewer.imageZoom, 1, "a fresh native double-click still works");
+      runTimers();
+    };
+    checkRepeatedDoubleClicks(grid, { closest: () => null });
+
     assert.equal(viewer.zoomControls.hidden, false);
     assert.equal(viewer.nativeButton.hidden, true);
     assert.equal(viewer.nativeButton.disabled, true);
@@ -567,6 +597,9 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     video.play = () => { videoPlayCount++; video.paused = false; return Promise.resolve(); };
     video.pause = () => { videoPauseCount++; video.paused = true; };
     const videoTarget = { closest: (selector) => selector === "video" ? video : null };
+    checkRepeatedDoubleClicks(grid, videoTarget);
+    assert.equal(videoPlayCount, 0, "repeated pairs must not toggle video playback");
+    context.actions.setViewerImageZoom(2);
     let pointerDefaultPrevented = false;
     context.actions.handleViewerImagePointerDown({
       currentTarget: grid, target: videoTarget, button: 0,
@@ -793,6 +826,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     assert.equal(singleImage.style.width, "200px");
     assert.equal(singleImage.style.height, "100px");
     assert.equal(viewer.zoomLevel.textContent, "100%");
+    checkRepeatedDoubleClicks(singleImage, singleImage);
 
     const standaloneVideo = new MockVideo();
     standaloneVideo.videoWidth = 400;
@@ -814,6 +848,9 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     mediaFrame.querySelector = (selector) => selector.includes("cmf-zoomable-video") ? standaloneVideo : null;
     context.actions.prepareViewerImage(standaloneVideo);
     context.actions.resetViewerImageView("fit");
+    checkRepeatedDoubleClicks(standaloneVideo, standaloneVideo);
+    assert.equal(standalonePlayCount, 0);
+    assert.equal(standalonePauseCount, 0);
 
     let standaloneClickPrevented = false;
     standaloneVideo.listeners.get("click")({

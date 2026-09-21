@@ -53,7 +53,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   selected with Enter. Dragging pans without selecting; clicking a video's
   picture toggles playback, while clicking letterboxed space inside its cell
   only selects it. Double-clicking an image, a video's picture, or an audio
-  presentation selects that output and zooms the whole grid.
+  presentation selects that output and zooms the whole grid. Rapid repeated
+  double-clicks keep toggling zoom, including in individual image and video views.
   Dragging over a video's picture or a non-scrubbable
   audio area pans without starting playback, while playback, seeking, and volume
   controls remain usable. Each audio

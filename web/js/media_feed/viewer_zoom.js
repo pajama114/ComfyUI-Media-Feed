@@ -199,6 +199,9 @@ export function installViewerZoom(context) {
     }
     event.preventDefault();
     event.stopPropagation();
+    // Later even clicks are handled by the click listener. Some browsers may
+    // also emit dblclick for them; do not toggle the same pair twice.
+    if (event.type === "dblclick" && event.detail > 2) return;
   
     if (Math.abs(runtime.viewer.imageZoom - 1) < 0.001) {
       setViewerImageZoom(VIEWER_IMAGE_DOUBLE_CLICK_ZOOM, { x: event.clientX, y: event.clientY });
@@ -298,11 +301,19 @@ export function installViewerZoom(context) {
   function handleViewerVideoClick(event) {
     const standaloneVideo = event.currentTarget instanceof HTMLVideoElement
       ? event.currentTarget : null;
-    const suppressionKey = standaloneVideo ? "suppressImageClick" : "suppressBatchClick";
+    const suppressionKey = standaloneVideo || event.currentTarget instanceof HTMLImageElement
+      ? "suppressImageClick" : "suppressBatchClick";
     if (runtime.viewer?.[suppressionKey]) {
       runtime.viewer[suppressionKey] = false;
       event.preventDefault();
       event.stopPropagation();
+      return;
+    }
+
+    // A rapid second double-click can arrive as clicks 3 and 4 without a
+    // second native dblclick. Keep toggling on each subsequent pair.
+    if (event.detail > 2 && event.detail % 2 === 0) {
+      handleViewerImageDoubleClick(event);
       return;
     }
 
@@ -340,7 +351,7 @@ export function installViewerZoom(context) {
     image.addEventListener("pointermove", handleViewerImagePointerMove);
     image.addEventListener("pointerup", finishViewerImageDrag);
     image.addEventListener("pointercancel", finishViewerImageDrag);
-    if (batch || image instanceof HTMLVideoElement) {
+    if (batch || image instanceof HTMLImageElement || image instanceof HTMLVideoElement) {
       image.addEventListener("click", handleViewerVideoClick, true);
     }
     image.addEventListener("dragstart", (event) => event.preventDefault());
