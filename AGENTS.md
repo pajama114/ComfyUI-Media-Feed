@@ -46,8 +46,12 @@ system only when the feature clearly requires them.
   validation, collision-safe copies, and deletion limited to favorite copies;
   never delete the source output.
 - When changing registered settings or their labels, keep persisted values
-  compatible and update the corresponding locale entries. Update `README.md`
-  when user-visible behavior changes.
+  compatible and update the corresponding locale entries. Treat `README.md`
+  as a stable product overview, not a changelog. Update it only when adding or
+  removing a substantial capability, changing installation or compatibility,
+  or making an existing documented setting or workflow inaccurate. Do not add
+  minor visual refinements, wording changes, implementation details, or
+  self-evident UI interactions unless the user explicitly asks for them.
 
 ## Verification
 

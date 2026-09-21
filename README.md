@@ -31,97 +31,19 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 ## Detailed Features
 
-- Shows newly generated images, videos, and audio in one feed, with filters for
-  each media type. The **All** filter is labeled in the toolbar, next to a
-  separate view button whose icon shows whether it will switch to batch or
-  individual view.
-- Batch view groups media sharing a prompt ID. A feed card previews up to four
-  outputs in a 2×2 grid and shows a remaining count when there are more. The
-  viewer shows every output in a grid of uniform square cells that can be
-  zoomed and panned as one view.
-  Batch zoom is relative to the fitted grid; the 1:1 control is
-  reserved for individual media. A batch containing only one output uses the
-  same viewer layout and zoom controls as individual view. The choice is saved
-  across reloads.
-- Click a batch cell to select an output for favorites, download, image copy,
-  opening the original, and metadata. A three-pixel frame occupies reserved
-  space around the media and scales with the batch zoom. The first
-  output starts selected; clicks select every media type immediately, and new
-  outputs preserve the current selection. Each
-  comparison pane has its own selection. Clicking outside the media hides the
-  selection frame without changing which output the viewer actions target;
-  clicking a cell shows it again. Cells can also be focused with Tab and
-  selected with Enter. Dragging pans without selecting; clicking a video's
-  picture toggles playback, while clicking letterboxed space inside its cell
-  only selects it. Double-clicking an image, a video's picture, or an audio
-  presentation selects that output and zooms the whole grid. Rapid repeated
-  double-clicks keep toggling zoom, including in individual image and video views.
-  Dragging over a video's picture or a non-scrubbable
-  audio area pans without starting playback, while playback, seeking, and volume
-  controls remain usable. Each audio
-  cell places a landscape detailed waveform above the same timeline, seeking,
-  and volume controls as the single-item viewer. Batch-card audio
-  previews use the compact waveform and remaining-time display from individual
-  feed thumbnails. Both types select their media item when playback starts;
-  selection itself does not start or stop playback. Space pauses playing media
-  in the focused pane, or starts its selected video/audio when nothing is
-  playing; focused player controls keep
-  their native keyboard behavior.
-- Compares images, videos, and audio side by side: the compare button pins the
-  current item on the right while navigation continues on the left. Each pane
-  has its own filename, favorites, download, and viewing controls in one header
-  row. On narrow panes, additional controls are available from the **…** menu.
-  Zoom and pan stay synchronized during comparison. Playback
-  is independent, and the pinned video/audio starts paused. Press compare again
-  to return to the left item in the normal viewer. Each side has its own
-  metadata panel that can be shown or hidden independently; the left metadata
-  follows navigation while the right metadata stays pinned. In batch view, the
-  left grid navigates between batches and the right grid pins a batch.
-- Opens media in an overlay viewer, with actions to download or open the
-  original file.
-- Copies output media to `output/favorites` from the star button in the viewer
-  or on a hovered feed card.
-- Supports previous/next navigation with side buttons, arrow keys, and wheel
-  scrolling in the viewer.
-- Plays video thumbnails muted on hover, enables their audio from the thumbnail
-  play button, and lets video and audio looping be configured independently.
-- Toggles video or audio playback with the Space key while the viewer is open.
-- Shows a compact, single-color waveform and duration/remaining time on audio
-  thumbnails. The viewer expands this into a detailed waveform with seeking and
-  a playhead that follows the current playback position.
-- Counts down the remaining time on playing video and audio thumbnails.
-- Stops thumbnail audio and returns it to the beginning when the pointer leaves
-  its card.
-- Lets you resize thumbnails, jump to the newest or oldest item, and clear the
-  current feed from the toolbar.
-- Can automatically follow newly generated media.
-- Can show media from every workflow tab or only media queued from the current
-  workflow tab.
-- Can visually separate media from different queued generations with a subtle,
-  theme-aware divider.
-- Adds ComfyUI settings for placing the feed at the top, right, bottom, or left
-  of the canvas.
-- Localizes Media Feed settings in English, Japanese, Simplified and Traditional
-  Chinese, Korean, French, and German, following ComfyUI's selected language
-  when that locale is available in the frontend.
-- Reads embedded metadata in the viewer and displays inferred positive and
-  negative prompts, seeds, model resources such as checkpoints and LoRAs, and
-  other available generation details.
-- Lets you copy prompts, seeds, resource and generation-detail sections, or all
-  displayed metadata with visual copy confirmation.
-- Downloads all embedded JSON metadata as a formatted `.json` file.
-- Lets you place the metadata panel on either side of the viewer.
-- Provides Fit, actual-size, and zoom controls for images and videos. Clicking
-  a video's picture toggles playback. Zoomed images and videos can be panned by
-  dragging, and double-clicking zooms in or returns to the selected
-  Fit/actual-size view. The Fit scale can be adjusted from 25% to 100% of the
-  available viewer area. The zoom percentage always shows the displayed size
-  relative to the media's original dimensions.
-- Uses ComfyUI theme colors when available.
-- Saves feed and viewer settings in browser `localStorage`.
-- Restores the latest feed after a page reload in the same browser tab.
-- Keeps the feed responsive by limiting retained items and virtualizing visible
-  cards.
+- Filters newly generated images, videos, and audio in a canvas-edge feed.
+- Groups outputs from the same generation in batch view and lets you select an
+  item for viewing or file actions.
+- Opens media in a full-screen viewer with navigation, zoom and pan, video and
+  audio playback, and audio waveforms.
+- Compares individual media or whole batches side by side.
+- Displays embedded prompts, seeds, model resources, and other generation
+  details, with copy and JSON export actions.
+- Saves output media to `output/favorites` from the feed or viewer.
+- Provides controls for thumbnail size, feed position, automatic following,
+  workflow scope, looping, and other display preferences.
+- Follows ComfyUI themes, localizes its settings, and restores recent media
+  after a reload in the same browser tab.
 
 ## Settings Defaults
 
