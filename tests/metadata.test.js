@@ -377,6 +377,59 @@ function multiOutputPromptWorkflow() {
   };
 }
 
+function qwenImageSubgraphWorkflow(negativePrompt = "") {
+  const subgraphId = "qwen-image-subgraph";
+  return {
+    nodes: [{
+      id: 100,
+      type: subgraphId,
+      inputs: [
+        { name: "prompt", type: "STRING", widget: { name: "prompt" }, link: null },
+        { name: "negative_prompt", type: "STRING", widget: { name: "negative_prompt" }, link: null },
+      ],
+      widgets_values: ["qwen positive", negativePrompt],
+    }],
+    links: [],
+    definitions: {
+      subgraphs: [{
+        id: subgraphId,
+        inputs: [
+          { name: "prompt", type: "STRING" },
+          { name: "negative_prompt", type: "STRING" },
+        ],
+        nodes: [
+          {
+            id: 1,
+            type: "KSampler",
+            inputs: [
+              { name: "positive", type: "CONDITIONING", link: 10 },
+              { name: "negative", type: "CONDITIONING", link: 11 },
+            ],
+          },
+          {
+            id: 2,
+            type: "TextEncodeQwenImage21",
+            inputs: [
+              { name: "prompt", type: "STRING", link: 12 },
+              { name: "negative_prompt", type: "STRING", link: 13 },
+            ],
+            outputs: [
+              { name: "positive", type: "CONDITIONING", links: [10] },
+              { name: "negative", type: "CONDITIONING", links: [11] },
+            ],
+          },
+        ],
+        links: [
+          [10, 2, 0, 1, 0, "CONDITIONING"],
+          [11, 2, 1, 1, 1, "CONDITIONING"],
+          [12, -10, 0, 2, 0, "STRING"],
+          [13, -10, 1, 2, 1, "STRING"],
+        ],
+      }],
+    },
+  };
+}
+
 function branchedSubgraphWorkflow() {
   const subgraphId = "branched-subgraph";
   return {
@@ -575,6 +628,75 @@ test("loadPromptMetadata preserves the selected output slot while tracing workfl
   assert.equal(result.positive, "selected output text");
   assert.equal(result.negative, "negative text");
   assert.doesNotMatch(result.positive, /unused/);
+});
+
+test("loadPromptMetadata separates prompt and negative_prompt on a multi-output prompt node", async () => {
+  const prompt = {
+    1: {
+      class_type: "KSampler",
+      inputs: { positive: [2, 0], negative: [2, 1] },
+    },
+    2: {
+      class_type: "TextEncodeQwenImage21",
+      inputs: { prompt: "qwen positive", negative_prompt: "" },
+    },
+  };
+  const payload = pngText({ prompt: JSON.stringify(prompt) });
+  globalThis.fetch = async () => rangeResponse(payload);
+
+  const result = await loadPromptMetadata(mediaItem());
+
+  assert.equal(result.positive, "qwen positive");
+  assert.equal(result.negative, "");
+});
+
+test("loadPromptMetadata separates generic positive_prompt and negative_prompt workflow inputs", async () => {
+  const workflow = {
+    nodes: [
+      {
+        id: 1,
+        type: "KSampler",
+        inputs: [
+          { name: "positive", type: "CONDITIONING", link: 10 },
+          { name: "negative", type: "CONDITIONING", link: 11 },
+        ],
+      },
+      {
+        id: 2,
+        type: "DualPromptEncoder",
+        inputs: [
+          { name: "positive_prompt", type: "STRING", widget: { name: "positive_prompt" }, link: null },
+          { name: "negative_prompt", type: "STRING", widget: { name: "negative_prompt" }, link: null },
+        ],
+        outputs: [
+          { name: "positive", type: "CONDITIONING", links: [10] },
+          { name: "negative", type: "CONDITIONING", links: [11] },
+        ],
+        widgets_values: ["generic positive", ""],
+      },
+    ],
+    links: [
+      [10, 2, 0, 1, 0, "CONDITIONING"],
+      [11, 2, 1, 1, 1, "CONDITIONING"],
+    ],
+  };
+  const payload = pngText({ workflow: JSON.stringify(workflow) });
+  globalThis.fetch = async () => rangeResponse(payload);
+
+  const result = await loadPromptMetadata(mediaItem());
+
+  assert.equal(result.positive, "generic positive");
+  assert.equal(result.negative, "");
+});
+
+test("loadPromptMetadata keeps an empty negative_prompt empty through a workflow subgraph", async () => {
+  const payload = pngText({ workflow: JSON.stringify(qwenImageSubgraphWorkflow()) });
+  globalThis.fetch = async () => rangeResponse(payload);
+
+  const result = await loadPromptMetadata(mediaItem());
+
+  assert.equal(result.positive, "qwen positive");
+  assert.equal(result.negative, "");
 });
 
 test("loadPromptMetadata follows workflow subgraph definitions", async () => {

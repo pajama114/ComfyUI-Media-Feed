@@ -62,3 +62,29 @@ export function preferredUserInputNames(entries) {
   return [];
 }
 
+function normalizedPromptInputName(name) {
+  return String(name || "").trim().toLowerCase().replace(/[_\s-]+/g, "");
+}
+
+function explicitPromptInputPolarity(name) {
+  const normalizedName = normalizedPromptInputName(name);
+  const match = normalizedName.match(/^(positive|negative)(?:prompt|text|conditioning)?$/)
+    || normalizedName.match(/^(?:prompt|text|conditioning)(positive|negative)$/);
+  return match?.[1] || "";
+}
+
+export function promptInputPolarity(name, inputNames = []) {
+  const normalizedName = normalizedPromptInputName(name);
+  const explicitPolarity = explicitPromptInputPolarity(name);
+  if (explicitPolarity) return explicitPolarity;
+
+  const hasNegativePrompt = inputNames.some((inputName) => explicitPromptInputPolarity(inputName) === "negative");
+  return normalizedName === "prompt" && hasNegativePrompt ? "positive" : "";
+}
+
+export function hasPromptPolarityInputs(inputNames) {
+  const polarities = new Set(
+    inputNames.map((name) => promptInputPolarity(name, inputNames)).filter(Boolean),
+  );
+  return polarities.has("positive") && polarities.has("negative");
+}

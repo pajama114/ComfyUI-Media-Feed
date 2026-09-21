@@ -16,6 +16,8 @@ import {
   isSystemPromptLabel,
   isConditioningZeroNodeClass,
   preferredUserInputNames,
+  promptInputPolarity,
+  hasPromptPolarityInputs,
 } from "./graph_shared.js";
 
 export function promptNodeClass(node) {
@@ -34,11 +36,14 @@ export function isTextCarrierNode(node) {
   return /(^|[^a-z])(text|string|prompt)([^a-z]|$)/i.test(`${nodeClass} ${title}`);
 }
 
-export function collectPromptInputTexts(node) {
+export function collectPromptInputTexts(node, polarity = "") {
   const inputs = node?.inputs || {};
+  const inputNames = Object.keys(inputs);
+  const restrictPolarity = polarity && hasPromptPolarityInputs(inputNames);
   const texts = [];
 
   for (const [name, value] of Object.entries(inputs)) {
+    if (restrictPolarity && promptInputPolarity(name, inputNames) !== polarity) continue;
     if (!promptInputIsText(node, name, value)) continue;
     if (isPromptLink(value)) continue;
     texts.push(...collectStringValues(value));
@@ -47,17 +52,19 @@ export function collectPromptInputTexts(node) {
   return uniqueNonEmpty(texts);
 }
 
-export function collectPromptNodeStrings(node) {
+export function collectPromptNodeStrings(node, polarity = "") {
   const texts = [];
-  texts.push(...collectPromptInputTexts(node));
-  texts.push(...collectWidgetStringValues(node?.widgets_values || []));
-  texts.push(...collectWidgetStringValues(node?.widgets || []));
+  const restrictPolarity = polarity && promptNodeHasPolarityInputs(node);
+  texts.push(...collectPromptInputTexts(node, polarity));
+  if (!restrictPolarity) {
+    texts.push(...collectWidgetStringValues(node?.widgets_values || []));
+    texts.push(...collectWidgetStringValues(node?.widgets || []));
+  }
   return uniqueNonEmpty(texts);
 }
 
 export function promptNodeHasPolarityInputs(node) {
-  const names = new Set(Object.keys(node?.inputs || {}));
-  return names.has("positive") && names.has("negative");
+  return hasPromptPolarityInputs(Object.keys(node?.inputs || {}));
 }
 
 export function promptNodeLabel(node, nodeId) {
@@ -466,7 +473,7 @@ export function collectPromptNodeTexts(prompt, reference, visited = new Set(), f
   const textCarrier = isTextCarrierNode(node);
   const selectedSwitchInputName = promptSwitchSelectedInputName(prompt, node);
   if ((forceText || textCarrier) && !promptNodeHasLinkedTextInput(node)) {
-    texts.push(...collectPromptNodeStrings(node));
+    texts.push(...collectPromptNodeStrings(node, polarity));
   }
 
   for (const [name, value] of Object.entries(inputs)) {
@@ -475,7 +482,7 @@ export function collectPromptNodeTexts(prompt, reference, visited = new Set(), f
     if (
       polarity
       && promptNodeHasPolarityInputs(node)
-      && name !== polarity
+      && promptInputPolarity(name, Object.keys(inputs)) !== polarity
     ) {
       continue;
     }

@@ -6,6 +6,7 @@ import {
   isSystemPromptLabel,
   isConditioningZeroNodeClass,
   preferredUserInputNames,
+  hasPromptPolarityInputs,
 } from "./graph_shared.js";
 import {
   isTextEncodeNode,
@@ -147,8 +148,7 @@ export function workflowAncestorNodeIds(maps, outputNodeId) {
 
 export function workflowNodeHasPolarityInputs(node) {
   if (!Array.isArray(node?.inputs)) return false;
-  const names = new Set(node.inputs.map((input) => input?.name));
-  return names.has("positive") && names.has("negative");
+  return hasPromptPolarityInputs(node.inputs.map((input) => input?.name));
 }
 
 export function workflowNodeLabel(node) {

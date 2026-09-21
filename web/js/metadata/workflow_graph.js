@@ -7,6 +7,7 @@ import {
 } from "./format.js";
 import {
   collectWidgetStringValues,
+  promptInputPolarity,
 } from "./graph_shared.js";
 import {
   workflowNodeType,
@@ -94,18 +95,31 @@ export function collectWorkflowNodeTexts(originOrNodeId, maps, visited = new Set
   const selectedSwitchInputName = workflowSwitchSelectedInputName(maps, node);
   const outputInputName = workflowInputNameForOutput(node, origin);
   const linkedTextInput = workflowNodeHasLinkedTextInput(node);
+  const inputNames = (node.inputs || []).map((input) => input?.name);
+  const restrictPolarity = activePolarity && workflowNodeHasPolarityInputs(node);
   if ((forceText || textCarrier) && !linkedTextInput) {
     const directTextInputs = outputInputName
       ? workflowTextInputs(node).filter((input) => input?.name === outputInputName)
-      : workflowTextInputs(node);
+      : workflowTextInputs(node).filter((input) => (
+        !restrictPolarity || promptInputPolarity(input?.name, inputNames) === activePolarity
+      ));
     const directTexts = directTextInputs
       .flatMap((input) => collectWidgetStringValues(workflowInputValue(node, input)));
-    texts.push(...(directTexts.length ? directTexts : collectWidgetStringValues(node.widgets_values || [])));
+    if (directTexts.length) texts.push(...directTexts);
+    else if (!restrictPolarity) texts.push(...collectWidgetStringValues(node.widgets_values || []));
   }
 
   for (const input of node.inputs || []) {
     if (selectedSwitchInputName && input.name !== selectedSwitchInputName) continue;
     if (!selectedSwitchInputName && outputInputName && input.name !== outputInputName) continue;
+
+    if (
+      activePolarity
+      && workflowNodeHasPolarityInputs(node)
+      && promptInputPolarity(input.name, inputNames) !== activePolarity
+    ) {
+      continue;
+    }
 
     const isTextInput = workflowInputIsText(input, node);
     if (input?.link === undefined || input?.link === null) {
@@ -115,14 +129,6 @@ export function collectWorkflowNodeTexts(originOrNodeId, maps, visited = new Set
       continue;
     }
     if (textCarrier && !isTextInput && !isWorkflowTextPassthroughNode(node)) continue;
-
-    if (
-      activePolarity
-      && workflowNodeHasPolarityInputs(node)
-      && input.name !== activePolarity
-    ) {
-      continue;
-    }
 
     const inputOrigin = workflowLinkOrigin(maps, input.link);
     if (!inputOrigin) continue;
