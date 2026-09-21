@@ -298,7 +298,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       border: 1.5px solid var(--cmf-border);
       /* Reserve the stroke's space even when unselected; media never shifts
          or sits beneath the selection indicator. */
-      padding: calc(2px / var(--cmf-image-zoom, 1));
+      padding: 3px;
       overflow: hidden;
       background: var(--cmf-viewer-bg);
       cursor: inherit;
@@ -310,13 +310,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       position: absolute;
       top: 0;
       left: 0;
-      width: calc(100% * var(--cmf-image-zoom, 1));
-      height: calc(100% * var(--cmf-image-zoom, 1));
+      width: 100%;
+      height: 100%;
       box-sizing: border-box;
-      border: 2px solid transparent;
-      /* Cancel grid magnification so the frame stays two screen pixels wide. */
-      transform: scale(calc(1 / var(--cmf-image-zoom, 1)));
-      transform-origin: top left;
+      border: 3px solid transparent;
       pointer-events: none;
     }
 

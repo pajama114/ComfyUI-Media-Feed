@@ -43,8 +43,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
   same viewer layout and zoom controls as individual view. The choice is saved
   across reloads.
 - Click a batch cell to select an output for favorites, download, image copy,
-  opening the original, and metadata. A thin frame occupies reserved space
-  around the media and stays two screen pixels wide while zooming. The first
+  opening the original, and metadata. A three-pixel frame occupies reserved
+  space around the media and scales with the batch zoom. The first
   output starts selected; clicks select every media type immediately, and new
   outputs preserve the current selection. Each
   comparison pane has its own selection. Clicking outside the media hides the
