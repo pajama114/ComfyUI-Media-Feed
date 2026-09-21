@@ -38,6 +38,13 @@ export function installFeedView(context) {
     return Boolean(batchId && nextBatchId && batchId !== nextBatchId);
   }
 
+  function syncBatchModeButton(button) {
+    const label = state.batchMode ? "Switch to individual view" : "Switch to batch view";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.innerHTML = state.batchMode ? ICONS.galleryHorizontal : ICONS.grid;
+  }
+
   function createView(root, kind = "embedded") {
     ensureStyles();
   
@@ -50,7 +57,7 @@ export function installFeedView(context) {
           <button type="button" data-filter="video" data-filter-label="Videos" aria-pressed="false" title="Videos" aria-label="Videos">${ICONS.video}<span class="cmf-filter-count">0</span></button>
           <button type="button" data-filter="audio" data-filter-label="Audio" aria-pressed="false" title="Audio" aria-label="Audio">${ICONS.music}<span class="cmf-filter-count">0</span></button>
         </div>
-        <button class="cmf-button cmf-icon-button cmf-batch-mode" type="button" title="Batch view" aria-label="Batch view" aria-pressed="${state.batchMode}">${ICONS.grid}</button>
+        <button class="cmf-button cmf-icon-button cmf-batch-mode" type="button"></button>
         <div class="cmf-spacer"></div>
         <label class="cmf-size-control" title="Thumbnail size">
           <span>Size</span>
@@ -86,6 +93,7 @@ export function installFeedView(context) {
       entries: [],
       entryIds: new Set(),
     };
+    syncBatchModeButton(root.querySelector(".cmf-batch-mode"));
   
     view.viewport.addEventListener("scroll", () => {
       renderVisibleItems(view);
@@ -199,7 +207,7 @@ export function installFeedView(context) {
     view.root.dataset.feedStyle = state.feedStyle;
     view.root.dataset.batchDividers = state.batchDividers;
     view.root.dataset.batchMode = String(state.batchMode);
-    view.root.querySelector(".cmf-batch-mode").setAttribute("aria-pressed", String(state.batchMode));
+    syncBatchModeButton(view.root.querySelector(".cmf-batch-mode"));
     for (const button of view.root.querySelectorAll("button[data-filter]")) {
       button.setAttribute("aria-pressed", String(button.dataset.filter === state.filter));
     }

@@ -482,11 +482,6 @@ export function mediaFeedBaseStyles({
       flex: 0 0 30px;
     }
 
-    .cmf-batch-mode[aria-pressed="true"] {
-      border-color: var(--cmf-accent);
-      background: color-mix(in srgb, var(--cmf-accent) 24%, var(--cmf-panel));
-    }
-
     .cmf-batch-mode:focus-visible {
       outline: 2px solid var(--cmf-accent);
       outline-offset: 1px;

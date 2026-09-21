@@ -33,7 +33,8 @@ Generated media appears in a fixed panel on the chosen edge of the canvas.
 
 - Shows newly generated images, videos, and audio in one feed, with filters for
   each media type. The **All** filter is labeled in the toolbar, next to a
-  separate grid button that toggles batch view.
+  separate view button whose icon shows whether it will switch to batch or
+  individual view.
 - Batch view groups media sharing a prompt ID. A feed card previews up to four
   outputs in a 2×2 grid and shows a remaining count when there are more. The
   viewer shows every output in a grid of uniform square cells that can be
