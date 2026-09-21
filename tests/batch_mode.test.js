@@ -225,15 +225,26 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     assert.equal(viewer.item.id, "two");
     assert.equal(grid.dataset.selectionVisible, "true", "clicking the selected media restores its frame");
 
+    const zoomPointer = { button: 0, pointerId: 10, clientX: 20, clientY: 20 };
+    grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
+    grid.dispatch("pointerup", { ...zoomPointer, target: grid.children[0] });
+    assert.equal(viewer.item.id, "one", "the first click of a double-click selects immediately");
+    grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
+    grid.dispatch("pointerup", { ...zoomPointer, target: grid.children[0] });
+    assert.equal(viewer.item.id, "one", "double-click keeps its target selected");
+    assert.equal(grid.children[0].dataset.selected, "true", "the frame stays on the double-click target");
+    const metadataTargetsAfterDoubleClick = [...metadataTargets];
+    const focusAfterDoubleClick = document.activeElement;
+
     const pointer = { button: 0, pointerId: 1, clientX: 50, clientY: 50 };
     grid.dispatch("pointerdown", { ...pointer, target: grid.children[0].children[0] });
     grid.dispatch("pointermove", { ...pointer, clientX: 70 });
     viewer.imageDrag = { pointerId: 1, moved: true };
     grid.dispatch("pointerup", { ...pointer, target: grid });
     viewer.imageDrag = null;
-    assert.equal(viewer.item.id, "two", "panning must not change the batch selection");
-    assert.deepEqual(metadataTargets, ["two"]);
-    assert.notEqual(document.activeElement, grid.children[0]);
+    assert.equal(viewer.item.id, "one", "panning must not change the batch selection");
+    assert.deepEqual(metadataTargets, metadataTargetsAfterDoubleClick);
+    assert.equal(document.activeElement, focusAfterDoubleClick, "panning must not change focus");
 
     const audioControl = grid.children[3].children[0].children[0];
     grid.dispatch("pointerdown", { ...pointer, target: audioControl });
@@ -250,7 +261,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     grid.dispatch("focusin", { target: videoCell.children[0] });
     assert.equal(viewer.item.id, "two", "pointer focus waits for release before selecting");
     grid.dispatch("pointerup", { ...pointer, target: grid });
-    assert.equal(viewer.item.id, "three");
+    assert.equal(viewer.item.id, "three", "video selection is immediate on pointer release");
     assert.equal(viewer.copyImageButton.hidden, true);
     assert.equal(pauses, 0);
 
@@ -494,7 +505,12 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
       zoomOutButton: button(), zoomInButton: button(), zoomLevel: { textContent: "—" },
     };
     const state = { viewerFitScale: 100, scaleViewerMedia: false };
-    const context = { app: {}, api: {}, ICONS: {}, state, runtime: { viewer }, actions: { setScaleViewerMedia() { throw new Error("Batch size must not change the single-media setting"); } } };
+    const context = {
+      app: {}, api: {}, ICONS: {}, state, runtime: { viewer },
+      actions: {
+        setScaleViewerMedia() { throw new Error("Batch size must not change the single-media setting"); },
+      },
+    };
     installViewerZoom(context);
     context.actions.prepareViewerImage(grid);
     context.actions.updateViewerImageLayout();
@@ -538,7 +554,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     let clickDefaultPrevented = false;
     let clickPropagationStopped = false;
     grid.listeners.get("click")({
-      target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 100,
+      currentTarget: grid, target: videoTarget, button: 0, detail: 1, clientX: 100, clientY: 100,
       preventDefault() { clickDefaultPrevented = true; },
       stopPropagation() { clickPropagationStopped = true; },
     });
@@ -669,7 +685,7 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     const audioRangeTarget = {
       closest(selector) {
         if (selector === ".cmf-viewer-audio") return audioPresentation;
-        if (selector.startsWith("input,")) return new MockElement();
+        if (selector.includes("input")) return new MockElement();
         return null;
       },
     };
@@ -707,6 +723,31 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
     });
     assert.equal(viewer.imageZoom, 1);
     assert.equal(viewer.imagePanX, 0);
+
+    let audioDoubleClickPrevented = false;
+    let audioDoubleClickStopped = false;
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: audioBackgroundTarget, button: 0, clientX: 100, clientY: 100,
+      preventDefault() { audioDoubleClickPrevented = true; },
+      stopPropagation() { audioDoubleClickStopped = true; },
+    });
+    assert.equal(audioDoubleClickPrevented, true, "double-clicking an audio presentation is handled by the grid");
+    assert.equal(audioDoubleClickStopped, true);
+    assert.equal(viewer.imageZoom, 2, "double-clicking audio zooms the batch grid");
+
+    audioDoubleClickPrevented = false;
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: audioRangeTarget, button: 0, clientX: 100, clientY: 100,
+      preventDefault() { audioDoubleClickPrevented = true; }, stopPropagation() {},
+    });
+    assert.equal(audioDoubleClickPrevented, false, "audio range controls remain interactive");
+    assert.equal(viewer.imageZoom, 2);
+
+    context.actions.handleViewerImageDoubleClick({
+      currentTarget: grid, target: audioBackgroundTarget, button: 0, clientX: 100, clientY: 100,
+      preventDefault() {}, stopPropagation() {},
+    });
+    assert.equal(viewer.imageZoom, 1);
     context.actions.setViewerImageBaseMode("native");
     assert.equal(viewer.imageBaseMode, "fit");
     assert.equal(grid.style.width, "400px");

@@ -194,7 +194,7 @@ export function installViewerZoom(context) {
     } else if (isBatchGrid(target)) {
       const video = event.target?.closest?.("video");
       if (video ? isVideoControlPointer(event, video)
-        : event.target?.closest?.("audio, button, input, .cmf-viewer-audio")) return;
+        : event.target?.closest?.("audio, button, input, label")) return;
       if (video) cancelPendingViewerVideoClick();
     }
     event.preventDefault();
