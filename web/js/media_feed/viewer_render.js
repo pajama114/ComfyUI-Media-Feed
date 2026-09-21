@@ -62,6 +62,7 @@ export function installViewerRender(context) {
 
   function prepareBatchSelection(grid) {
     let pointer = null;
+    let clickCell = null;
     const cellAt = (target) => target?.closest?.(".cmf-viewer-batch-cell");
     const isMediaControl = (target) => Boolean(
       target?.closest?.("video, audio") || target?.closest?.(".cmf-viewer-audio"),
@@ -76,11 +77,29 @@ export function installViewerRender(context) {
         id: event.pointerId, cell, x: event.clientX, y: event.clientY, moved: false,
         nativeControl: isMediaControl(event.target),
       };
+      clickCell = cell;
+      // Keep selection on release so cancellation and dragging retain their
+      // existing behavior. At fitted size, temporarily hide a stale frame
+      // instead of showing it on the previous cell until pointerup.
+      pointer.frameHidden = runtime.viewer?.media?.dataset?.pannable !== "true"
+        && grid.dataset.selectionVisible === "true"
+        && runtime.viewer?.item?.key !== cell.dataset.mediaItemKey;
+      if (pointer.frameHidden) {
+        grid.dataset.selectionVisible = "false";
+      }
     }, true);
     grid.addEventListener("pointermove", (event) => {
-      if (pointer?.id === event.pointerId) pointer.moved ||= moved(event);
+      if (pointer?.id !== event.pointerId) return;
+      pointer.moved ||= moved(event);
+      if (pointer.moved) clickCell = null;
     }, true);
-    grid.addEventListener("pointercancel", () => { pointer = null; }, true);
+    grid.addEventListener("pointercancel", () => {
+      if (pointer?.frameHidden) {
+        grid.dataset.selectionVisible = String(runtime.viewer?.batchSelectionVisible !== false);
+      }
+      pointer = null;
+      clickCell = null;
+    }, true);
     grid.addEventListener("pointerup", (event) => {
       if (pointer?.id !== event.pointerId) return;
       const selected = pointer;
@@ -88,18 +107,33 @@ export function installViewerRender(context) {
       const panned = runtime.viewer?.imageDrag?.pointerId === event.pointerId
         && runtime.viewer.imageDrag.moved;
       pointer = null;
+      if (panned) clickCell = null;
       // Panning changes the grid viewport, not its action/metadata target.
       // Other drags, such as audio seeking and volume adjustment, still select
       // the media whose control was operated.
       if (!panned) selectViewerBatchItem(selected.cell.dataset.mediaItemKey);
+      else if (selected.frameHidden) {
+        grid.dataset.selectionVisible = String(runtime.viewer?.batchSelectionVisible !== false);
+      }
       if (!dragged && !selected.nativeControl) selected.cell.focus({ preventScroll: true });
     }, true);
     // Keyboard/assistive clicks have no pointer sequence. Pointer selection is
     // handled above because panning captures the pointer on the whole grid.
+    // Pointer capture can retarget the following click from its cell to the
+    // grid, so retain the pressed cell as a fallback until that click arrives.
     grid.addEventListener("click", (event) => {
-      if (event.detail !== 0) return;
-      const cell = cellAt(event.target);
-      if (cell) selectViewerBatchItem(cell.dataset.mediaItemKey);
+      const targetCell = cellAt(event.target);
+      const capturedCell = event.detail > 0 && !targetCell ? clickCell : null;
+      const cell = targetCell || capturedCell;
+      clickCell = null;
+      if (event.detail !== 0 && event.button !== 0) return;
+      if (!cell) return;
+      if (capturedCell) {
+        // Do not let the viewer backdrop mistake a pointer-captured cell click
+        // (whose target is now the grid) for a click outside the media.
+        event.stopPropagation();
+      }
+      selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
     // Player controls can consume pointer events. Focus still identifies the
     // media item being tabbed into, but pointer selection is committed on
@@ -107,7 +141,7 @@ export function installViewerRender(context) {
     grid.addEventListener("focusin", (event) => {
       const cell = cellAt(event.target);
       if (!cell) return;
-      setViewerBatchSelectionVisible(true);
+      if (!pointer?.frameHidden) setViewerBatchSelectionVisible(true);
       if (!pointer && isMediaControl(event.target)) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
     grid.addEventListener("keydown", (event) => {

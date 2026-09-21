@@ -227,8 +227,12 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
 
     const zoomPointer = { button: 0, pointerId: 10, clientX: 20, clientY: 20 };
     grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
+    assert.equal(viewer.item.id, "two", "selection remains committed on release");
+    assert.equal(grid.dataset.selectionVisible, "false",
+      "the previous frame is hidden while pressing a different cell");
     grid.dispatch("pointerup", { ...zoomPointer, target: grid.children[0] });
     assert.equal(viewer.item.id, "one", "the first click of a double-click selects immediately");
+    assert.equal(grid.dataset.selectionVisible, "true");
     grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
     grid.dispatch("pointerup", { ...zoomPointer, target: grid.children[0] });
     assert.equal(viewer.item.id, "one", "double-click keeps its target selected");
@@ -245,6 +249,26 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     assert.equal(viewer.item.id, "one", "panning must not change the batch selection");
     assert.deepEqual(metadataTargets, metadataTargetsAfterDoubleClick);
     assert.equal(document.activeElement, focusAfterDoubleClick, "panning must not change focus");
+
+    viewer.media.dataset.pannable = "true";
+    grid.dispatch("pointerdown", { ...pointer, pointerId: 2, target: grid.children[1] });
+    assert.equal(viewer.item.id, "one", "a pannable grid waits until release before selecting");
+    viewer.imageDrag = { pointerId: 2, moved: false };
+    grid.dispatch("pointerup", { ...pointer, pointerId: 2, target: grid.children[1] });
+    viewer.imageDrag = null;
+    assert.equal(viewer.item.id, "two", "a click still changes selection while the grid is pannable");
+    actions.selectViewerBatchItem("image:one");
+    let capturedClickStopped = false;
+    grid.dispatch("click", {
+      button: 0, detail: 1, target: grid,
+      stopPropagation() { capturedClickStopped = true; },
+    });
+    assert.equal(viewer.item.id, "two",
+      "a pointer-captured click retargeted to the grid still selects its pressed cell");
+    assert.equal(capturedClickStopped, true,
+      "the backdrop must not hide selection after a pointer-captured cell click");
+    assert.equal(grid.dataset.selectionVisible, "true");
+    viewer.media.dataset.pannable = "false";
 
     const audioControl = grid.children[3].children[0].children[0];
     grid.dispatch("pointerdown", { ...pointer, target: audioControl });
