@@ -15,6 +15,7 @@ export function mediaFeedBaseStyles({
       --cmf-muted: var(--descrip-text, var(--comfy-menu-secondary-text, rgba(255, 255, 255, 0.58)));
       --cmf-accent: var(--p-primary-color, var(--comfy-accent, #4db6ac));
       --cmf-button-bg: var(--comfy-input-bg, rgba(255, 255, 255, 0.06));
+      --cmf-filter-button-bg: var(--cmf-button-bg);
       --cmf-button-hover: var(--content-bg, rgba(255, 255, 255, 0.1));
       --cmf-view-bg: var(--bg-color, rgba(0, 0, 0, 0.22));
       --cmf-feed-line: rgba(140, 140, 140, 0.384);
@@ -46,6 +47,11 @@ export function mediaFeedBaseStyles({
       background: var(--cmf-bg);
       color: var(--cmf-text);
       font: 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    :root:not(.dark-theme) .cmf-root {
+      --cmf-filter-button-bg: #fafafa;
+      --cmf-filter-button-bg: color-mix(in srgb, var(--cmf-button-bg) 55%, #fff 45%);
     }
 
     .cmf-root.cmf-fallback {
@@ -468,7 +474,7 @@ export function mediaFeedBaseStyles({
       padding: 0;
       border: 0;
       border-right: 1px solid var(--cmf-border);
-      background: transparent;
+      background: var(--cmf-filter-button-bg);
       color: var(--cmf-muted);
       cursor: pointer;
       font: inherit;
@@ -488,6 +494,7 @@ export function mediaFeedBaseStyles({
       height: 28px;
       min-height: 28px;
       flex: 0 0 30px;
+      background: var(--cmf-filter-button-bg);
     }
 
     .cmf-batch-mode:focus-visible {
