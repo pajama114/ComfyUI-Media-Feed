@@ -898,7 +898,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-nav-prev[data-new-media="true"] {
       border-color: color-mix(in srgb, var(--cmf-new-media) 58%, transparent);
-      background: color-mix(in srgb, var(--cmf-new-media) 18%, var(--cmf-panel));
+      background: color-mix(in srgb, var(--cmf-new-media) 28%, var(--cmf-panel));
       color: var(--cmf-new-media);
       opacity: 0.95;
     }
@@ -910,6 +910,9 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-nav-button:disabled {
+      border-color: var(--cmf-border);
+      background: var(--cmf-panel);
+      color: var(--cmf-text);
       opacity: 0.32;
       cursor: default;
     }
