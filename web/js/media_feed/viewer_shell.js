@@ -3,6 +3,7 @@ import { displayEntries, entrySignature, isBatchPresentation } from "./batch_ent
 import {
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
+  VIEWER_NAV_HIDE_DELAY_MS,
 } from "./constants.js";
 
 export function installViewerShell(context) {
@@ -33,6 +34,42 @@ export function installViewerShell(context) {
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
   const syncViewerProgressSpace = (...args) => actions.syncViewerProgressSpace(...args);
+  function viewerNavigationAutoHideEnabled() {
+    return !window.matchMedia?.("(hover: none), (pointer: coarse)").matches;
+  }
+
+  function clearViewerNavigationHideTimer() {
+    if (!runtime.viewer?.navHideTimer) return;
+    window.clearTimeout(runtime.viewer.navHideTimer);
+    runtime.viewer.navHideTimer = 0;
+  }
+
+  function isViewerNavigationEngaged() {
+    if (!runtime.viewer) return false;
+    const buttons = [runtime.viewer.prevButton, runtime.viewer.nextButton];
+    return buttons.some((button) => button === globalThis.document?.activeElement
+      || button?.matches?.(":hover"));
+  }
+
+  function hideViewerNavigation() {
+    clearViewerNavigationHideTimer();
+    if (!runtime.viewer || isViewerNavigationEngaged() || !viewerNavigationAutoHideEnabled()) return;
+    runtime.viewer.root.dataset.navHidden = "true";
+  }
+
+  function scheduleViewerNavigationHide() {
+    clearViewerNavigationHideTimer();
+    if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true" || !viewerNavigationAutoHideEnabled()) return;
+    runtime.viewer.navHideTimer = window.setTimeout(hideViewerNavigation, VIEWER_NAV_HIDE_DELAY_MS);
+  }
+
+  function showViewerNavigation({ scheduleHide = true } = {}) {
+    if (!runtime.viewer) return;
+    runtime.viewer.root.dataset.navHidden = "false";
+    clearViewerNavigationHideTimer();
+    if (scheduleHide) scheduleViewerNavigationHide();
+  }
+
   function ensureViewer() {
     if (runtime.viewer) return runtime.viewer;
   
@@ -154,8 +191,15 @@ export function installViewerShell(context) {
     });
     root.addEventListener("keydown", handleViewerControlKeydown, true);
     root.addEventListener("keydown", handleViewerNativeMediaKeydown);
+    root.addEventListener("pointermove", () => showViewerNavigation());
+    root.addEventListener("pointerdown", () => showViewerNavigation());
+    root.addEventListener("pointerleave", hideViewerNavigation);
     for (const button of root.querySelectorAll(".cmf-nav-button")) {
       button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("mouseenter", () => showViewerNavigation({ scheduleHide: false }));
+      button.addEventListener("mouseleave", scheduleViewerNavigationHide);
+      button.addEventListener("focus", () => showViewerNavigation({ scheduleHide: false }));
+      button.addEventListener("blur", scheduleViewerNavigationHide);
     }
     root.querySelector(".cmf-nav-prev").addEventListener("click", (event) => {
       event.currentTarget.blur();
@@ -221,6 +265,7 @@ export function installViewerShell(context) {
       suppressImageClick: false,
       suppressBatchClick: false,
       audioWaveformCleanup: null,
+      navHideTimer: 0,
     };
     actions.setupViewerComparison(runtime.viewer);
     runtime.viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
@@ -265,6 +310,8 @@ export function installViewerShell(context) {
   
   function closeViewer() {
     if (!runtime.viewer) return;
+    clearViewerNavigationHideTimer();
+    runtime.viewer.root.dataset.navHidden = "false";
     runtime.viewer.stopComparison?.({ closing: true });
     clearViewerAudioWaveform(runtime.viewer);
     runtime.viewer.root.dataset.open = "false";
@@ -296,6 +343,7 @@ export function installViewerShell(context) {
     resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
     currentViewer.root.dataset.open = "true";
     currentViewer.root.focus({ preventScroll: true });
+    showViewerNavigation();
     renderViewerItem(item, thumbnail);
     updateViewerPromptPanel();
     syncViewerProgressSpace();
@@ -303,6 +351,7 @@ export function installViewerShell(context) {
   
   function showViewerRelative(direction) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
+    showViewerNavigation();
     syncViewerItems();
   
     const nextIndex = runtime.viewer.index + direction;
@@ -495,5 +544,9 @@ export function installViewerShell(context) {
     toggleViewerMediaPlayback,
     handleViewerGlobalKeydown,
     handleViewerWheel,
+    clearViewerNavigationHideTimer,
+    hideViewerNavigation,
+    scheduleViewerNavigationHide,
+    showViewerNavigation,
   });
 }

@@ -741,6 +741,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       .cmf-copy-success {
         animation: none;
       }
+
+      .cmf-viewer .cmf-nav-button {
+        transition: none;
+      }
     }
 
     .cmf-resource-chip-label,
@@ -883,6 +887,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-nav-button:hover,
     .cmf-nav-button:focus-visible {
       opacity: 0.9;
+    }
+
+    .cmf-viewer[data-nav-hidden="true"] .cmf-nav-button:not(:hover):not(:focus-visible) {
+      opacity: 0;
+      pointer-events: none;
     }
 
     .cmf-nav-button:disabled {

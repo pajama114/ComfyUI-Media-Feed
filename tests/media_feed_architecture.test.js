@@ -131,6 +131,74 @@ test("viewer metadata panel icons follow the configured side", () => {
   assert.equal(context.runtime.viewer.reference.showMetadataButton.innerHTML, "left-open");
 });
 
+test("viewer navigation fades after pointer inactivity while preserving active controls", () => {
+  const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  let nextTimerId = 0;
+  const timers = new Map();
+  const delays = new Map();
+  globalThis.window = {
+    setTimeout(callback, delay) {
+      const id = ++nextTimerId;
+      timers.set(id, callback);
+      delays.set(id, delay);
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+      delays.delete(id);
+    },
+    matchMedia() { return { matches: false }; },
+  };
+  globalThis.document = { activeElement: null };
+
+  try {
+    const button = () => ({
+      hovered: false,
+      matches(selector) {
+        assert.equal(selector, ":hover");
+        return this.hovered;
+      },
+    });
+    const viewer = {
+      root: { dataset: { open: "true" } },
+      prevButton: button(),
+      nextButton: button(),
+      navHideTimer: 0,
+    };
+    const context = { app: {}, api: {}, ICONS: {}, state: {}, runtime: { viewer }, actions: {} };
+    installViewerShell(context);
+
+    context.actions.showViewerNavigation();
+    assert.equal(viewer.root.dataset.navHidden, "false");
+    assert.deepEqual([...delays.values()], [2000]);
+    timers.get(viewer.navHideTimer)();
+    assert.equal(viewer.root.dataset.navHidden, "true");
+
+    context.actions.showViewerNavigation();
+    viewer.prevButton.hovered = true;
+    timers.get(viewer.navHideTimer)();
+    assert.equal(viewer.root.dataset.navHidden, "false");
+
+    viewer.prevButton.hovered = false;
+    globalThis.document.activeElement = viewer.nextButton;
+    context.actions.scheduleViewerNavigationHide();
+    timers.get(viewer.navHideTimer)();
+    assert.equal(viewer.root.dataset.navHidden, "false");
+
+    globalThis.document.activeElement = null;
+    globalThis.window.matchMedia = () => ({ matches: true });
+    context.actions.showViewerNavigation();
+    assert.equal(viewer.root.dataset.navHidden, "false");
+    assert.equal(viewer.navHideTimer, 0);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
+});
+
 test("viewer metadata prefetch includes video and audio items", () => {
   const loaded = [];
   const context = {
