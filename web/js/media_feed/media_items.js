@@ -171,7 +171,7 @@ export function installMediaItems(context) {
       const newestItem = freshItems[0];
       if (newestItem) prefetchPromptMetadata(newestItem);
     }
-    syncViewerItems();
+    syncViewerItems({ newMediaAdded: isViewerOpen() && visibleFreshCount > 0 });
   }
   
   function currentWorkflow() {

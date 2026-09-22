@@ -9,6 +9,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       --cmf-viewer-bg: rgba(0, 0, 0, 0.82);
       --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       --cmf-metadata-box-bg: var(--cmf-panel);
+      --cmf-new-media: #60a5fa;
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -20,6 +21,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     :root:not(.dark-theme) .cmf-viewer {
       --cmf-metadata-box-bg: #f5f5f5;
+      --cmf-new-media: #1d4ed8;
     }
 
     .cmf-viewer[data-open="true"] {
@@ -892,6 +894,19 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer[data-nav-hidden="true"] .cmf-nav-button:not(:hover):not(:focus-visible) {
       opacity: 0;
       pointer-events: none;
+    }
+
+    .cmf-nav-prev[data-new-media="true"] {
+      border-color: color-mix(in srgb, var(--cmf-new-media) 58%, transparent);
+      background: color-mix(in srgb, var(--cmf-new-media) 18%, var(--cmf-panel));
+      color: var(--cmf-new-media);
+      opacity: 0.95;
+    }
+
+    .cmf-viewer[data-nav-hidden="true"]
+      .cmf-nav-prev[data-new-media="true"]:not(:hover):not(:focus-visible) {
+      opacity: 0.95;
+      pointer-events: auto;
     }
 
     .cmf-nav-button:disabled {

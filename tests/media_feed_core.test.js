@@ -130,9 +130,10 @@ test("addItems prefetches metadata for a new video while the viewer is open", ()
   const context = createContext();
   const { actions, runtime, state } = context;
   const prefetched = [];
+  let viewerSyncOptions;
   actions.updateViews = () => {};
   actions.prefetchPromptMetadata = (item) => prefetched.push(item);
-  actions.syncViewerItems = () => {};
+  actions.syncViewerItems = (options) => { viewerSyncOptions = options; };
   runtime.viewer = { root: { dataset: { open: "true" } } };
   state.showPrompts = true;
 
@@ -145,6 +146,7 @@ test("addItems prefetches metadata for a new video while the viewer is open", ()
   actions.addItems([video]);
 
   assert.deepEqual(prefetched, [video]);
+  assert.deepEqual(viewerSyncOptions, { newMediaAdded: true });
 });
 
 test("changing the history limit trims old items immediately and persists the choice", () => {

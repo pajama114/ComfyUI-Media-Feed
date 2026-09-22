@@ -938,7 +938,9 @@ test("wheel over a batch grid moves to the next batch", () => {
     const entries = displayEntries([first, second], true);
     const viewer = {
       root: { dataset: { open: "true" } }, entry: entries[0], item: entries[0].items[0],
-      items: entries, index: 0, prevButton: {}, nextButton: {},
+      items: entries, index: 0,
+      prevButton: { dataset: {}, setAttribute() {} },
+      nextButton: { dataset: {}, setAttribute() {} },
     };
     const rendered = [];
     const actions = {

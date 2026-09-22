@@ -70,6 +70,30 @@ export function installViewerShell(context) {
     if (scheduleHide) scheduleViewerNavigationHide();
   }
 
+  function clearViewerNewMediaIndicator() {
+    if (!runtime.viewer) return;
+    runtime.viewer.newestUnseenEntryKey = "";
+    runtime.viewer.newestUnseenEntrySignature = "";
+  }
+
+  function syncViewerNewMediaIndicator() {
+    if (!runtime.viewer) return;
+    const { newestUnseenEntryKey, newestUnseenEntrySignature } = runtime.viewer;
+    let hasNewMedia = Boolean(newestUnseenEntryKey);
+    if (hasNewMedia) {
+      const targetIndex = runtime.viewer.items.findIndex((entry) => entry.key === newestUnseenEntryKey
+        && entrySignature(entry) === newestUnseenEntrySignature);
+      if (targetIndex === -1 || runtime.viewer.index <= targetIndex) {
+        clearViewerNewMediaIndicator();
+        hasNewMedia = false;
+      }
+    }
+    runtime.viewer.prevButton.dataset.newMedia = String(hasNewMedia);
+    const label = hasNewMedia ? "Previous — new media available" : "Previous";
+    runtime.viewer.prevButton.title = label;
+    runtime.viewer.prevButton.setAttribute("aria-label", label);
+  }
+
   function ensureViewer() {
     if (runtime.viewer) return runtime.viewer;
   
@@ -266,6 +290,8 @@ export function installViewerShell(context) {
       suppressBatchClick: false,
       audioWaveformCleanup: null,
       navHideTimer: 0,
+      newestUnseenEntryKey: "",
+      newestUnseenEntrySignature: "",
     };
     actions.setupViewerComparison(runtime.viewer);
     runtime.viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
@@ -311,6 +337,8 @@ export function installViewerShell(context) {
   function closeViewer() {
     if (!runtime.viewer) return;
     clearViewerNavigationHideTimer();
+    clearViewerNewMediaIndicator();
+    syncViewerNewMediaIndicator();
     runtime.viewer.root.dataset.navHidden = "false";
     runtime.viewer.stopComparison?.({ closing: true });
     clearViewerAudioWaveform(runtime.viewer);
@@ -340,6 +368,8 @@ export function installViewerShell(context) {
     const index = Math.max(0, items.findIndex((current) => current.key === item.key));
     currentViewer.items = items;
     currentViewer.index = index;
+    clearViewerNewMediaIndicator();
+    syncViewerNewMediaIndicator();
     resetViewerImageView(state.scaleViewerMedia ? "fit" : "native");
     currentViewer.root.dataset.open = "true";
     currentViewer.root.focus({ preventScroll: true });
@@ -366,9 +396,10 @@ export function installViewerShell(context) {
     if (!runtime.viewer) return;
     runtime.viewer.prevButton.disabled = runtime.viewer.index <= 0;
     runtime.viewer.nextButton.disabled = runtime.viewer.index >= runtime.viewer.items.length - 1;
+    syncViewerNewMediaIndicator();
   }
   
-  function syncViewerItems() {
+  function syncViewerItems({ newMediaAdded = false } = {}) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true" || !runtime.viewer.item) return;
   
     const items = displayEntries(filteredItems(), state.batchMode);
@@ -380,6 +411,10 @@ export function installViewerShell(context) {
     runtime.viewer.items = items;
     if (index !== -1) {
       runtime.viewer.index = index;
+      if (newMediaAdded && index > 0 && items[0]) {
+        runtime.viewer.newestUnseenEntryKey = items[0].key;
+        runtime.viewer.newestUnseenEntrySignature = entrySignature(items[0]);
+      }
       const next = items[index];
       const changed = previousEntry.key !== next.key
         || entrySignature(previousEntry) !== entrySignature(next)
@@ -548,5 +583,7 @@ export function installViewerShell(context) {
     hideViewerNavigation,
     scheduleViewerNavigationHide,
     showViewerNavigation,
+    clearViewerNewMediaIndicator,
+    syncViewerNewMediaIndicator,
   });
 }

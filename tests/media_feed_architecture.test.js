@@ -199,6 +199,71 @@ test("viewer navigation fades after pointer inactivity while preserving active c
   }
 });
 
+test("viewer keeps the previous arrow highlighted until all newly added media is reached", () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    setTimeout() { return 1; },
+    clearTimeout() {},
+    matchMedia() { return { matches: false }; },
+  };
+
+  try {
+    const control = () => ({
+      dataset: {},
+      disabled: false,
+      title: "",
+      setAttribute(name, value) { this[name] = value; },
+      matches() { return false; },
+    });
+    const original = { id: "original", key: "image:original", kind: "image" };
+    const firstNew = { id: "new-1", key: "image:new-1", kind: "image" };
+    const latestNew = { id: "new-2", key: "image:new-2", kind: "image" };
+    let items = [original];
+    const viewer = {
+      root: { dataset: { open: "true" } },
+      item: original,
+      entry: original,
+      items,
+      index: 0,
+      prevButton: control(),
+      nextButton: control(),
+      navHideTimer: 0,
+      newestUnseenEntryKey: "",
+      newestUnseenEntrySignature: "",
+    };
+    const actions = {
+      filteredItems: () => items,
+      renderViewerItem(entry) {
+        viewer.entry = entry;
+        viewer.item = entry;
+        actions.syncViewerNav();
+      },
+      updateViewerPromptPanel() {},
+    };
+    installViewerShell({
+      app: {}, api: {}, ICONS: {}, state: { batchMode: false }, runtime: { viewer }, actions,
+    });
+
+    items = [latestNew, firstNew, original];
+    actions.syncViewerItems({ newMediaAdded: true });
+    assert.equal(viewer.index, 2);
+    assert.equal(viewer.prevButton.dataset.newMedia, "true");
+    assert.equal(viewer.prevButton["aria-label"], "Previous — new media available");
+
+    actions.showViewerRelative(-1);
+    assert.equal(viewer.item, firstNew);
+    assert.equal(viewer.prevButton.dataset.newMedia, "true");
+
+    actions.showViewerRelative(-1);
+    assert.equal(viewer.item, latestNew);
+    assert.equal(viewer.prevButton.dataset.newMedia, "false");
+    assert.equal(viewer.prevButton["aria-label"], "Previous");
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+  }
+});
+
 test("viewer metadata prefetch includes video and audio items", () => {
   const loaded = [];
   const context = {
