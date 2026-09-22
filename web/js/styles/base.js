@@ -110,14 +110,15 @@ export function mediaFeedBaseStyles({
       display: none;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-filter {
-      flex: 1 1 auto;
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar-media-controls {
+      flex: 1 1 100%;
       order: 3;
+      width: 100%;
       min-width: 0;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-batch-mode {
-      order: 3;
+    .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-toolbar-media-controls .cmf-filter {
+      flex: 1 1 auto;
     }
 
     .cmf-root.cmf-fallback[data-orientation="vertical"] .cmf-size-control {
@@ -233,8 +234,7 @@ export function mediaFeedBaseStyles({
 
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-viewport,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-feed-frame,
-    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-filter,
-    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-batch-mode,
+    .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-toolbar-media-controls,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-size-control,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-clear,
     .cmf-root.cmf-fallback[data-collapsed="true"] .cmf-spacer {
@@ -444,8 +444,16 @@ export function mediaFeedBaseStyles({
       display: none;
     }
 
+    .cmf-toolbar-media-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .cmf-filter {
       display: inline-flex;
+      min-width: 0;
       overflow: hidden;
       border: 1px solid var(--cmf-border);
       border-radius: 6px;

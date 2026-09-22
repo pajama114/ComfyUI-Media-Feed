@@ -51,13 +51,15 @@ export function installFeedView(context) {
     root.className = kind === "floating" ? "cmf-root cmf-fallback" : "cmf-root";
     root.innerHTML = `
       <div class="cmf-toolbar">
-        <div class="cmf-filter" role="group" aria-label="Media filter">
-          <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media"><span class="cmf-filter-all-label">All</span><span class="cmf-filter-count">0</span></button>
-          <button type="button" data-filter="image" data-filter-label="Images" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}<span class="cmf-filter-count">0</span></button>
-          <button type="button" data-filter="video" data-filter-label="Videos" aria-pressed="false" title="Videos" aria-label="Videos">${ICONS.video}<span class="cmf-filter-count">0</span></button>
-          <button type="button" data-filter="audio" data-filter-label="Audio" aria-pressed="false" title="Audio" aria-label="Audio">${ICONS.music}<span class="cmf-filter-count">0</span></button>
+        <div class="cmf-toolbar-media-controls">
+          <div class="cmf-filter" role="group" aria-label="Media filter">
+            <button type="button" data-filter="all" data-filter-label="All media" aria-pressed="true" title="All media" aria-label="All media"><span class="cmf-filter-all-label">All</span><span class="cmf-filter-count">0</span></button>
+            <button type="button" data-filter="image" data-filter-label="Images" aria-pressed="false" title="Images" aria-label="Images">${ICONS.image}<span class="cmf-filter-count">0</span></button>
+            <button type="button" data-filter="video" data-filter-label="Videos" aria-pressed="false" title="Videos" aria-label="Videos">${ICONS.video}<span class="cmf-filter-count">0</span></button>
+            <button type="button" data-filter="audio" data-filter-label="Audio" aria-pressed="false" title="Audio" aria-label="Audio">${ICONS.music}<span class="cmf-filter-count">0</span></button>
+          </div>
+          <button class="cmf-button cmf-icon-button cmf-batch-mode" type="button"></button>
         </div>
-        <button class="cmf-button cmf-icon-button cmf-batch-mode" type="button"></button>
         <div class="cmf-spacer"></div>
         <label class="cmf-size-control" title="Thumbnail size">
           <span>Size</span>
