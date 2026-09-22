@@ -140,6 +140,10 @@ export function installLayout(context) {
   function applyViewerFitScale(nextValue) {
     state.viewerFitScale = normalizeViewerFitScale(nextValue);
   }
+
+  function applySyncComparisonView(nextValue) {
+    state.syncComparisonView = normalizeBooleanSetting(nextValue);
+  }
   
   function applyFollowLatest(nextValue) {
     state.followLatest = normalizeBooleanSetting(nextValue);
@@ -210,6 +214,7 @@ export function installLayout(context) {
     applyShowComfyProgress,
     applyScaleViewerMedia,
     applyViewerFitScale,
+    applySyncComparisonView,
     applyFollowLatest,
     applyHistoryLimit,
     applyMetadataPosition,

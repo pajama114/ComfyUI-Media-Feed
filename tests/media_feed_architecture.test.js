@@ -363,9 +363,9 @@ test("the composed extension registers settings and setup integrations once", as
     const { context, listeners } = createContext();
     const extension = createMediaFeedExtension(context);
     assert.equal(extension.name, "comfyui.media_feed");
-    assert.equal(extension.settings.length, 16);
-    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 16);
-    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 16);
+    assert.equal(extension.settings.length, 17);
+    assert.equal(new Set(extension.settings.map((setting) => setting.id)).size, 17);
+    assert.equal(new Set(extension.settings.map((setting) => setting.sortOrder)).size, 17);
 
     const settingsByGroup = new Map();
     for (const setting of extension.settings) {
@@ -387,7 +387,7 @@ test("the composed extension registers settings and setup integrations once", as
     assert.deepEqual(displayedSettings, [
       ["Panel", ["Placement", "Follow latest media"]],
       ["Feed", ["Feed history limit", "Feed style", "Media from", "Exclude Preview node media", "Batch dividers"]],
-      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Fit scale", "Loop videos", "Loop audio", "Show ComfyUI progress panel over viewer"]],
+      ["Viewer", ["Show metadata in viewer", "Metadata position", "Fit media to viewer", "Fit scale", "Sync comparison zoom and pan", "Loop videos", "Loop audio", "Show ComfyUI progress panel over viewer"]],
       ["Favorites", ["Show favorite button on hover", "Favorite storage folder"]],
     ]);
 
@@ -404,6 +404,10 @@ test("the composed extension registers settings and setup integrations once", as
     assert.equal(fitScaleSetting.type, "slider");
     assert.equal(fitScaleSetting.defaultValue, 100);
     assert.deepEqual(fitScaleSetting.attrs, { min: 25, max: 100, step: 5 });
+
+    const syncComparisonSetting = extension.settings.find((setting) => setting.id === "comfyui-media-feed.sync-comparison-view");
+    assert.equal(syncComparisonSetting.type, "boolean");
+    assert.equal(syncComparisonSetting.defaultValue, true);
 
     const originalQueuePrompt = context.api.queuePrompt;
     await extension.setup();

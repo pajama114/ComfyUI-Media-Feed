@@ -89,6 +89,10 @@
     "name": "FIT時の倍率",
     "tooltip": "FIT表示の画像と動画を、ビューアに収まる最大サイズの25%から100%で拡大縮小します。"
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "比較時のズームと移動を同期",
+    "tooltip": "比較モードの左右でズーム、移動、FIT表示のメディアサイズを同期します。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "動画をループ再生",
     "tooltip": "フィードのプレビューとビューアで動画をループ再生します。"

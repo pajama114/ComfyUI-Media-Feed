@@ -89,6 +89,10 @@
     "name": "맞춤 배율",
     "tooltip": "맞춤 표시된 이미지와 비디오를 뷰어에 들어가는 최대 크기의 25%에서 100%로 조절합니다."
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "비교 확대/축소 및 이동 동기화",
+    "tooltip": "비교 모드의 양쪽에서 확대/축소, 이동 및 맞춤 미디어 크기를 동기화합니다."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "비디오 반복 재생",
     "tooltip": "피드 미리보기와 뷰어에서 비디오를 반복 재생합니다."

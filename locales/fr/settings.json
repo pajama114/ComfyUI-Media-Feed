@@ -89,6 +89,10 @@
     "name": "Échelle d’adaptation",
     "tooltip": "Redimensionne les médias adaptés de 25 % à 100 % de la plus grande taille tenant dans la visionneuse."
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "Synchroniser le zoom et le déplacement de comparaison",
+    "tooltip": "Synchronise le zoom, le déplacement et la taille ajustée des médias entre les deux côtés du mode comparaison."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "Lire les vidéos en boucle",
     "tooltip": "Lit les vidéos en boucle dans les aperçus du flux et la visionneuse."

@@ -41,6 +41,7 @@ export const DEFAULT_SHOW_PROMPTS = true;
 export const DEFAULT_SHOW_COMFY_PROGRESS = false;
 export const DEFAULT_SCALE_VIEWER_MEDIA = false;
 export const DEFAULT_VIEWER_FIT_SCALE = 100;
+export const DEFAULT_SYNC_COMPARISON_VIEW = true;
 export const VIEWER_FIT_SCALE_MIN = 25;
 export const VIEWER_FIT_SCALE_MAX = 100;
 export const VIEWER_FIT_SCALE_STEP = 5;
@@ -77,6 +78,7 @@ export const STORAGE_KEYS = {
   showComfyProgress: "comfyui-media-feed:show-comfy-progress",
   scaleViewerMedia: "comfyui-media-feed:scale-viewer-media",
   viewerFitScale: "comfyui-media-feed:viewer-fit-scale",
+  syncComparisonView: "comfyui-media-feed:sync-comparison-view",
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",

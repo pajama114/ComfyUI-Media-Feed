@@ -89,6 +89,10 @@
     "name": "适应缩放比例",
     "tooltip": "将适应显示的图像和视频缩放为查看器内最大适应尺寸的25%至100%。"
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "同步比较缩放和移动",
+    "tooltip": "在比较模式的两侧同步缩放、移动和适应显示的媒体大小。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "循环播放视频",
     "tooltip": "在信息流预览和查看器中循环播放视频。"

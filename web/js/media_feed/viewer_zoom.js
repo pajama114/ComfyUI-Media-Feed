@@ -33,6 +33,13 @@ export function installViewerZoom(context) {
     );
     return element instanceof HTMLElement && element.dataset.mediaItemKey === runtime.viewer?.item?.key ? element : null;
   }
+
+  function viewerMediaFitFrame() {
+    const frame = runtime.viewer?.media?.getBoundingClientRect?.();
+    const comparisonFrame = runtime.viewer?.comparisonFitFrame?.();
+    if (!comparisonFrame?.width || !comparisonFrame.height) return frame;
+    return comparisonFrame;
+  }
   
   function clampViewerImageZoom(value) {
     return Math.min(VIEWER_IMAGE_MAX_ZOOM, Math.max(VIEWER_IMAGE_MIN_ZOOM, value));
@@ -116,7 +123,7 @@ export function installViewerZoom(context) {
       return;
     }
   
-    const frame = runtime.viewer.media.getBoundingClientRect();
+    const frame = viewerMediaFitFrame();
     if (!frame.width || !frame.height) return;
   
     const natural = viewerMediaNaturalSize(media);
@@ -436,6 +443,7 @@ export function installViewerZoom(context) {
   Object.assign(actions, {
     getViewerImage,
     getViewerScalableMedia,
+    viewerMediaFitFrame,
     clampViewerImageZoom,
     viewerImagePanBounds,
     constrainViewerImagePan,

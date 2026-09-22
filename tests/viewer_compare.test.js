@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureComparisonView, applyComparisonView } from "../web/js/media_feed/viewer_compare.js";
+import {
+  captureComparisonView,
+  applyComparisonView,
+  comparisonMetadataSpace,
+  sharedComparisonFitFrame,
+} from "../web/js/media_feed/viewer_compare.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
 import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
 import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
@@ -42,6 +47,21 @@ test("actual-size zoom is converted to the same relative fit magnification", () 
   const right = pane(1000, 500);
   applyComparisonView(right.viewer, right.controller, view, 75);
   assert.deepEqual(captureComparisonView(right.viewer, right.controller, 75), view);
+});
+
+test("synchronized comparison uses the smaller media area for fitted size", () => {
+  assert.deepEqual(
+    sharedComparisonFitFrame({ width: 800, height: 600 }, { width: 500, height: 700 }),
+    { width: 500, height: 600 },
+  );
+  assert.equal(sharedComparisonFitFrame({ width: 0, height: 600 }, { width: 500, height: 700 }), null);
+});
+
+test("synchronized comparison reserves matching metadata space on the hidden side", () => {
+  assert.deepEqual(comparisonMetadataSpace(true, false, true), { left: false, right: true });
+  assert.deepEqual(comparisonMetadataSpace(false, true, true), { left: true, right: false });
+  assert.deepEqual(comparisonMetadataSpace(false, false, true), { left: false, right: false });
+  assert.deepEqual(comparisonMetadataSpace(true, false, false), { left: false, right: false });
 });
 
 test("audio and unmeasured frames leave comparison view unchanged", () => {

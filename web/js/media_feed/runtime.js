@@ -23,6 +23,7 @@ export function createMediaFeedRuntime() {
     showComfyProgressSettingSeen: false,
     scaleViewerMediaSettingSeen: false,
     viewerFitScaleSettingSeen: false,
+    syncComparisonViewSettingSeen: false,
     followLatestSettingSeen: false,
     metadataPositionSettingSeen: false,
     excludePreviewMediaSettingSeen: false,

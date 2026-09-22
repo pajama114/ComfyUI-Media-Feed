@@ -13,6 +13,7 @@ export function createMediaFeedExtension(context) {
   const loadSavedShowPrompts = (...args) => actions.loadSavedShowPrompts(...args);
   const loadSavedScaleViewerMedia = (...args) => actions.loadSavedScaleViewerMedia(...args);
   const loadSavedViewerFitScale = (...args) => actions.loadSavedViewerFitScale(...args);
+  const loadSavedSyncComparisonView = (...args) => actions.loadSavedSyncComparisonView(...args);
   const loadSavedFollowLatest = (...args) => actions.loadSavedFollowLatest(...args);
   const loadSavedHistoryLimit = (...args) => actions.loadSavedHistoryLimit(...args);
   const loadSavedMetadataPosition = (...args) => actions.loadSavedMetadataPosition(...args);
@@ -28,6 +29,7 @@ export function createMediaFeedExtension(context) {
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
   const setViewerFitScale = (...args) => actions.setViewerFitScale(...args);
+  const setSyncComparisonView = (...args) => actions.setSyncComparisonView(...args);
   const setFollowLatest = (...args) => actions.setFollowLatest(...args);
   const setHistoryLimit = (...args) => actions.setHistoryLimit(...args);
   const setMetadataPosition = (...args) => actions.setMetadataPosition(...args);
@@ -235,6 +237,19 @@ export function createMediaFeedExtension(context) {
         onChange: (newValue) => {
           runtime.viewerFitScaleSettingSeen = true;
           setViewerFitScale(newValue);
+        },
+      },
+      {
+        id: "comfyui-media-feed.sync-comparison-view",
+        name: "Sync comparison zoom and pan",
+        type: "boolean",
+        defaultValue: loadSavedSyncComparisonView(),
+        category: ["Media Feed", "Viewer", "Sync comparison zoom and pan"],
+        sortOrder: 207,
+        tooltip: "Keep zoom, pan, and fitted media size synchronized between both sides of comparison mode.",
+        onChange: (newValue) => {
+          runtime.syncComparisonViewSettingSeen = true;
+          setSyncComparisonView(newValue);
         },
       },
       {

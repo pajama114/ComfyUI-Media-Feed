@@ -89,6 +89,10 @@
     "name": "Fit scale",
     "tooltip": "Scale Fit media from 25% to 100% of the largest size that fits in the viewer."
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "Sync comparison zoom and pan",
+    "tooltip": "Keep zoom, pan, and fitted media size synchronized between both sides of comparison mode."
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "Loop videos",
     "tooltip": "Loop video playback in feed previews and the viewer."

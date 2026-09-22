@@ -5,6 +5,7 @@ import {
   DEFAULT_SHOW_COMFY_PROGRESS,
   DEFAULT_SCALE_VIEWER_MEDIA,
   DEFAULT_VIEWER_FIT_SCALE,
+  DEFAULT_SYNC_COMPARISON_VIEW,
   DEFAULT_FOLLOW_LATEST,
   DEFAULT_HISTORY_LIMIT,
   DEFAULT_METADATA_POSITION,
@@ -40,6 +41,7 @@ export function installSettingsStorage(context) {
   const applyShowComfyProgress = (...args) => actions.applyShowComfyProgress(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
   const applyViewerFitScale = (...args) => actions.applyViewerFitScale(...args);
+  const applySyncComparisonView = (...args) => actions.applySyncComparisonView(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
@@ -93,6 +95,15 @@ export function installSettingsStorage(context) {
       return savedValue === null ? DEFAULT_VIEWER_FIT_SCALE : normalizeViewerFitScale(savedValue);
     } catch {
       return DEFAULT_VIEWER_FIT_SCALE;
+    }
+  }
+
+  function loadSavedSyncComparisonView() {
+    try {
+      const savedValue = window.localStorage?.getItem(STORAGE_KEYS.syncComparisonView);
+      return savedValue === null ? DEFAULT_SYNC_COMPARISON_VIEW : normalizeBooleanSetting(savedValue);
+    } catch {
+      return DEFAULT_SYNC_COMPARISON_VIEW;
     }
   }
   
@@ -310,6 +321,7 @@ export function installSettingsStorage(context) {
     if (!runtime.showComfyProgressSettingSeen) applyShowComfyProgress(loadSavedShowComfyProgress());
     if (!runtime.scaleViewerMediaSettingSeen) applyScaleViewerMedia(loadSavedScaleViewerMedia());
     if (!runtime.viewerFitScaleSettingSeen) applyViewerFitScale(loadSavedViewerFitScale());
+    if (!runtime.syncComparisonViewSettingSeen) applySyncComparisonView(loadSavedSyncComparisonView());
     if (!runtime.followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
     if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
     if (!runtime.metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
@@ -367,6 +379,14 @@ export function installSettingsStorage(context) {
   function saveViewerFitScale() {
     try {
       window.localStorage?.setItem(STORAGE_KEYS.viewerFitScale, String(state.viewerFitScale));
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
+  function saveSyncComparisonView() {
+    try {
+      window.localStorage?.setItem(STORAGE_KEYS.syncComparisonView, String(state.syncComparisonView));
     } catch {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }
@@ -466,6 +486,7 @@ export function installSettingsStorage(context) {
     loadSavedShowComfyProgress,
     loadSavedScaleViewerMedia,
     loadSavedViewerFitScale,
+    loadSavedSyncComparisonView,
     loadSavedFollowLatest,
     loadSavedHistoryLimit,
     loadSavedMetadataPosition,
@@ -490,6 +511,7 @@ export function installSettingsStorage(context) {
     saveShowComfyProgress,
     saveScaleViewerMedia,
     saveViewerFitScale,
+    saveSyncComparisonView,
     saveFollowLatest,
     saveHistoryLimit,
     saveMetadataPosition,

@@ -461,6 +461,30 @@ test("Fit scale persists and updates an open viewer layout", () => {
   }
 });
 
+test("comparison view synchronization defaults on and persists", () => {
+  const originalWindow = globalThis.window;
+  const localStorage = createMemoryStorage();
+  globalThis.window = { localStorage };
+
+  try {
+    const context = createContext();
+    let syncCalls = 0;
+    context.actions.syncViewerComparisonView = () => { syncCalls++; };
+    assert.equal(context.state.syncComparisonView, true);
+
+    context.actions.setSyncComparisonView(false);
+    assert.equal(context.state.syncComparisonView, false);
+    assert.equal(localStorage.getItem("comfyui-media-feed:sync-comparison-view"), "false");
+    assert.equal(syncCalls, 1);
+
+    const restoredContext = createContext();
+    restoredContext.actions.loadSettings();
+    assert.equal(restoredContext.state.syncComparisonView, false);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
 test("Fit scale is applied to fitted media dimensions", () => {
   const originalHTMLElement = globalThis.HTMLElement;
   const originalHTMLImageElement = globalThis.HTMLImageElement;

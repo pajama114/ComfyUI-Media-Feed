@@ -89,6 +89,10 @@
     "name": "符合縮放比例",
     "tooltip": "將符合顯示的影像與影片縮放為檢視器內最大符合尺寸的25%至100%。"
   },
+  "comfyui-media-feed_sync-comparison-view": {
+    "name": "同步比較縮放與移動",
+    "tooltip": "在比較模式兩側同步縮放、移動與符合顯示的媒體大小。"
+  },
   "comfyui-media-feed_loop-videos": {
     "name": "循環播放影片",
     "tooltip": "在動態預覽與檢視器中循環播放影片。"

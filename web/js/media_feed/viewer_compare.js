@@ -11,7 +11,7 @@ export function captureComparisonView(pane, controller, fitPercent) {
   const media = controller.getViewerScalableMedia();
   if (!media) return null;
   const natural = controller.viewerMediaNaturalSize(media);
-  const frame = pane.media.getBoundingClientRect();
+  const frame = controller.viewerMediaFitFrame?.() || pane.media.getBoundingClientRect();
   const fit = Math.min(frame.width / natural.width, frame.height / natural.height) * fitPercent / 100;
   if (!Number.isFinite(fit) || fit <= 0) return null;
   const scale = (pane.imageBaseMode === "fit" ? fit : 1) * pane.imageZoom;
@@ -27,7 +27,7 @@ export function applyComparisonView(pane, controller, view, fitPercent) {
   const media = controller.getViewerScalableMedia();
   if (!media) return;
   const natural = controller.viewerMediaNaturalSize(media);
-  const frame = pane.media.getBoundingClientRect();
+  const frame = controller.viewerMediaFitFrame?.() || pane.media.getBoundingClientRect();
   const fit = Math.min(frame.width / natural.width, frame.height / natural.height) * fitPercent / 100;
   if (!Number.isFinite(fit) || fit <= 0) return;
   pane.imageBaseMode = "fit";
@@ -35,6 +35,21 @@ export function applyComparisonView(pane, controller, view, fitPercent) {
   pane.imagePanX = view.x * natural.width * fit * pane.imageZoom;
   pane.imagePanY = view.y * natural.height * fit * pane.imageZoom;
   controller.updateViewerImageLayout();
+}
+
+export function sharedComparisonFitFrame(leftFrame, rightFrame) {
+  if (!leftFrame?.width || !leftFrame.height || !rightFrame?.width || !rightFrame.height) return null;
+  return {
+    width: Math.min(leftFrame.width, rightFrame.width),
+    height: Math.min(leftFrame.height, rightFrame.height),
+  };
+}
+
+export function comparisonMetadataSpace(leftVisible, rightVisible, synchronized) {
+  return {
+    left: Boolean(synchronized && !leftVisible && rightVisible),
+    right: Boolean(synchronized && leftVisible && !rightVisible),
+  };
 }
 
 export function pinnedComparisonEntry(viewer) {
@@ -256,6 +271,8 @@ export function installViewerCompare(context) {
       pane.hideMetadataButton.setAttribute("aria-pressed", String(visible));
       pane.showMetadataButton.setAttribute("aria-pressed", String(visible));
       (side === "left" ? actions : controller).updateViewerPromptPanel();
+      syncComparisonMetadataSpace();
+      updateComparisonLayouts();
     }
     viewer.setComparisonMetadataVisible = setComparisonMetadataVisible;
     rightPane.addEventListener("wheel", (event) => {
@@ -269,31 +286,68 @@ export function installViewerCompare(context) {
     let sharedView = null;
     const capture = (pane, owner) => captureComparisonView(pane, owner, state.viewerFitScale);
     const apply = (pane, owner, view) => applyComparisonView(pane, owner, view, state.viewerFitScale);
+    function comparisonFitFrame() {
+      if (!viewer.comparing || !viewer.comparisonViewSyncEnabled) return null;
+      const leftFrame = viewer.media.getBoundingClientRect();
+      const rightFrame = reference.media.getBoundingClientRect();
+      return sharedComparisonFitFrame(leftFrame, rightFrame);
+    }
+    viewer.comparisonFitFrame = comparisonFitFrame;
+    reference.comparisonFitFrame = comparisonFitFrame;
+
+    function syncComparisonMetadataSpace() {
+      const space = comparisonMetadataSpace(
+        viewer.showPrompts,
+        reference.showPrompts,
+        viewer.comparing && viewer.comparisonViewSyncEnabled,
+      );
+      leftPane.dataset.metadataSpace = String(space.left);
+      rightPane.dataset.metadataSpace = String(space.right);
+    }
+
+    function updateComparisonLayouts() {
+      if (viewer.comparing && viewer.comparisonViewSyncEnabled) {
+        apply(viewer, actions, sharedView);
+        apply(reference, controller, sharedView);
+        return;
+      }
+      actions.updateViewerImageLayout();
+      controller.updateViewerImageLayout();
+    }
+
     function changed(pane, owner, other, otherOwner) {
-      if (!viewer.comparing) return;
+      if (!viewer.comparing || !viewer.comparisonViewSyncEnabled) return;
       sharedView = capture(pane, owner) || sharedView;
       apply(other, otherOwner, sharedView);
     }
     viewer.onViewChange = () => changed(viewer, actions, reference, controller);
     reference.onViewChange = () => changed(reference, controller, viewer, actions);
     viewer.restoreView = () => {
-      if (viewer.comparing) apply(viewer, actions, sharedView);
+      if (viewer.comparing && viewer.comparisonViewSyncEnabled) apply(viewer, actions, sharedView);
     };
     reference.restoreView = () => {
-      if (viewer.comparing) apply(reference, controller, sharedView);
+      if (viewer.comparing && viewer.comparisonViewSyncEnabled) apply(reference, controller, sharedView);
     };
     const observer = new ResizeObserver(() => {
-      controller.updateViewerImageLayout();
-      if (viewer.comparing) {
-        apply(viewer, actions, sharedView);
-        apply(reference, controller, sharedView);
-      }
+      updateComparisonLayouts();
     });
+    observer.observe(viewer.media);
     observer.observe(media);
+
+    viewer.setComparisonViewSync = (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      if (viewer.comparing && nextEnabled && !viewer.comparisonViewSyncEnabled) {
+        sharedView = capture(viewer, actions) || sharedView;
+      }
+      viewer.comparisonViewSyncEnabled = nextEnabled;
+      syncComparisonMetadataSpace();
+      updateComparisonLayouts();
+    };
     viewer.reference = reference;
     viewer.stopComparison = ({ closing = false } = {}) => {
       viewer.comparing = false;
       viewer.root.dataset.comparing = "false";
+      syncComparisonMetadataSpace();
       reference.promptRequestId++;
       controller.clearViewerPromptLoadingTimer();
       reference.renderRequestId++;
@@ -327,6 +381,7 @@ export function installViewerCompare(context) {
       if (viewer.comparing) return viewer.stopComparison();
       if (!viewer.item) return;
       sharedView = capture(viewer, actions) || { zoom: 1, x: 0, y: 0 };
+      viewer.comparisonViewSyncEnabled = state.syncComparisonView;
       viewer.comparing = true;
       viewer.root.dataset.comparing = "true";
       compare.setAttribute("aria-pressed", "true");
@@ -338,7 +393,7 @@ export function installViewerCompare(context) {
       reference.imageBaseMode = "fit";
       reference.imageZoom = 1;
       reference.imagePanX = reference.imagePanY = 0;
-      apply(viewer, actions, sharedView);
+      if (viewer.comparisonViewSyncEnabled) apply(viewer, actions, sharedView);
       const playback = isBatchPresentation(viewer.entry) ? null : viewer.media.querySelector("video, audio");
       const playbackTime = playback?.currentTime || 0;
       const pinnedEntry = pinnedComparisonEntry(viewer);
@@ -363,5 +418,6 @@ export function installViewerCompare(context) {
   Object.assign(actions, {
     setupViewerComparison,
     setComparisonMetadataVisible: (...args) => runtime.viewer?.setComparisonMetadataVisible(...args),
+    syncViewerComparisonView: () => runtime.viewer?.setComparisonViewSync?.(state.syncComparisonView),
   });
 }

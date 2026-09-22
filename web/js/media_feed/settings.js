@@ -26,6 +26,7 @@ export function installSettings(context) {
   const applyShowPrompts = (...args) => actions.applyShowPrompts(...args);
   const applyScaleViewerMedia = (...args) => actions.applyScaleViewerMedia(...args);
   const applyViewerFitScale = (...args) => actions.applyViewerFitScale(...args);
+  const applySyncComparisonView = (...args) => actions.applySyncComparisonView(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
@@ -41,6 +42,7 @@ export function installSettings(context) {
   const saveShowPrompts = (...args) => actions.saveShowPrompts(...args);
   const saveScaleViewerMedia = (...args) => actions.saveScaleViewerMedia(...args);
   const saveViewerFitScale = (...args) => actions.saveViewerFitScale(...args);
+  const saveSyncComparisonView = (...args) => actions.saveSyncComparisonView(...args);
   const saveFollowLatest = (...args) => actions.saveFollowLatest(...args);
   const saveHistoryLimit = (...args) => actions.saveHistoryLimit(...args);
   const saveMetadataPosition = (...args) => actions.saveMetadataPosition(...args);
@@ -100,6 +102,14 @@ export function installSettings(context) {
     if (state.viewerFitScale === previousScale) return;
     saveViewerFitScale();
     actions.updateViewerImageLayout();
+  }
+
+  function setSyncComparisonView(nextValue) {
+    const syncComparisonView = normalizeBooleanSetting(nextValue);
+    if (syncComparisonView === state.syncComparisonView) return;
+    applySyncComparisonView(syncComparisonView);
+    saveSyncComparisonView();
+    actions.syncViewerComparisonView();
   }
   
   function setFollowLatest(nextValue) {
@@ -230,6 +240,7 @@ export function installSettings(context) {
     setShowComfyProgress,
     setScaleViewerMedia,
     setViewerFitScale,
+    setSyncComparisonView,
     setFollowLatest,
     setHistoryLimit,
     setMetadataPosition,
