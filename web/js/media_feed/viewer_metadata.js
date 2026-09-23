@@ -1,6 +1,7 @@
 import {
   VIEWER_METADATA_LOADING_DELAY_MS,
 } from "./constants.js";
+import { isBatchPresentation } from "./batch_entries.js";
 
 const VIEWER_METADATA_KINDS = new Set(["image", "video", "audio"]);
 
@@ -18,6 +19,9 @@ export function installViewerMetadata(context) {
     runtime.viewer.promptPanel.dataset.pending = "false";
     runtime.viewer.promptPanel.dataset.rendered = "false";
     runtime.viewer.promptPanel.setAttribute("aria-busy", "false");
+    for (const button of [runtime.viewer.scanFullMetadataButton, runtime.viewer.copyAllMetadataButton, runtime.viewer.downloadMetadataButton]) {
+      button.inert = false;
+    }
     runtime.viewer.lastPromptMetadata = null;
     runtime.viewer.lastPromptMetadataItemId = "";
     runtime.viewer.lastMetadataDetails = [];
@@ -46,17 +50,25 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer) return;
   
     const hasRenderedMetadata = runtime.viewer.promptPanel.dataset.rendered === "true";
+    const keepBatchMetadata = hasRenderedMetadata && isBatchPresentation(runtime.viewer.entry);
     if (!hasRenderedMetadata) resetViewerPromptPanel();
     clearViewerPromptLoadingTimer();
     runtime.viewer.lastPromptMetadata = null;
     runtime.viewer.lastPromptMetadataItemId = "";
     runtime.viewer.lastMetadataDetails = [];
     runtime.viewer.pendingPromptMetadataResult = null;
-    runtime.viewer.promptStatus.textContent = "";
-    runtime.viewer.scanFullMetadataButton.hidden = true;
-    runtime.viewer.scanFullMetadataButton.disabled = false;
-    runtime.viewer.copyAllMetadataButton.disabled = true;
-    runtime.viewer.downloadMetadataButton.disabled = true;
+    if (keepBatchMetadata) {
+      // Keep each button's previous appearance, but block actions for stale metadata.
+      for (const button of [runtime.viewer.scanFullMetadataButton, runtime.viewer.copyAllMetadataButton, runtime.viewer.downloadMetadataButton]) {
+        button.inert = true;
+      }
+    } else {
+      runtime.viewer.promptStatus.textContent = "";
+      runtime.viewer.scanFullMetadataButton.hidden = true;
+      runtime.viewer.scanFullMetadataButton.disabled = false;
+      runtime.viewer.copyAllMetadataButton.disabled = true;
+      runtime.viewer.downloadMetadataButton.disabled = true;
+    }
     runtime.viewer.promptPanel.setAttribute("aria-busy", "true");
     if (!hasRenderedMetadata) {
       runtime.viewer.promptPanel.dataset.loading = "true";
@@ -69,13 +81,13 @@ export function installViewerMetadata(context) {
       return;
     }
   
-    // Fast local Range reads usually finish before this delay. Keeping the
-    // existing layout until then avoids a blank intermediate frame.
+    // Keep the rendered metadata visible while a different grid cell loads.
+    // Fast local Range reads finish before any loading state is shown.
     runtime.viewer.promptPanel.dataset.loading = "false";
     runtime.viewer.promptLoadingTimer = window.setTimeout(() => {
       runtime.viewer.promptLoadingTimer = 0;
       if (runtime.viewer?.promptPanel.getAttribute("aria-busy") === "true") {
-        runtime.viewer.promptPanel.dataset.loading = "true";
+        runtime.viewer.promptPanel.dataset[keepBatchMetadata ? "pending" : "loading"] = "true";
       }
     }, VIEWER_METADATA_LOADING_DELAY_MS);
   }
@@ -197,6 +209,9 @@ export function installViewerMetadata(context) {
     runtime.viewer.promptPanel.dataset.pending = "false";
     runtime.viewer.promptPanel.dataset.rendered = "true";
     runtime.viewer.promptPanel.setAttribute("aria-busy", "false");
+    for (const button of [runtime.viewer.scanFullMetadataButton, runtime.viewer.copyAllMetadataButton, runtime.viewer.downloadMetadataButton]) {
+      button.inert = false;
+    }
     runtime.viewer.lastPromptMetadata = result;
     runtime.viewer.lastPromptMetadataItemId = itemId;
     runtime.viewer.promptStatus.textContent = result.status || "";

@@ -4,9 +4,11 @@ import test from "node:test";
 import { displayEntries, entrySignature, isBatchPresentation } from "../web/js/media_feed/batch_entries.js";
 import { pinnedComparisonEntry } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
+import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
 import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
 import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 import { installCards } from "../web/js/media_feed/cards.js";
+import { VIEWER_METADATA_LOADING_DELAY_MS } from "../web/js/media_feed/constants.js";
 
 function media(id, promptId, kind = "image") {
   return { id, key: `${kind}:${id}`, promptId, kind, filename: `${id}.${kind === "image" ? "png" : kind === "video" ? "mp4" : "wav"}`, url: `/view?filename=${id}` };
@@ -44,6 +46,86 @@ test("comparison pins a batch snapshot while the browsing batch changes", () => 
 
   left.items.push(media("three", "p"));
   assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
+});
+
+test("switching grid cells keeps rendered metadata visible while the next item loads", () => {
+  const originalWindow = globalThis.window;
+  const timers = new Map();
+  let nextTimer = 0;
+  globalThis.window = {
+    setTimeout(callback, delay) {
+      assert.equal(delay, VIEWER_METADATA_LOADING_DELAY_MS);
+      const id = ++nextTimer;
+      timers.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  try {
+    const attributes = new Map();
+    const panel = {
+      dataset: { rendered: "true", loading: "false", pending: "false" },
+      setAttribute(name, value) { attributes.set(name, value); },
+      getAttribute(name) { return attributes.get(name); },
+    };
+    const viewer = {
+      entry: displayEntries([media("one", "p"), media("two", "p")], true)[0],
+      item: media("two", "p", "audio"),
+      root: { dataset: { open: "true" } },
+      promptPanel: panel,
+      promptStatus: { textContent: "previous status" },
+      scanFullMetadataButton: { hidden: false, disabled: false },
+      copyAllMetadataButton: { disabled: false },
+      downloadMetadataButton: { disabled: true },
+      resourcesGrid: { replaceChildren() {}, childElementCount: 0 },
+      resourcesSection: {},
+      metadataGrid: { replaceChildren() {}, childElementCount: 0 },
+      metadataSection: {},
+      media: { querySelector: () => null },
+      promptSeed: {},
+      promptPositive: { textContent: "previous prompt" },
+      promptNegative: {},
+      promptLoadingTimer: 0,
+    };
+    const context = {
+      state: {}, runtime: { viewer, mediaDimensionCache: new Map() },
+      services: { getCachedPromptMetadata() {}, loadPromptMetadata() {} },
+      actions: { formatAllViewerMetadata: () => "copy text" },
+    };
+    installViewerMetadata(context);
+
+    context.actions.beginViewerPromptPanelLoading();
+    assert.equal(panel.dataset.loading, "false");
+    assert.equal(panel.dataset.pending, "false");
+    assert.equal(viewer.promptPositive.textContent, "previous prompt");
+    assert.equal(viewer.promptStatus.textContent, "previous status");
+    assert.equal(viewer.scanFullMetadataButton.hidden, false);
+    assert.equal(viewer.scanFullMetadataButton.disabled, false);
+    assert.equal(viewer.copyAllMetadataButton.disabled, false);
+    assert.equal(viewer.downloadMetadataButton.disabled, true);
+    assert.equal(viewer.copyAllMetadataButton.inert, true);
+    assert.equal(viewer.downloadMetadataButton.inert, true);
+    context.actions.clearViewerPromptLoadingTimer();
+    assert.equal(timers.size, 0, "a quick read shows no intermediate loading state");
+
+    context.actions.beginViewerPromptPanelLoading();
+    timers.get(viewer.promptLoadingTimer)();
+    assert.equal(panel.dataset.pending, "true");
+    assert.equal(panel.dataset.loading, "false");
+    assert.equal(viewer.promptPositive.textContent, "previous prompt");
+    assert.equal(viewer.promptStatus.textContent, "previous status");
+    assert.equal(viewer.copyAllMetadataButton.disabled, false);
+    assert.equal(viewer.downloadMetadataButton.disabled, true);
+
+    context.actions.renderPromptMetadata({ positive: "new prompt", embeddedJson: { workflow: {} } }, viewer.item.id);
+    assert.equal(viewer.promptPositive.textContent, "new prompt");
+    assert.equal(viewer.copyAllMetadataButton.inert, false);
+    assert.equal(viewer.downloadMetadataButton.inert, false);
+    assert.equal(viewer.copyAllMetadataButton.disabled, false);
+    assert.equal(viewer.downloadMetadataButton.disabled, false);
+  } finally {
+    globalThis.window = originalWindow;
+  }
 });
 
 test("batch selection follows clicks, drags, and keyboard and survives updates and stale grids", async () => {
