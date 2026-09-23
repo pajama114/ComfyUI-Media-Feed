@@ -60,8 +60,7 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer) return;
   
     const hasRenderedMetadata = runtime.viewer.promptPanel.dataset.rendered === "true";
-    const keepBatchMetadata = batchSelection && hasRenderedMetadata && isBatchPresentation(runtime.viewer.entry)
-      && !runtime.viewer.comparing && !runtime.viewer.isComparisonPane;
+    const keepBatchMetadata = batchSelection && hasRenderedMetadata && isBatchPresentation(runtime.viewer.entry);
     if (!hasRenderedMetadata) resetViewerPromptPanel();
     clearViewerPromptLoadingTimer();
     runtime.viewer.lastPromptMetadata = null;
@@ -84,7 +83,7 @@ export function installViewerMetadata(context) {
       return;
     }
 
-    if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
+    if ((runtime.viewer.comparing || runtime.viewer.isComparisonPane) && !keepBatchMetadata) {
       runtime.viewer.promptPanel.dataset.loading = "false";
       runtime.viewer.promptPanel.dataset.pending = "true";
       return;

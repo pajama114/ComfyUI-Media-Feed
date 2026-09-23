@@ -141,6 +141,22 @@ test("switching grid cells keeps rendered metadata visible while the next item l
     assert.equal(viewer.copyAllMetadataButton.disabled, false);
     assert.equal(viewer.downloadMetadataButton.disabled, false);
 
+    viewer.comparing = true;
+    viewer.showPrompts = true;
+    viewer.item = media("one", "p");
+    viewer.mediaReadyItemId = "one";
+    context.actions.updateViewerPromptPanel({ batchSelection: true });
+    assert.equal(timers.size, 0, "comparison grid selection keeps the metadata panel steady");
+    assert.equal(panel.dataset.loading, "false");
+    assert.equal(panel.dataset.pending, "false");
+    assert.equal(viewer.promptPositive.textContent, "new prompt");
+    assert.equal(viewer.copyAllMetadataButton.inert, true);
+    pending.get("one")({ positive: "comparison prompt" });
+    await Promise.resolve();
+    assert.equal(viewer.promptPositive.textContent, "comparison prompt");
+    assert.equal(viewer.copyAllMetadataButton.inert, false);
+
+    viewer.comparing = false;
     viewer.entry = displayEntries([media("three", "q"), media("four", "q")], true)[0];
     context.actions.beginViewerPromptPanelLoading();
     assert.equal(timers.size, 1, "navigation to another grid still delays the loading state");
