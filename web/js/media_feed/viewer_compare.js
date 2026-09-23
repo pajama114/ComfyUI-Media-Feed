@@ -73,7 +73,7 @@ export function installViewerCompare(context) {
     rightHeader.hidden = true;
     const pin = document.createElement("span");
     pin.className = "cmf-viewer-pin";
-    pin.innerHTML = ICONS.pin;
+    pin.innerHTML = `${ICONS.pin}<span>Pinned</span>`;
     pin.title = "Pinned comparison media";
     pin.setAttribute("aria-label", pin.title);
     rightHeader.prepend(pin);

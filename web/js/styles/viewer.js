@@ -1136,7 +1136,21 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       border-left: 0;
     }
 
-    .cmf-viewer-pin { display: flex; flex-shrink: 0; }
+    .cmf-viewer-pin {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      padding: 2px 6px 2px 4px;
+      border: 1px solid #000;
+      border-radius: 999px;
+      background: #aad7ff;
+      color: #000;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+    }
     .cmf-viewer-pin svg {
       width: 16px;
       height: 16px;
