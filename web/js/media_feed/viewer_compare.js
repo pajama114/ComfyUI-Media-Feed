@@ -273,6 +273,7 @@ export function installViewerCompare(context) {
       (side === "left" ? actions : controller).updateViewerPromptPanel();
       syncComparisonMetadataSpace();
       updateComparisonLayouts();
+      actions.syncViewerProgressSpace();
     }
     viewer.setComparisonMetadataVisible = setComparisonMetadataVisible;
     rightPane.addEventListener("wheel", (event) => {

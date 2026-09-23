@@ -454,3 +454,80 @@ test("native progress setting persists and updates an existing viewer without op
     globalThis.window = originalWindow;
   }
 });
+
+test("comparison keeps progress space when only the pinned metadata panel is open", () => {
+  const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  const originalResizeObserver = globalThis.ResizeObserver;
+  const originalMutationObserver = globalThis.MutationObserver;
+  let frameCallback;
+  const observed = [];
+  const progressStyles = new Map();
+  const panel = (hidden, left, right) => ({
+    hidden,
+    querySelector: () => ({ getBoundingClientRect: () => ({ bottom: 100 }) }),
+    getBoundingClientRect: () => ({ left, right, top: 35, bottom: 500 }),
+  });
+  const progress = {
+    style: {
+      setProperty: (name, value) => progressStyles.set(name, value),
+      removeProperty: (name) => progressStyles.delete(name),
+    },
+    getBoundingClientRect: () => {
+      const top = 40 + Number.parseInt(progressStyles.get("--cmf-viewer-progress-offset") || "0", 10);
+      return { left: 750, right: 900, top, bottom: top + 50, width: 150, height: 50 };
+    },
+  };
+  globalThis.window = {
+    innerWidth: 1200,
+    requestAnimationFrame(callback) { frameCallback = callback; return 1; },
+    cancelAnimationFrame() {},
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  globalThis.document = { body: {}, querySelector: () => progress };
+  globalThis.ResizeObserver = class {
+    observe(element) { observed.push(element); }
+    unobserve() {}
+    disconnect() {}
+  };
+  globalThis.MutationObserver = class {
+    observe() {}
+    disconnect() {}
+  };
+  try {
+    const left = panel(false, 200, 400);
+    const right = panel(false, 700, 1000);
+    const viewer = {
+      root: { dataset: { open: "true" } },
+      comparing: true,
+      promptPanel: left,
+      reference: { promptPanel: right },
+    };
+    const context = {
+      state: { showComfyProgress: true, showPrompts: false, metadataPosition: "right" },
+      runtime: { viewer },
+      actions: {},
+    };
+    installViewerProgress(context);
+    context.actions.syncViewerProgressSpace();
+    frameCallback();
+    assert.equal(viewer.root.dataset.progressSpace, "true");
+
+    left.hidden = true;
+    context.actions.syncViewerProgressSpace();
+    frameCallback();
+    assert.equal(viewer.root.dataset.progressSpace, "true");
+    assert.equal(progressStyles.get("--cmf-viewer-progress-offset"), "68px");
+    assert.ok(observed.includes(right));
+
+    right.hidden = true;
+    context.actions.syncViewerProgressSpace();
+    assert.equal(viewer.root.dataset.progressSpace, undefined);
+  } finally {
+    globalThis.window = originalWindow;
+    globalThis.document = originalDocument;
+    globalThis.ResizeObserver = originalResizeObserver;
+    globalThis.MutationObserver = originalMutationObserver;
+  }
+});

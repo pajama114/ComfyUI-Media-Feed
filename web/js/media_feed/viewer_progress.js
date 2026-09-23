@@ -8,6 +8,12 @@ export function installViewerProgress(context) {
   let progress = null;
   let offset = 0;
 
+  function visiblePromptPanels(viewer) {
+    const panels = [viewer.promptPanel];
+    if (viewer.comparing && viewer.reference) panels.push(viewer.reference.promptPanel);
+    return panels.filter((panel) => !panel.hidden);
+  }
+
   function clearProgressOffset() {
     progress?.style.removeProperty("--cmf-viewer-progress-offset");
     offset = 0;
@@ -22,6 +28,7 @@ export function installViewerProgress(context) {
   function updateProgressSpace() {
     frame = 0;
     const viewer = runtime.viewer;
+    const panel = visiblePromptPanels(viewer).at(-1);
     const nextProgress = document.querySelector(PROGRESS_SELECTOR);
     if (nextProgress !== progress) {
       clearProgressSpace();
@@ -29,7 +36,7 @@ export function installViewerProgress(context) {
       progress = nextProgress;
       if (progress) resizeObserver?.observe(progress);
     }
-    if (!progress || viewer.promptPanel.hidden || window.innerWidth <= 860) {
+    if (!progress || !panel || window.innerWidth <= 860) {
       clearProgressSpace();
       return;
     }
@@ -38,12 +45,12 @@ export function installViewerProgress(context) {
     // between generations. This prevents metadata controls from jumping.
     viewer.root.dataset.progressSpace = "true";
 
-    const header = viewer.promptPanel.querySelector(".cmf-prompt-panel-header").getBoundingClientRect();
-    const panel = viewer.promptPanel.getBoundingClientRect();
+    const header = panel.querySelector(".cmf-prompt-panel-header").getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
     const rect = progress.getBoundingClientRect();
     const top = rect.top - offset;
-    if (!rect.width || !rect.height || rect.right <= panel.left || rect.left >= panel.right
-        || rect.bottom <= panel.top || rect.top >= panel.bottom) {
+    if (!rect.width || !rect.height || rect.right <= panelRect.left || rect.left >= panelRect.right
+        || rect.bottom <= panelRect.top || rect.top >= panelRect.bottom) {
       clearProgressOffset();
       return;
     }
@@ -64,7 +71,7 @@ export function installViewerProgress(context) {
   function syncViewerProgressSpace() {
     const viewer = runtime.viewer;
     const enabled = viewer?.root.dataset.open === "true" && state.showComfyProgress
-      && state.showPrompts && state.metadataPosition === "right";
+      && state.metadataPosition === "right" && visiblePromptPanels(viewer).length > 0;
     if (!enabled) {
       if (!resizeObserver && !mutationObserver && !progress && !frame) return;
       resizeObserver?.disconnect();
@@ -80,8 +87,10 @@ export function installViewerProgress(context) {
 
     if (!resizeObserver) {
       resizeObserver = new ResizeObserver(scheduleProgressSpace);
-      resizeObserver.observe(viewer.promptPanel);
-      resizeObserver.observe(viewer.promptPanel.querySelector(".cmf-prompt-panel-header"));
+      for (const pane of [viewer, viewer.reference].filter(Boolean)) {
+        resizeObserver.observe(pane.promptPanel);
+        resizeObserver.observe(pane.promptPanel.querySelector(".cmf-prompt-panel-header"));
+      }
       mutationObserver = new MutationObserver((mutations) => {
         const relevant = mutations.some((mutation) => {
           // ResizeObserver handles changes within the progress panel. Watch its
@@ -100,7 +109,7 @@ export function installViewerProgress(context) {
       });
       window.addEventListener("resize", scheduleProgressSpace);
     }
-    if (document.querySelector(PROGRESS_SELECTOR) && !viewer.promptPanel.hidden && window.innerWidth > 860) {
+    if (document.querySelector(PROGRESS_SELECTOR) && window.innerWidth > 860) {
       viewer.root.dataset.progressSpace = "true";
     }
     scheduleProgressSpace();
