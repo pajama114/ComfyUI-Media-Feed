@@ -900,12 +900,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       border-color: color-mix(in srgb, var(--cmf-new-media) 58%, transparent);
       background: color-mix(in srgb, var(--cmf-new-media) 28%, var(--cmf-panel));
       color: var(--cmf-new-media);
-      opacity: 0.95;
     }
 
     .cmf-viewer[data-nav-hidden="true"]
       .cmf-nav-prev[data-new-media="true"]:not(:hover):not(:focus-visible) {
-      opacity: 0.95;
+      opacity: 0.75;
       pointer-events: auto;
     }
 
