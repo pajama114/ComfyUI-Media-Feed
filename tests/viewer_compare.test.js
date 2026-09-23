@@ -102,7 +102,7 @@ test("pinned metadata follows its own item and ignores stale loads", async () =>
     root: { dataset: { open: "true" } },
     body: { dataset: {} },
     media: { querySelector: () => null },
-    promptPanel: { hidden: true, dataset: { rendered: "false" }, setAttribute() {} },
+    promptPanel: { hidden: true, dataset: { rendered: "false" }, setAttribute() {}, querySelectorAll: () => [] },
     promptStatus: {},
     scanFullMetadataButton: {},
     copyAllMetadataButton: {},

@@ -57,7 +57,7 @@ export function installViewerRender(context) {
     currentViewer.mediaReadyItemId = item.id;
     currentViewer.pendingPromptMetadataResult = null;
     syncViewerSelection(currentViewer);
-    actions.updateViewerPromptPanel();
+    actions.updateViewerPromptPanel({ batchSelection: true });
   }
 
   function prepareBatchSelection(grid) {

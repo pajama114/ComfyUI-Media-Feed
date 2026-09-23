@@ -48,9 +48,10 @@ test("comparison pins a batch snapshot while the browsing batch changes", () => 
   assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
 });
 
-test("switching grid cells keeps rendered metadata visible while the next item loads", () => {
+test("switching grid cells keeps rendered metadata visible while the next item loads", async () => {
   const originalWindow = globalThis.window;
   const timers = new Map();
+  const pending = new Map();
   let nextTimer = 0;
   globalThis.window = {
     setTimeout(callback, delay) {
@@ -63,15 +64,21 @@ test("switching grid cells keeps rendered metadata visible while the next item l
   };
   try {
     const attributes = new Map();
+    const promptCopyButton = { inert: false };
     const panel = {
       dataset: { rendered: "true", loading: "false", pending: "false" },
       setAttribute(name, value) { attributes.set(name, value); },
       getAttribute(name) { return attributes.get(name); },
+      querySelectorAll(selector) {
+        assert.equal(selector, ".cmf-prompt-copy");
+        return [promptCopyButton];
+      },
     };
     const viewer = {
       entry: displayEntries([media("one", "p"), media("two", "p")], true)[0],
       item: media("two", "p", "audio"),
       root: { dataset: { open: "true" } },
+      body: { dataset: {} },
       promptPanel: panel,
       promptStatus: { textContent: "previous status" },
       scanFullMetadataButton: { hidden: false, disabled: false },
@@ -86,15 +93,22 @@ test("switching grid cells keeps rendered metadata visible while the next item l
       promptPositive: { textContent: "previous prompt" },
       promptNegative: {},
       promptLoadingTimer: 0,
+      promptRequestId: 0,
+      mediaReadyItemId: "two",
+      items: [],
+      index: 0,
     };
     const context = {
-      state: {}, runtime: { viewer, mediaDimensionCache: new Map() },
-      services: { getCachedPromptMetadata() {}, loadPromptMetadata() {} },
+      state: { showPrompts: true }, runtime: { viewer, mediaDimensionCache: new Map() },
+      services: {
+        getCachedPromptMetadata() { return null; },
+        loadPromptMetadata(item) { return new Promise((resolve) => pending.set(item.id, resolve)); },
+      },
       actions: { formatAllViewerMetadata: () => "copy text" },
     };
     installViewerMetadata(context);
 
-    context.actions.beginViewerPromptPanelLoading();
+    context.actions.beginViewerPromptPanelLoading({ batchSelection: true });
     assert.equal(panel.dataset.loading, "false");
     assert.equal(panel.dataset.pending, "false");
     assert.equal(viewer.promptPositive.textContent, "previous prompt");
@@ -105,24 +119,33 @@ test("switching grid cells keeps rendered metadata visible while the next item l
     assert.equal(viewer.downloadMetadataButton.disabled, true);
     assert.equal(viewer.copyAllMetadataButton.inert, true);
     assert.equal(viewer.downloadMetadataButton.inert, true);
+    assert.equal(promptCopyButton.inert, true);
     context.actions.clearViewerPromptLoadingTimer();
     assert.equal(timers.size, 0, "a quick read shows no intermediate loading state");
 
-    context.actions.beginViewerPromptPanelLoading();
-    timers.get(viewer.promptLoadingTimer)();
-    assert.equal(panel.dataset.pending, "true");
+    context.actions.updateViewerPromptPanel({ batchSelection: true });
+    assert.equal(timers.size, 0, "a slow grid-cell read also keeps the previous content steady");
+    assert.equal(panel.dataset.pending, "false");
     assert.equal(panel.dataset.loading, "false");
     assert.equal(viewer.promptPositive.textContent, "previous prompt");
     assert.equal(viewer.promptStatus.textContent, "previous status");
     assert.equal(viewer.copyAllMetadataButton.disabled, false);
     assert.equal(viewer.downloadMetadataButton.disabled, true);
 
-    context.actions.renderPromptMetadata({ positive: "new prompt", embeddedJson: { workflow: {} } }, viewer.item.id);
+    pending.get("two")({ positive: "new prompt", embeddedJson: { workflow: {} } });
+    await Promise.resolve();
     assert.equal(viewer.promptPositive.textContent, "new prompt");
     assert.equal(viewer.copyAllMetadataButton.inert, false);
     assert.equal(viewer.downloadMetadataButton.inert, false);
+    assert.equal(promptCopyButton.inert, false);
     assert.equal(viewer.copyAllMetadataButton.disabled, false);
     assert.equal(viewer.downloadMetadataButton.disabled, false);
+
+    viewer.entry = displayEntries([media("three", "q"), media("four", "q")], true)[0];
+    context.actions.beginViewerPromptPanelLoading();
+    assert.equal(timers.size, 1, "navigation to another grid still delays the loading state");
+    timers.get(viewer.promptLoadingTimer)();
+    assert.equal(panel.dataset.loading, "true");
   } finally {
     globalThis.window = originalWindow;
   }
