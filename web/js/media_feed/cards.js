@@ -87,6 +87,21 @@ export function installCards(context) {
     return audioPreview;
   }
 
+  function createVideoControls() {
+    const controls = document.createElement("div");
+    const playButton = document.createElement("button");
+    const duration = document.createElement("span");
+    controls.className = "cmf-media-controls cmf-video-controls";
+    playButton.className = "cmf-button cmf-icon-button cmf-media-play cmf-video-play";
+    playButton.type = "button";
+    playButton.setAttribute("aria-label", "Play video preview");
+    playButton.innerHTML = ICONS.play;
+    duration.className = "cmf-media-duration cmf-video-duration";
+    duration.hidden = true;
+    controls.append(playButton, duration);
+    return { controls, playButton, duration };
+  }
+
   function createCard(item) {
     const card = document.createElement("div");
     card.className = "cmf-card";
@@ -119,20 +134,11 @@ export function installCards(context) {
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
     } else if (item.kind === "video") {
       const video = document.createElement("video");
-      const controls = document.createElement("div");
-      const playButton = document.createElement("button");
-      const duration = document.createElement("span");
+      const { controls, playButton, duration } = createVideoControls();
       video.muted = true;
       video.playsInline = true;
       video.preload = "metadata";
       video.loop = state.loopVideos;
-      controls.className = "cmf-media-controls cmf-video-controls";
-      playButton.className = "cmf-button cmf-icon-button cmf-media-play cmf-video-play";
-      playButton.type = "button";
-      playButton.setAttribute("aria-label", "Play video preview");
-      playButton.innerHTML = ICONS.play;
-      duration.className = "cmf-media-duration cmf-video-duration";
-      duration.hidden = true;
       const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(video, preview));
       thumbnailResizeObserver.observe(preview);
       card.thumbnailResizeObserver = thumbnailResizeObserver;
@@ -142,7 +148,6 @@ export function installCards(context) {
       }, { once: true });
       video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
       video.src = item.url;
-      controls.append(playButton, duration);
       preview.append(video, controls);
       setupVideoPreview(card, video, playButton, duration);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
@@ -196,21 +201,15 @@ export function installCards(context) {
       cell.append(image);
     } else if (item.kind === "video") {
       const video = document.createElement("video");
+      const { controls, playButton, duration } = createVideoControls();
       video.muted = true;
       video.playsInline = true;
       video.preload = "metadata";
+      video.loop = state.loopVideos;
       video.src = item.url;
       video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      cell.addEventListener("mouseenter", () => {
-        if (window.matchMedia?.("(hover: hover)").matches === false) return;
-        video.muted = true;
-        video.play().catch(() => {});
-      });
-      cell.addEventListener("mouseleave", () => {
-        video.pause();
-        try { video.currentTime = 0; } catch { /* Metadata may still be loading. */ }
-      });
-      cell.append(video);
+      cell.append(video, controls);
+      setupVideoPreview(cell, video, playButton, duration);
     } else {
       cell.append(createAudioPreview(item, cell));
     }
@@ -288,8 +287,12 @@ export function installCards(context) {
       card.audioWaveformsActive = false;
       for (const cell of grid.children) cell.deactivateAudioWaveform?.();
     };
-    card.addEventListener("click", () => openViewer(card.batch));
+    card.addEventListener("click", (event) => {
+      if (event?.target?.closest?.(".cmf-media-controls")) return;
+      openViewer(card.batch);
+    });
     card.addEventListener("keydown", (event) => {
+      if (event.target?.closest?.(".cmf-media-controls")) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();

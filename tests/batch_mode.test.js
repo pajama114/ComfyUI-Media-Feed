@@ -361,7 +361,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
   }
 });
 
-test("batch thumbnail preserves decoded images and uses compact audio previews", async () => {
+test("batch thumbnail preserves decoded images and adds video and audio controls", async () => {
   const originalDocument = globalThis.document;
   class Element {
     constructor(tagName) {
@@ -389,6 +389,7 @@ test("batch thumbnail preserves decoded images and uses compact audio previews",
     querySelector(selector) {
       const matches = (element) => selector === "img" && element.tagName === "IMG"
         || selector === "audio" && element.tagName === "AUDIO"
+        || selector === "video" && element.tagName === "VIDEO"
         || selector === "video, audio" && ["VIDEO", "AUDIO"].includes(element.tagName)
         || selector === ".cmf-batch-thumbnail-grid" && element.className === "cmf-batch-thumbnail-grid"
         || selector === ".cmf-batch-more" && element.className === "cmf-batch-more"
@@ -426,7 +427,11 @@ test("batch thumbnail preserves decoded images and uses compact audio previews",
         waveformSubscriptions++;
         return () => {};
       },
-      formatMediaDuration() { return ""; },
+      formatMediaDuration(seconds) {
+        if (!Number.isFinite(seconds) || seconds < 0) return "";
+        const wholeSeconds = Math.floor(seconds);
+        return `${Math.floor(wholeSeconds / 60)}:${String(wholeSeconds % 60).padStart(2, "0")}`;
+      },
       removeMissingMediaItem() {},
     };
     installCards({ app: {}, api: {}, ICONS: { play: "play", pause: "pause" }, state: { loopAudio: false }, runtime: {}, actions });
@@ -445,6 +450,36 @@ test("batch thumbnail preserves decoded images and uses compact audio previews",
     assert.equal(grid.children.length, 3);
     assert.equal(grid.children[0], oldCells[0]);
     assert.equal(grid.children[1], oldCells[1]);
+
+    const videoBatch = displayEntries([media("clip", "video-prompt", "video")], true)[0];
+    const videoCard = actions.createBatchCard(videoBatch);
+    const videoCell = videoCard.children[0].children[0];
+    const video = videoCell.querySelector("video");
+    const videoControls = videoCell.querySelector(".cmf-video-controls");
+    const videoPlay = videoCell.querySelector(".cmf-video-play");
+    const videoDuration = videoCell.querySelector(".cmf-video-duration");
+    assert.ok(videoControls);
+    assert.ok(videoPlay);
+    assert.ok(videoDuration);
+    assert.equal(videoDuration.hidden, true);
+    video.duration = 65;
+    video.currentTime = 0;
+    video.listeners.get("loadedmetadata")();
+    assert.equal(videoDuration.textContent, "1:05");
+    assert.equal(videoDuration.hidden, false);
+    video.paused = true;
+    video.play = () => {
+      video.paused = false;
+      video.listeners.get("play")();
+      return Promise.resolve();
+    };
+    videoPlay.listeners.get("click")({ preventDefault() {}, stopPropagation() {} });
+    assert.equal(video.muted, false);
+    assert.equal(videoPlay.innerHTML, "pause");
+    assert.deepEqual(opened, [3], "playing a grid thumbnail keeps the viewer closed");
+    videoCard.listeners.get("click")({ target: { closest: () => videoControls } });
+    videoCard.listeners.get("keydown")({ key: "Enter", target: { closest: () => videoControls } });
+    assert.deepEqual(opened, [3], "media controls do not open the batch viewer");
 
     const audioBatch = displayEntries([media("sound", "audio-prompt", "audio")], true)[0];
     const audioCard = actions.createBatchCard(audioBatch);

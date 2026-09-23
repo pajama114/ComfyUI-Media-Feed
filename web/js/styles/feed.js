@@ -240,6 +240,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
 
     .cmf-batch-thumbnail-cell {
       position: relative;
+      container-type: inline-size;
       display: grid;
       place-items: center;
       min-width: 0;
@@ -256,8 +257,48 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       object-fit: contain;
     }
 
+    .cmf-batch-thumbnail-cell .cmf-audio-preview {
+      grid-template-rows: 1fr;
+      gap: 0;
+      padding: 0;
+    }
+
+    .cmf-batch-thumbnail-cell .cmf-audio-main {
+      padding: 6px;
+    }
+
+    .cmf-batch-thumbnail-cell .cmf-media-controls {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+    }
+
+    .cmf-batch-thumbnail-cell .cmf-media-play {
+      position: absolute;
+      bottom: 3px;
+      left: 3px;
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+    }
+
+    .cmf-batch-thumbnail-cell .cmf-media-duration {
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      font-size: 10px;
+    }
+
+    @container (max-width: 64px) {
+      .cmf-batch-thumbnail-cell .cmf-media-play {
+        top: 3px;
+        bottom: auto;
+      }
+    }
+
     .cmf-batch-more {
       position: absolute;
+      z-index: 2;
       inset: 0;
       display: grid;
       place-items: center;
