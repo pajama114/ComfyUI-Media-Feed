@@ -158,6 +158,12 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     innerHTML: "",
     setAttribute(name, value) { this[name] = value; },
   });
+  let iconWrites = 0;
+  let renderedIcon = "";
+  Object.defineProperty(playButton, "innerHTML", {
+    get() { return renderedIcon; },
+    set(value) { iconWrites++; renderedIcon = value; },
+  });
   const seek = eventTarget({ value: "0", disabled: false });
   const currentTime = { textContent: "" };
   const duration = { textContent: "" };
@@ -222,10 +228,18 @@ test("viewer audio playhead follows playback and stops updating after cleanup", 
     assert.equal(duration.textContent, "2:00");
     assert.equal(playButton.title, undefined);
     assert.equal(playButton["aria-label"], "Play");
+    assert.equal(iconWrites, 1);
+    audio.listeners.get("timeupdate")();
+    assert.equal(iconWrites, 1);
     assert.equal(animationFrames.size, 0);
 
     audio.paused = false;
     audio.listeners.get("play")();
+    assert.equal(playButton["aria-label"], "Pause");
+    assert.equal(iconWrites, 2);
+    audio.listeners.get("timeupdate")();
+    audio.listeners.get("timeupdate")();
+    assert.equal(iconWrites, 2);
     assert.equal(animationFrames.size, 1);
     audio.currentTime = 60;
     const frame = animationFrames.values().next().value;

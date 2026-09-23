@@ -298,8 +298,11 @@ export function installAudioWaveforms(context) {
       currentTime.textContent = formatAudioTime(audio.currentTime);
       duration.textContent = formatAudioTime(audio.duration);
     };
+    let displayedPaused = null;
     const updatePlayButton = () => {
       const paused = audio.paused || audio.ended;
+      if (displayedPaused === paused) return;
+      displayedPaused = paused;
       playButton.innerHTML = paused ? ICONS.play : ICONS.pause;
       playButton.setAttribute("aria-label", paused ? "Play" : "Pause");
     };
