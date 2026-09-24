@@ -80,8 +80,9 @@ export function installSettings(context) {
     if (showPrompts !== state.showPrompts) {
       applyShowPrompts(showPrompts);
       saveShowPrompts();
-      syncViewerMetadataToggle();
       updateViewerPromptPanel();
+      // Progress spacing reads the panel's actual visibility.
+      syncViewerMetadataToggle();
     }
     if (syncSettings) syncComfySettingValue(SHOW_PROMPTS_SETTING_ID, state.showPrompts);
   }

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
+import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
 
 test("standalone viewer videos disable native fullscreen for double-click zoom", async () => {
   const originalDocument = globalThis.document;
@@ -30,6 +31,7 @@ test("standalone viewer videos disable native fullscreen for double-click zoom",
       clearViewerAudioWaveform() {}, discardStagedMedia() {}, resetViewerImageView() {},
       syncFavoriteButton() {}, syncViewerNav() {}, prepareViewerImage() {},
       rememberMediaDimensions() {}, updateViewerImageLayout() {}, refreshViewerPromptPanelDetails() {},
+      updateViewerImageControls() {},
       waitForMediaReady: async () => {},
       isCurrentViewerRender: (currentViewer, requestId, currentItem) => currentViewer === viewer
         && viewer.renderRequestId === requestId && viewer.item === currentItem,
@@ -142,6 +144,7 @@ test("viewer reuses its native audio player when moving between audio items", as
       ),
       replaceViewerMedia() { replacements++; },
       updateViewerImageLayout() {},
+      updateViewerImageControls() {},
       clearViewerAudioWaveform() { clearedWaveforms++; },
       createViewerAudioPresentation: (element) => element,
       setupViewerAudioWaveform(currentViewer, element, url) {
@@ -180,5 +183,67 @@ test("viewer reuses its native audio player when moving between audio items", as
     } else {
       globalThis.HTMLAudioElement = originalHTMLAudioElement;
     }
+  }
+});
+
+test("pinned headers reserve zoom controls while images and batches are decoding", async () => {
+  const originalDocument = globalThis.document;
+  const originalHTMLElement = globalThis.HTMLElement;
+  class Element {
+    constructor() {
+      this.dataset = {};
+      this.style = { setProperty() {} };
+      this.classList = { contains: () => false };
+    }
+    addEventListener() {}
+    setAttribute() {}
+    append() {}
+    replaceChildren() {}
+    querySelector() { return null; }
+  }
+  globalThis.HTMLElement = Element;
+  globalThis.document = { createElement: () => new Element() };
+
+  try {
+    const image = { id: "one", key: "one", kind: "image", filename: "one.png", url: "/one.png" };
+    const batch = { kind: "batch", key: "batch", items: [image, { ...image, id: "two", key: "two", filename: "two.png" }] };
+    for (const entry of [image, batch]) {
+      let finishDecode;
+      const decoding = new Promise((resolve) => { finishDecode = resolve; });
+      const viewer = {
+        root: { dataset: { open: "true" } }, media: new Element(), title: new Element(),
+        openLink: {}, copyImageButton: {}, favoriteButton: {},
+        zoomControls: { hidden: true }, nativeButton: new Element(), fitButton: new Element(),
+        zoomOutButton: {}, zoomInButton: {}, zoomLevel: { textContent: "—" },
+        isComparisonPane: true, imageBaseMode: "fit", imageZoom: 1,
+        renderRequestId: 0, item: null, entry: null,
+      };
+      const context = { state: {}, runtime: { viewer, decodedImageCache: new Map() }, actions: {} };
+      installViewerZoom(context);
+      Object.assign(context.actions, {
+        ensureViewer: () => viewer,
+        clearViewerAudioWaveform() {}, discardStagedMedia() {}, syncFavoriteButton() {},
+        syncViewerNav() {}, prepareViewerImage() {},
+        decodeImageElement: () => decoding,
+        isCurrentViewerRender: (_, requestId) => viewer.renderRequestId === requestId,
+      });
+      installViewerRender(context);
+      const rendering = context.actions.renderViewerItem(entry);
+      try {
+        assert.equal(viewer.zoomControls.hidden, false, "controls must occupy space before decoding finishes");
+        assert.equal(viewer.nativeButton.hidden, entry.kind === "batch");
+        assert.equal(viewer.fitButton.disabled, true, "controls stay disabled until media is mounted");
+        assert.equal(viewer.zoomInButton.disabled, true);
+      } finally {
+        // Closing during decoding cancels the pending mount.
+        viewer.renderRequestId++;
+        finishDecode();
+        await rendering;
+      }
+    }
+  } finally {
+    globalThis.document = originalDocument;
+    if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
+    else globalThis.HTMLElement = originalHTMLElement;
   }
 });

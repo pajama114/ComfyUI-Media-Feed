@@ -357,6 +357,9 @@ export function installViewerRender(context) {
     currentViewer.openLink.href = mediaItem.url;
     currentViewer.copyImageButton.hidden = mediaItem.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, mediaItem);
+    // Reserve the zoom controls' space before decoding, including in the
+    // pinned pane where no previous media is mounted to keep them visible.
+    actions.updateViewerImageControls();
     syncViewerNav();
     if (batchPresentation) {
       return renderViewerBatch(currentViewer, item, requestId);

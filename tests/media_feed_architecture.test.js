@@ -531,3 +531,78 @@ test("comparison keeps progress space when only the pinned metadata panel is ope
     globalThis.MutationObserver = originalMutationObserver;
   }
 });
+
+test("reopening right-side viewer metadata restores progress space", () => {
+  const originals = {
+    window: globalThis.window, document: globalThis.document,
+    ResizeObserver: globalThis.ResizeObserver, MutationObserver: globalThis.MutationObserver,
+  };
+  const frames = new Map();
+  let nextFrame = 0;
+  const element = () => ({
+    hidden: false, dataset: {},
+    setAttribute() {}, replaceChildren() {}, querySelectorAll: () => [],
+    getBoundingClientRect: () => ({ left: 700, right: 1000, top: 35, bottom: 500 }),
+  });
+  const progress = {
+    style: { removeProperty() {} },
+    getBoundingClientRect: () => ({ width: 0, height: 0 }),
+  };
+  globalThis.window = {
+    innerWidth: 1200,
+    requestAnimationFrame(callback) { frames.set(++nextFrame, callback); return nextFrame; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+    addEventListener() {}, removeEventListener() {},
+    setTimeout: () => 1, clearTimeout() {},
+  };
+  globalThis.document = { body: {}, querySelector: () => progress };
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  globalThis.MutationObserver = class { observe() {} disconnect() {} };
+  const paint = () => {
+    const callbacks = [...frames.values()];
+    frames.clear();
+    for (const callback of callbacks) callback();
+  };
+
+  try {
+    const { context } = createContext();
+    Object.assign(context.state, { showComfyProgress: true, showPrompts: true, metadataPosition: "right" });
+    context.services.loadPromptMetadata = () => new Promise(() => {});
+    // Reinstall to use the pending metadata loader throughout this interaction.
+    installViewerMetadata(context);
+    const viewer = {
+      root: { dataset: { open: "true" } }, body: { dataset: {} },
+      item: { id: "image", kind: "image" }, promptRequestId: 0,
+    };
+    for (const key of [
+      "promptPanel", "promptStatus", "scanFullMetadataButton", "copyAllMetadataButton",
+      "downloadMetadataButton", "resourcesGrid", "resourcesSection", "metadataGrid",
+      "metadataSection", "promptSeed", "promptPositive", "promptNegative",
+      "hideMetadataButton", "showMetadataButton",
+    ]) viewer[key] = element();
+    viewer.promptPanel.querySelector = () => element();
+    context.runtime.viewer = viewer;
+    context.actions.syncViewerProgressSpace();
+    paint();
+    assert.equal(viewer.root.dataset.progressSpace, "true");
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+      context.actions.setShowPrompts(false);
+      paint();
+      assert.equal(viewer.promptPanel.hidden, true);
+      assert.equal(viewer.root.dataset.progressSpace, undefined);
+
+      context.actions.setShowPrompts(true);
+      paint();
+      assert.equal(viewer.promptPanel.hidden, false);
+      assert.equal(viewer.root.dataset.progressSpace, "true");
+    }
+    viewer.root.dataset.open = "false";
+    context.actions.syncViewerProgressSpace();
+  } finally {
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});

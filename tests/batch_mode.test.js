@@ -273,6 +273,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
       decodeImageElement: (image) => image.src.includes("five") ? newImageReady
         : image.src.includes("stale") ? staleImageReady : Promise.resolve(),
       updateViewerImageLayout() {},
+      updateViewerImageControls() {},
       refreshViewerPromptPanelDetails() {},
       createViewerAudioPresentation(audio) {
         const presentation = new Element("div");
