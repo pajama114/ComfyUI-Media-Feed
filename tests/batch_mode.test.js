@@ -350,8 +350,8 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     const zoomPointer = { button: 0, pointerId: 10, clientX: 20, clientY: 20 };
     grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
     assert.equal(viewer.item.id, "two", "selection remains committed on release");
-    assert.equal(grid.dataset.selectionVisible, "false",
-      "the previous frame is hidden while pressing a different cell");
+    assert.equal(grid.dataset.selectionVisible, "true",
+      "the current selection frame stays visible while pressing a different cell");
     grid.dispatch("pointerup", { ...zoomPointer, target: grid.children[0] });
     assert.equal(viewer.item.id, "one", "the first click of a double-click selects immediately");
     assert.equal(grid.dataset.selectionVisible, "true");
