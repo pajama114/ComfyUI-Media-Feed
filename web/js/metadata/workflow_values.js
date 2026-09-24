@@ -149,6 +149,13 @@ export function workflowOutputValue(node, slot, maps, context, visited) {
   if (/^(true|false)$/i.test(outputName)) return outputName.toLowerCase() === "true";
 
   const nodeType = workflowNodeType(node);
+  if (/primitive/i.test(nodeType)) {
+    // Exposed subgraph inputs can override a primitive's saved widget value.
+    const valueInput = workflowInputByName(node, "value");
+    const value = workflowInputEffectiveValue(node, valueInput, maps, context, visited);
+    if (value !== undefined && value !== "") return value;
+  }
+
   if (/primitive|boolean|integer|number|string|text|combo/i.test(nodeType) && Array.isArray(node.widgets_values) && node.widgets_values.length) {
     return node.widgets_values[0];
   }

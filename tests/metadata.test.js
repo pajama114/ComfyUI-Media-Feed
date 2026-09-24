@@ -742,6 +742,31 @@ test("loadPromptMetadata infers metadata from the debug Anima subgraph workflow"
   assert.equal(result.status, "");
 });
 
+for (const turboEnabled of [true, false]) {
+  test(`loadPromptMetadata follows the external Anima turbo toggle when ${turboEnabled}`, async () => {
+    const workflow = structuredClone(debugAnimaWorkflow);
+    const subgraph = workflow.definitions.subgraphs[0];
+    const instance = workflow.nodes.find((node) => node.type === subgraph.id);
+    const toggleIndex = instance.inputs.filter((input) => input.widget)
+      .findIndex((input) => input.name === "value");
+    instance.widgets_values[toggleIndex] = turboEnabled;
+    instance.widgets_values_named.value = turboEnabled;
+
+    // The subgraph definition retains its own value after the exposed toggle changes.
+    const primitive = subgraph.nodes.find((node) => node.type === "PrimitiveBoolean");
+    primitive.widgets_values[0] = !turboEnabled;
+    primitive.widgets_values_named.value = !turboEnabled;
+
+    const payload = pngText({ workflow: JSON.stringify(workflow) });
+    globalThis.fetch = async () => rangeResponse(payload);
+
+    const result = await loadPromptMetadata({ ...mediaItem(), nodeId: 46 });
+
+    assert.deepEqual(result.resources.filter((entry) => entry.label === "LoRA"),
+      turboEnabled ? [{ label: "LoRA", value: "anima-turbo-lora-v0.2.safetensors · 1.00" }] : []);
+  });
+}
+
 test("loadPromptMetadata infers metadata from the debug MiniMax video workflow", async () => {
   const document = JSON.stringify({ workflow: debugMinimaxVideoWorkflow });
   const payload = bytes(`mp4-prefix\0${document}\0mp4-suffix`);
