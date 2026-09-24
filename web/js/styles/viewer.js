@@ -10,6 +10,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       --cmf-viewer-bar-bg: var(--comfy-menu-bg, rgba(16, 17, 19, 0.94));
       --cmf-metadata-box-bg: var(--cmf-panel);
       --cmf-new-media: #60a5fa;
+      --cmf-new-media-icon: #f1f7ff;
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -22,6 +23,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     :root:not(.dark-theme) .cmf-viewer {
       --cmf-metadata-box-bg: #f5f5f5;
       --cmf-new-media: #1d4ed8;
+      --cmf-new-media-icon: #10255c;
     }
 
     .cmf-viewer[data-open="true"] {
@@ -927,14 +929,35 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-nav-prev[data-new-media="true"] {
-      border-color: color-mix(in srgb, var(--cmf-new-media) 58%, transparent);
-      background: color-mix(in srgb, var(--cmf-new-media) 28%, var(--cmf-panel));
-      color: var(--cmf-new-media);
+      --cmf-new-media-surface-opacity: 75%;
+      border-color: color-mix(in srgb,
+        color-mix(in srgb, var(--cmf-new-media) 58%, transparent) var(--cmf-new-media-surface-opacity),
+        transparent);
+      background: color-mix(in srgb,
+        color-mix(in srgb, var(--cmf-new-media) 60%, var(--cmf-panel)) var(--cmf-new-media-surface-opacity),
+        transparent);
+      color: var(--cmf-new-media-icon);
+      opacity: 1;
+    }
+
+    .cmf-nav-prev[data-new-media="true"]:hover,
+    .cmf-nav-prev[data-new-media="true"]:focus-visible {
+      --cmf-new-media-surface-opacity: 90%;
+    }
+
+    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled) {
+      border-color: color-mix(in srgb, #3b82f6 75%, transparent);
+      background: color-mix(in srgb, #93c5fd 80%, transparent);
+    }
+
+    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled):hover,
+    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled):focus-visible {
+      background: color-mix(in srgb, #bfdbfe 90%, transparent);
     }
 
     .cmf-viewer[data-nav-hidden="true"]
       .cmf-nav-prev[data-new-media="true"]:not(:hover):not(:focus-visible) {
-      opacity: 0.75;
+      opacity: 1;
       pointer-events: auto;
     }
 
