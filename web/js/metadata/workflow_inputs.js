@@ -7,9 +7,12 @@ export function workflowInputValue(node, input) {
 
   const widgetName = input.widget?.name || input.name;
   const widgetsValues = node.widgets_values;
-  if (widgetsValues && typeof widgetsValues === "object" && !Array.isArray(widgetsValues)) {
-    if (Object.prototype.hasOwnProperty.call(widgetsValues, widgetName)) return widgetsValues[widgetName];
-    if (Object.prototype.hasOwnProperty.call(widgetsValues, input.name)) return widgetsValues[input.name];
+  // Saved workflows may omit input descriptors while keeping every widget value.
+  // Named values remain reliable when the input and widget array positions differ.
+  for (const values of [node.widgets_values_named, widgetsValues]) {
+    if (!values || typeof values !== "object" || Array.isArray(values)) continue;
+    if (Object.prototype.hasOwnProperty.call(values, widgetName)) return values[widgetName];
+    if (Object.prototype.hasOwnProperty.call(values, input.name)) return values[input.name];
   }
 
   if (!Array.isArray(widgetsValues) || !input.widget) return undefined;
@@ -49,9 +52,10 @@ export function workflowInputWidgetValue(node, input) {
 
   const widgetName = input.widget?.name || input.name;
   const widgetsValues = node.widgets_values;
-  if (widgetsValues && typeof widgetsValues === "object" && !Array.isArray(widgetsValues)) {
-    if (Object.prototype.hasOwnProperty.call(widgetsValues, widgetName)) return widgetsValues[widgetName];
-    if (Object.prototype.hasOwnProperty.call(widgetsValues, input.name)) return widgetsValues[input.name];
+  for (const values of [node.widgets_values_named, widgetsValues]) {
+    if (!values || typeof values !== "object" || Array.isArray(values)) continue;
+    if (Object.prototype.hasOwnProperty.call(values, widgetName)) return values[widgetName];
+    if (Object.prototype.hasOwnProperty.call(values, input.name)) return values[input.name];
   }
 
   if (!Array.isArray(widgetsValues) || !input.widget) return undefined;

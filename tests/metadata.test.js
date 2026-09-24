@@ -765,6 +765,38 @@ for (const turboEnabled of [true, false]) {
     assert.deepEqual(result.resources.filter((entry) => entry.label === "LoRA"),
       turboEnabled ? [{ label: "LoRA", value: "anima-turbo-lora-v0.2.safetensors · 1.00" }] : []);
   });
+
+  test(`loadPromptMetadata reads named Anima widgets with omitted inputs when turbo is ${turboEnabled}`, async () => {
+    const workflow = structuredClone(debugAnimaWorkflow);
+    const subgraph = workflow.definitions.subgraphs[0];
+    const instance = workflow.nodes.find((node) => node.type === subgraph.id);
+    const widgetInputs = instance.inputs.filter((input) => input.widget);
+    const setWidget = (name, value) => {
+      instance.widgets_values[widgetInputs.findIndex((input) => input.name === name)] = value;
+      instance.widgets_values_named[name] = value;
+    };
+    setWidget("unet_name", "anima\\JANIMA_v10.safetensors");
+    setWidget("value", turboEnabled);
+
+    // Generated PNGs can omit input descriptors but retain the full widget array.
+    // Counting the remaining inputs makes lora_name point to the CLIP filename.
+    instance.inputs = instance.inputs.filter((input) => !["unet_name", "clip_name", "vae_name"].includes(input.name));
+    const lora = subgraph.nodes.find((node) => node.type === "LoraLoaderModelOnly");
+    lora.inputs = lora.inputs.filter((input) => input.name !== "strength_model");
+    const primitive = subgraph.nodes.find((node) => node.type === "PrimitiveBoolean");
+    primitive.widgets_values[0] = !turboEnabled;
+    primitive.widgets_values_named.value = !turboEnabled;
+
+    const payload = pngText({ workflow: JSON.stringify(workflow) });
+    globalThis.fetch = async () => rangeResponse(payload);
+
+    const result = await loadPromptMetadata({ ...mediaItem(), nodeId: 46 });
+
+    assert.deepEqual(result.resources, [
+      { label: "Checkpoint", value: "JANIMA_v10.safetensors" },
+      ...(turboEnabled ? [{ label: "LoRA", value: "anima-turbo-lora-v0.2.safetensors · 1.00" }] : []),
+    ]);
+  });
 }
 
 test("loadPromptMetadata infers metadata from the debug MiniMax video workflow", async () => {

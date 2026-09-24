@@ -191,7 +191,15 @@ export function isWorkflowTextPassthroughNode(node) {
 }
 
 export function workflowInputByName(node, name) {
-  return (node?.inputs || []).find((input) => input?.name === name) || null;
+  const input = (node?.inputs || []).find((input) => input?.name === name);
+  if (input) return input;
+
+  // Unlinked widgets can be saved by name without an input descriptor.
+  const namedValues = node?.widgets_values_named;
+  if (namedValues && Object.prototype.hasOwnProperty.call(namedValues, name)) {
+    return { name, value: namedValues[name] };
+  }
+  return null;
 }
 
 export function workflowInputNameForOutput(node, origin) {
