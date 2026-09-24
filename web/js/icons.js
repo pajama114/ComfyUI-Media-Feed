@@ -1,5 +1,5 @@
 export const ICONS = {
-  compare: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>`,
+  compare: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="4" width="5.5" height="16" rx="1"/><rect x="17" y="4" width="5.5" height="16" rx="1"/><path d="M12 2v4M12 10v4M12 18v4"/></svg>`,
   link: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/></svg>`,
   pin: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-3 1-4 4v4l-3-3-6 6 6-6-4-4h4l4-4z"/></svg>`,
   grid: `
