@@ -216,6 +216,9 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-body {
+      /* Use the viewport in both modes so entering comparison keeps the
+         metadata width stable whenever the pane has enough room. */
+      --cmf-metadata-width: clamp(220px, 16vw, 300px);
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -229,7 +232,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-body[data-prompts="true"] {
-      grid-template-columns: minmax(0, 1fr) clamp(260px, 26vw, 360px);
+      grid-template-columns: minmax(0, 1fr) var(--cmf-metadata-width);
       align-items: stretch;
       place-items: stretch;
     }
@@ -245,7 +248,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] {
-      grid-template-columns: clamp(260px, 26vw, 360px) minmax(0, 1fr);
+      grid-template-columns: var(--cmf-metadata-width) minmax(0, 1fr);
     }
 
     .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-viewer-main {
@@ -550,6 +553,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-prompt-panel {
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -689,6 +693,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-resource-grid,
     .cmf-metadata-grid {
+      min-height: 0;
+      overflow: auto;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
@@ -757,13 +763,23 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-prompt-section {
       display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      flex: 0 1 auto;
       gap: 5px;
+      min-width: 0;
       min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Wrapping in a narrow panel must not push later sections off screen.
+       Each value area scrolls independently; the panel itself stays fixed. */
+    .cmf-resources-section,
+    .cmf-metadata-section {
+      max-height: 22vh;
     }
 
     .cmf-prompt-body-section {
-      grid-template-rows: auto minmax(0, 1fr);
-      flex: 1 1 0;
+      flex: 1 1 120px;
       max-height: 30vh;
       overflow: hidden;
     }
@@ -799,6 +815,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-prompt-text {
+      box-sizing: border-box;
       min-height: 76px;
       max-height: 34vh;
       overflow: auto;
@@ -816,8 +833,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-seed-text {
       min-height: 0;
-      max-height: none;
-      overflow: visible;
+      max-height: 10vh;
+      overflow: auto;
       scrollbar-gutter: auto;
     }
 
@@ -828,6 +845,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     @media (min-width: 861px) {
+      .cmf-prompt-section {
+        /* Keep the heading and at least one line of its value accessible. */
+        min-height: 68px;
+      }
+
       .cmf-viewer[data-show-comfy-progress="true"][data-progress-space="true"]
         .cmf-viewer-body[data-metadata-position="right"] .cmf-metadata-toolbar {
         margin-top: 80px;
@@ -837,6 +859,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
         .cmf-viewer-body[data-metadata-position="right"] .cmf-prompt-body-section:has(.cmf-prompt-negative) {
         flex-grow: 0.65;
         max-height: 24vh;
+      }
+    }
+
+    @media (min-width: 861px) and (max-height: 700px) {
+      .cmf-prompt-panel {
+        gap: 6px;
+        padding: 8px;
       }
     }
 
@@ -1071,7 +1100,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: minmax(0, min(300px, 42%)) minmax(0, 1fr);
+      grid-template-columns: min(42%, var(--cmf-metadata-width)) minmax(0, 1fr);
       gap: 8px;
     }
 
@@ -1088,7 +1117,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: minmax(0, 1fr) minmax(0, min(300px, 42%));
+      grid-template-columns: minmax(0, 1fr) min(42%, var(--cmf-metadata-width));
     }
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"] .cmf-viewer-media-stage,
