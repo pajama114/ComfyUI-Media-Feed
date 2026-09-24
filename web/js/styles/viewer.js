@@ -290,7 +290,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       transform-origin: center;
       user-select: none;
       -webkit-user-select: none;
-      will-change: transform;
+      /* Let zoom changes rerasterize the grid. will-change: transform can
+         retain a fit-size bitmap and blur its images when magnified. */
     }
 
     .cmf-viewer-batch-cell {
