@@ -34,6 +34,64 @@ export function installViewerShell(context) {
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
   const syncViewerProgressSpace = (...args) => actions.syncViewerProgressSpace(...args);
+
+  function viewerPanes() {
+    const viewer = runtime.viewer;
+    return (viewer?.comparing ? [viewer, viewer.reference] : [viewer]).filter(Boolean);
+  }
+
+  function getViewerPane(target) {
+    const viewer = runtime.viewer;
+    if (!viewer?.comparing) return viewer;
+    if (target?.closest?.(".cmf-viewer-reference, .cmf-viewer-reference-bar")) return viewer.reference;
+    if (target?.closest?.(".cmf-viewer-pane, .cmf-viewer-pane-bar")) return viewer;
+    return viewer.activeComparisonSide === "right" ? viewer.reference : viewer;
+  }
+
+  function setActiveViewerPane(pane) {
+    const viewer = runtime.viewer;
+    if (!viewer) return;
+    viewer.activeComparisonSide = viewer.comparing && pane === viewer.reference ? "right" : "left";
+    for (const current of [viewer, viewer.reference].filter(Boolean)) {
+      const active = current === getViewerPane();
+      for (const element of [current.paneElement, current.paneHeader].filter(Boolean)) {
+        element.dataset.active = String(active);
+      }
+    }
+  }
+
+  function handleViewerPaneInteraction(event) {
+    const viewer = runtime.viewer;
+    if (!viewer?.comparing) return;
+    const pane = getViewerPane(event.target);
+    setActiveViewerPane(pane);
+    // A click on an unfocusable image must not leave the other pane's player
+    // focused, where its native arrow/Space handling would receive later keys.
+    const focused = document.activeElement;
+    if ((event.type === "pointerdown" || event.type === "wheel") && focused !== viewer.root
+      && !pane.paneElement.contains(focused) && !pane.paneHeader.contains(focused)) {
+      viewer.root.focus({ preventScroll: true });
+    }
+  }
+
+  function paneActions(pane) {
+    return pane.controller || actions;
+  }
+
+  function bindViewerNavigation(pane) {
+    for (const [button, direction] of [[pane.prevButton, -1], [pane.nextButton, 1]]) {
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("mouseenter", () => showViewerNavigation({ scheduleHide: false }));
+      button.addEventListener("mouseleave", scheduleViewerNavigationHide);
+      button.addEventListener("focus", () => showViewerNavigation({ scheduleHide: false }));
+      button.addEventListener("blur", scheduleViewerNavigationHide);
+      button.addEventListener("click", () => {
+        button.blur();
+        showViewerRelative(direction, pane);
+      });
+    }
+  }
+
   function viewerNavigationAutoHideEnabled() {
     return !window.matchMedia?.("(hover: none), (pointer: coarse)").matches;
   }
@@ -46,7 +104,7 @@ export function installViewerShell(context) {
 
   function isViewerNavigationEngaged() {
     if (!runtime.viewer) return false;
-    const buttons = [runtime.viewer.prevButton, runtime.viewer.nextButton];
+    const buttons = viewerPanes().flatMap((pane) => [pane.prevButton, pane.nextButton]);
     return buttons.some((button) => button === globalThis.document?.activeElement
       || button?.matches?.(":hover"));
   }
@@ -70,28 +128,28 @@ export function installViewerShell(context) {
     if (scheduleHide) scheduleViewerNavigationHide();
   }
 
-  function clearViewerNewMediaIndicator() {
-    if (!runtime.viewer) return;
-    runtime.viewer.newestUnseenEntryKey = "";
-    runtime.viewer.newestUnseenEntrySignature = "";
+  function clearViewerNewMediaIndicator(pane = runtime.viewer) {
+    if (!pane) return;
+    pane.newestUnseenEntryKey = "";
+    pane.newestUnseenEntrySignature = "";
   }
 
-  function syncViewerNewMediaIndicator() {
-    if (!runtime.viewer) return;
-    const { newestUnseenEntryKey, newestUnseenEntrySignature } = runtime.viewer;
+  function syncViewerNewMediaIndicator(pane = runtime.viewer) {
+    if (!pane) return;
+    const { newestUnseenEntryKey, newestUnseenEntrySignature } = pane;
     let hasNewMedia = Boolean(newestUnseenEntryKey);
     if (hasNewMedia) {
-      const targetIndex = runtime.viewer.items.findIndex((entry) => entry.key === newestUnseenEntryKey
+      const targetIndex = pane.items.findIndex((entry) => entry.key === newestUnseenEntryKey
         && entrySignature(entry) === newestUnseenEntrySignature);
-      if (targetIndex === -1 || runtime.viewer.index <= targetIndex) {
-        clearViewerNewMediaIndicator();
+      if (targetIndex === -1 || pane.index <= targetIndex) {
+        clearViewerNewMediaIndicator(pane);
         hasNewMedia = false;
       }
     }
-    runtime.viewer.prevButton.dataset.newMedia = String(hasNewMedia);
+    pane.prevButton.dataset.newMedia = String(hasNewMedia);
     const label = hasNewMedia ? "Previous — new media available" : "Previous";
-    runtime.viewer.prevButton.title = label;
-    runtime.viewer.prevButton.setAttribute("aria-label", label);
+    pane.prevButton.title = label;
+    pane.prevButton.setAttribute("aria-label", label);
   }
 
   function ensureViewer() {
@@ -218,21 +276,8 @@ export function installViewerShell(context) {
     root.addEventListener("pointermove", () => showViewerNavigation());
     root.addEventListener("pointerdown", () => showViewerNavigation());
     root.addEventListener("pointerleave", hideViewerNavigation);
-    for (const button of root.querySelectorAll(".cmf-nav-button")) {
-      button.addEventListener("mousedown", (event) => event.preventDefault());
-      button.addEventListener("mouseenter", () => showViewerNavigation({ scheduleHide: false }));
-      button.addEventListener("mouseleave", scheduleViewerNavigationHide);
-      button.addEventListener("focus", () => showViewerNavigation({ scheduleHide: false }));
-      button.addEventListener("blur", scheduleViewerNavigationHide);
-    }
-    root.querySelector(".cmf-nav-prev").addEventListener("click", (event) => {
-      event.currentTarget.blur();
-      showViewerRelative(-1);
-    });
-    root.querySelector(".cmf-nav-next").addEventListener("click", (event) => {
-      event.currentTarget.blur();
-      showViewerRelative(1);
-    });
+    root.addEventListener("pointerdown", handleViewerPaneInteraction, true);
+    root.addEventListener("focusin", handleViewerPaneInteraction);
     root.addEventListener("wheel", handleViewerWheel, { passive: false });
     document.addEventListener("keydown", handleViewerGlobalKeydown, true);
   
@@ -294,6 +339,8 @@ export function installViewerShell(context) {
       newestUnseenEntrySignature: "",
     };
     actions.setupViewerComparison(runtime.viewer);
+    bindViewerNavigation(runtime.viewer);
+    bindViewerNavigation(runtime.viewer.reference);
     runtime.viewer.resizeObserver = new ResizeObserver(() => updateViewerImageLayout());
     runtime.viewer.resizeObserver.observe(runtime.viewer.media);
     syncViewerMetadataToggle();
@@ -379,63 +426,105 @@ export function installViewerShell(context) {
     syncViewerProgressSpace();
   }
   
-  function showViewerRelative(direction) {
-    if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
+  function showViewerRelative(direction, pane = getViewerPane()) {
+    if (!pane || runtime.viewer?.root.dataset.open !== "true") return;
+    setActiveViewerPane(pane);
     showViewerNavigation();
     syncViewerItems();
-  
-    const nextIndex = runtime.viewer.index + direction;
-    if (nextIndex < 0 || nextIndex >= runtime.viewer.items.length) return;
-  
-    runtime.viewer.index = nextIndex;
-    renderViewerItem(runtime.viewer.items[nextIndex]);
-    updateViewerPromptPanel();
+    if (runtime.viewer.root.dataset.open !== "true") return;
+
+    const nextIndex = pane.index + direction;
+    if (nextIndex < 0 || nextIndex >= pane.items.length) return;
+
+    pane.index = nextIndex;
+    const owner = paneActions(pane);
+    owner.renderViewerItem(pane.items[nextIndex]);
+    owner.updateViewerPromptPanel();
   }
-  
-  function syncViewerNav() {
-    if (!runtime.viewer) return;
-    runtime.viewer.prevButton.disabled = runtime.viewer.index <= 0;
-    runtime.viewer.nextButton.disabled = runtime.viewer.index >= runtime.viewer.items.length - 1;
-    syncViewerNewMediaIndicator();
+
+  function syncViewerNav(pane = runtime.viewer) {
+    if (!pane) return;
+    pane.prevButton.disabled = pane.index <= 0;
+    pane.nextButton.disabled = pane.index >= pane.items.length - 1;
+    syncViewerNewMediaIndicator(pane);
   }
-  
+
   function syncViewerItems({ newMediaAdded = false } = {}) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true" || !runtime.viewer.item) return;
-  
+
     const items = displayEntries(filteredItems(), state.batchMode);
-    const previousEntry = runtime.viewer.entry || runtime.viewer.item;
-    let index = items.findIndex((current) => current.key === previousEntry.key);
-    if (index === -1) index = items.findIndex((current) => current.kind === "batch"
-      && current.items.some((member) => member.key === runtime.viewer.item.key));
-    if (index === -1) index = items.findIndex((current) => current.key === runtime.viewer.item.key);
-    runtime.viewer.items = items;
-    if (index !== -1) {
-      runtime.viewer.index = index;
-      if (newMediaAdded && index > 0 && items[0]) {
-        runtime.viewer.newestUnseenEntryKey = items[0].key;
-        runtime.viewer.newestUnseenEntrySignature = entrySignature(items[0]);
-      }
-      const next = items[index];
-      const changed = previousEntry.key !== next.key
-        || entrySignature(previousEntry) !== entrySignature(next)
-        || !next.items && runtime.viewer.item.id !== next.id;
-      if (changed) {
-        if (next.kind === "batch" && previousEntry.key !== next.key) runtime.viewer.entry = next;
-        renderViewerItem(next);
-        updateViewerPromptPanel();
-      }
-    } else {
-      runtime.viewer.index = Math.min(runtime.viewer.index, Math.max(0, items.length - 1));
-      if (items.length) {
-        renderViewerItem(items[runtime.viewer.index]);
-        updateViewerPromptPanel();
-      } else {
-        closeViewer();
-      }
+    if (!items.length) {
+      closeViewer();
+      return;
     }
-    syncViewerNav();
+    for (const pane of viewerPanes()) {
+      if (!pane.item) continue;
+      const owner = paneActions(pane);
+      const previousEntry = pane.entry || pane.item;
+      let index = items.findIndex((current) => current.key === previousEntry.key);
+      if (index === -1) index = items.findIndex((current) => current.kind === "batch"
+        && current.items.some((member) => member.key === pane.item.key));
+      if (index === -1) index = items.findIndex((current) => current.key === pane.item.key);
+      pane.items = items;
+      if (index !== -1) {
+        pane.index = index;
+        if (newMediaAdded && index > 0) {
+          pane.newestUnseenEntryKey = items[0].key;
+          pane.newestUnseenEntrySignature = entrySignature(items[0]);
+        }
+        const next = items[index];
+        const changed = previousEntry.key !== next.key
+          || entrySignature(previousEntry) !== entrySignature(next)
+          || !next.items && pane.item.id !== next.id;
+        if (changed) {
+          if (next.kind === "batch" && previousEntry.key !== next.key) pane.entry = next;
+          owner.renderViewerItem(next);
+          owner.updateViewerPromptPanel();
+        }
+      } else {
+        pane.index = Math.max(0, Math.min(pane.index, items.length - 1));
+        owner.renderViewerItem(items[pane.index]);
+        owner.updateViewerPromptPanel();
+      }
+      syncViewerNav(pane);
+    }
   }
-  
+
+  function adoptViewerPane(source) {
+    const viewer = runtime.viewer;
+    const playback = new Map([...source.media.querySelectorAll("video, audio")]
+      .filter((media) => media.dataset.mediaItemKey === source.item.key)
+      .map((media) => [media.dataset.mediaItemKey, { time: media.currentTime, paused: media.paused }]));
+    const view = Object.fromEntries(["imageBaseMode", "imageZoom", "imagePanX", "imagePanY"]
+      .map((key) => [key, source[key]]));
+    for (const key of ["entry", "item", "items", "index", "batchSelectionVisible",
+      "newestUnseenEntryKey", "newestUnseenEntrySignature"]) viewer[key] = source[key];
+    // Re-render with the left controller: moving DOM would retain handlers
+    // bound to the right pane. Restore playback only for the selected item;
+    // resuming another batch cell would change the selection via its play event.
+    const rendering = renderViewerItem(viewer.entry || viewer.item, undefined, { autoplay: false });
+    Object.assign(viewer, view);
+    if (viewer.item.kind === "video" && !isBatchPresentation(viewer.entry)) {
+      viewer.imagePanX = viewer.imagePanY = 0;
+    }
+    const requestId = viewer.renderRequestId;
+    rendering.then(() => {
+      if (viewer.renderRequestId !== requestId || viewer.root.dataset.open !== "true") return;
+      updateViewerImageLayout();
+      for (const media of viewer.media.querySelectorAll("video, audio")) {
+        const saved = playback.get(media.dataset.mediaItemKey);
+        if (!saved) continue;
+        const restore = () => {
+          if (viewer.renderRequestId !== requestId || viewer.root.dataset.open !== "true") return;
+          if (Number.isFinite(saved.time)) media.currentTime = saved.time;
+          if (!saved.paused) media.play().catch(() => {});
+        };
+        if (media.readyState >= 1) restore();
+        else media.addEventListener("loadedmetadata", restore, { once: true });
+      }
+    });
+  }
+
   function handleViewerControlKeydown(event) {
     if (!event.ctrlKey && !event.metaKey && !event.altKey) return;
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -510,9 +599,7 @@ export function installViewerShell(context) {
       if (isViewerPlaybackShortcutControl(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      const pane = runtime.viewer?.comparing
-        && event.target?.closest?.(".cmf-viewer-reference, .cmf-viewer-reference-bar")
-        ? runtime.viewer.reference : runtime.viewer;
+      const pane = getViewerPane(event.target);
       if (!event.repeat) toggleViewerMediaPlayback(pane);
       return;
     }
@@ -520,14 +607,14 @@ export function installViewerShell(context) {
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       event.stopImmediatePropagation();
-      showViewerRelative(-1);
+      showViewerRelative(-1, getViewerPane(event.target));
       return;
     }
   
     if (event.key === "ArrowRight") {
       event.preventDefault();
       event.stopImmediatePropagation();
-      showViewerRelative(1);
+      showViewerRelative(1, getViewerPane(event.target));
     }
   }
   
@@ -535,14 +622,17 @@ export function installViewerShell(context) {
     if (!runtime.viewer || runtime.viewer.root.dataset.open !== "true") return;
     if (event.target instanceof Element && event.target.closest(".cmf-prompt-panel")) return;
   
-    const image = actions.getViewerScalableMedia();
-    if ((event.ctrlKey || event.metaKey) && image) {
+    handleViewerPaneInteraction(event);
+    const pane = getViewerPane(event.target);
+    const owner = paneActions(pane);
+    const image = owner.getViewerScalableMedia();
+    if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
       event.stopPropagation();
       const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-      if (delta) {
+      if (image && delta) {
         const factor = delta < 0 ? VIEWER_IMAGE_WHEEL_ZOOM_FACTOR : 1 / VIEWER_IMAGE_WHEEL_ZOOM_FACTOR;
-        setViewerImageZoom(runtime.viewer.imageZoom * factor, { x: event.clientX, y: event.clientY });
+        owner.setViewerImageZoom(pane.imageZoom * factor, { x: event.clientX, y: event.clientY });
       }
       return;
     }
@@ -551,19 +641,23 @@ export function installViewerShell(context) {
   
     event.preventDefault();
     event.stopPropagation();
-    if (runtime.viewerWheelLock) return;
+    if (pane.wheelLock) return;
   
-    runtime.viewerWheelLock = true;
+    pane.wheelLock = true;
     window.setTimeout(() => {
-      runtime.viewerWheelLock = false;
+      pane.wheelLock = false;
     }, 70);
   
     const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-    showViewerRelative(dominantDelta > 0 ? 1 : -1);
+    showViewerRelative(dominantDelta > 0 ? 1 : -1, pane);
   }
   
   Object.assign(actions, {
     ensureViewer,
+    getViewerPane,
+    setActiveViewerPane,
+    handleViewerPaneInteraction,
+    adoptViewerPane,
     syncViewerScaleMedia,
     syncViewerComfyProgress,
     syncViewerMetadataPosition,

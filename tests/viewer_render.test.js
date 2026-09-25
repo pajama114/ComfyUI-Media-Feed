@@ -186,7 +186,7 @@ test("viewer reuses its native audio player when moving between audio items", as
   }
 });
 
-test("pinned headers reserve zoom controls while images and batches are decoding", async () => {
+test("comparison headers reserve zoom controls while images and batches are decoding", async () => {
   const originalDocument = globalThis.document;
   const originalHTMLElement = globalThis.HTMLElement;
   class Element {
@@ -246,4 +246,57 @@ test("pinned headers reserve zoom controls while images and batches are decoding
     if (originalHTMLElement === undefined) delete globalThis.HTMLElement;
     else globalThis.HTMLElement = originalHTMLElement;
   }
+});
+
+test("interleaved comparison image loads mount only the latest item in each owning pane", async (t) => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: () => ({ dataset: {}, complete: false }) };
+  t.after(() => {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  });
+  const pending = new Map();
+  const createPane = (side) => {
+    const viewer = {
+      root: { dataset: { open: "true" } },
+      media: { querySelector: () => null, replaceChildren(image) { this.image = image; } },
+      title: {}, openLink: {}, copyImageButton: {}, favoriteButton: {},
+      comparing: side === "left", isComparisonPane: side === "right",
+      renderRequestId: 0,
+    };
+    const context = {
+      state: {}, runtime: { viewer, decodedImageCache: new Map(), mediaDimensionCache: new Map() }, actions: {},
+    };
+    installViewerSupport(context);
+    Object.assign(context.actions, {
+      ensureViewer: () => viewer,
+      clearViewerAudioWaveform() {}, discardStagedMedia() {}, syncFavoriteButton() {}, syncViewerNav() {},
+      prepareViewerImage() {}, updateViewerImageControls() {}, updateViewerImageLayout() {},
+      refreshViewerPromptPanelDetails() {}, viewerMediaNaturalSize: () => ({ width: 100, height: 100 }),
+      decodeImageElement: (image) => new Promise((resolve) => pending.set(`${side}:${image.src}`, resolve)),
+    });
+    installViewerRender(context);
+    return { viewer, render: context.actions.renderViewerItem };
+  };
+  const item = (id) => ({ id, key: id, kind: "image", filename: id, url: id });
+  const left = createPane("left"), right = createPane("right");
+  const leftLoad = left.render(item("left"));
+  const oldRightLoad = right.render(item("old"));
+  const rightLoad = right.render(item("new"));
+  pending.get("right:new")();
+  await rightLoad;
+  pending.get("left:left")();
+  await leftLoad;
+  pending.get("right:old")();
+  await oldRightLoad;
+  assert.equal(left.viewer.media.image.dataset.mediaItemKey, "left");
+  assert.equal(right.viewer.media.image.dataset.mediaItemKey, "new");
+  assert.equal(right.viewer.item.id, "new");
+  assert.equal(right.viewer.mediaReadyItemId, "new");
+
+  const closingLoad = right.render(item("closing"));
+  right.viewer.root.dataset.open = "false";
+  pending.get("right:closing")();
+  await closingLoad;
+  assert.equal(right.viewer.media.image.dataset.mediaItemKey, "new");
 });

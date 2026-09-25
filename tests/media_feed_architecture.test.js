@@ -455,7 +455,7 @@ test("native progress setting persists and updates an existing viewer without op
   }
 });
 
-test("comparison keeps progress space when only the pinned metadata panel is open", () => {
+test("comparison keeps progress space when only the right metadata panel is open", () => {
   const originalWindow = globalThis.window;
   const originalDocument = globalThis.document;
   const originalResizeObserver = globalThis.ResizeObserver;

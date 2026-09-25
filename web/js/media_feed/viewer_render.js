@@ -317,7 +317,7 @@ export function installViewerRender(context) {
     refreshViewerPromptPanelDetails();
   }
 
-  async function renderViewerItem(item, thumbnail) {
+  async function renderViewerItem(item, thumbnail, { autoplay = true } = {}) {
     const currentViewer = ensureViewer();
     const requestId = ++currentViewer.renderRequestId;
     clearViewerAudioWaveform(currentViewer);
@@ -345,7 +345,7 @@ export function installViewerRender(context) {
     currentViewer.copyImageButton.hidden = mediaItem.kind !== "image";
     syncFavoriteButton(currentViewer.favoriteButton, mediaItem);
     // Reserve the zoom controls' space before decoding, including in the
-    // pinned pane where no previous media is mounted to keep them visible.
+    // second pane where no previous media is mounted to keep them visible.
     actions.updateViewerImageControls();
     syncViewerNav();
     if (batchPresentation) {
@@ -429,7 +429,7 @@ export function installViewerRender(context) {
       }, { once: true });
       video.src = mediaItem.url;
       currentViewer.pendingMedia = video;
-      if (!currentViewer.isComparisonPane) video.play().catch(() => {});
+      if (autoplay) video.play().catch(() => {});
       await waitForMediaReady(video);
       if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
         if (currentViewer.pendingMedia === video) currentViewer.pendingMedia = null;
@@ -438,7 +438,7 @@ export function installViewerRender(context) {
       }
       currentViewer.pendingMedia = null;
       discardDisplayedBatchMedia(currentViewer);
-      replaceViewerMedia(currentViewer, video);
+      replaceViewerMedia(currentViewer, video, { autoplay });
       layout();
       currentViewer.mediaReadyItemId = mediaItem.id;
       refreshViewerPromptPanelDetails();
@@ -459,9 +459,10 @@ export function installViewerRender(context) {
     }
     audio.dataset.mediaItemKey = mediaItem.key;
     audio.loop = state.loopAudio;
+    if (!autoplay) audio.pause();
     audio.src = mediaItem.url;
     currentViewer.pendingMedia = audio;
-    if (!currentViewer.isComparisonPane) audio.play().catch(() => {});
+    if (autoplay) audio.play().catch(() => {});
     await waitForMediaReady(audio);
     if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
       if (!reusingDisplayedAudio) {
@@ -473,7 +474,7 @@ export function installViewerRender(context) {
     currentViewer.pendingMedia = null;
     if (!reusingDisplayedAudio) {
       discardDisplayedBatchMedia(currentViewer);
-      replaceViewerMedia(currentViewer, presentation);
+      replaceViewerMedia(currentViewer, presentation, { autoplay });
     }
     setupViewerAudioWaveform(currentViewer, audio, mediaItem.url);
     layout();

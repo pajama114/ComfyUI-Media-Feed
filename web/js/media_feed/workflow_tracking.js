@@ -108,7 +108,7 @@ export function installWorkflowTracking(context) {
     if (state.mediaScope !== "current-tab") return;
   
     updateViewsForWorkflowTab(runtime.activeWorkflowTabId);
-    if (isViewerOpen() && runtime.viewer?.item && !filteredItems().some((item) => item.key === runtime.viewer.item.key)) {
+    if (isViewerOpen() && !runtime.viewer?.comparing && runtime.viewer?.item && !filteredItems().some((item) => item.key === runtime.viewer.item.key)) {
       closeViewer();
     } else {
       syncViewerItems();

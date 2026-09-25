@@ -172,7 +172,7 @@ export function installSettings(context) {
       updateViews(false);
     }
   
-    if (isViewerOpen() && runtime.viewer?.item && !filteredItems().some((item) => item.key === runtime.viewer.item.key)) {
+    if (isViewerOpen() && !runtime.viewer?.comparing && runtime.viewer?.item && !filteredItems().some((item) => item.key === runtime.viewer.item.key)) {
       closeViewer();
     } else {
       syncViewerItems();

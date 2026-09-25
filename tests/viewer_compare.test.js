@@ -73,7 +73,7 @@ test("audio and unmeasured frames leave comparison view unchanged", () => {
   assert.equal(captureComparisonView(viewer, controller, 100), null);
 });
 
-test("pinned video and audio mount paused with independent audible playback available", () => {
+test("comparison duplicates mount paused with independent audible playback available", () => {
   let plays = 0;
   let pauses = 0;
   const playback = { muted: true, play() { plays++; return Promise.resolve(); } };
@@ -86,13 +86,13 @@ test("pinned video and audio mount paused with independent audible playback avai
   };
   const context = { runtime: {}, actions: {} };
   installViewerSupport(context);
-  context.actions.replaceViewerMedia(viewer, { matches: () => false, querySelector: () => playback });
+  context.actions.replaceViewerMedia(viewer, { matches: () => false, querySelector: () => playback }, { autoplay: false });
   assert.equal(plays, 0);
   assert.equal(pauses, 1);
   assert.equal(playback.muted, false);
 });
 
-test("pinned metadata follows its own item and ignores stale loads", async () => {
+test("comparison metadata follows its own item and ignores stale loads", async () => {
   const pending = new Map();
   const grid = () => ({ childElementCount: 0, replaceChildren() {} });
   const viewer = {
@@ -159,7 +159,7 @@ test("pinned metadata follows its own item and ignores stale loads", async () =>
   assert.equal(viewer.pendingPromptMetadataResult, null);
 });
 
-test("clicking the comparison backdrop closes the viewer", () => {
+test("clicking empty space around either comparison grid closes the viewer", () => {
   const originalImageElement = globalThis.HTMLImageElement;
   globalThis.HTMLImageElement = class {};
   try {
@@ -174,9 +174,24 @@ test("clicking the comparison backdrop closes the viewer", () => {
       },
     };
     installViewerZoom(context);
-    context.actions.handleViewerBackdropClick({ target: { classList: { contains: (name) => name === "cmf-viewer-media-stage" } } });
-    assert.equal(closed, 1);
-    assert.deepEqual(visibilityChanges, [[false, undefined]]);
+    for (const side of ["left", "right"]) {
+      for (const name of ["cmf-viewer-pane", "cmf-viewer-media-stage", "cmf-viewer-media"]) {
+        const before = closed;
+        context.actions.handleViewerBackdropClick({ target: {
+          closest: (selector) => selector === ".cmf-viewer-pane" ? { side } : null,
+          classList: { contains: (value) => value === name },
+        } });
+        assert.equal(closed, before + 1);
+      }
+    }
+    context.actions.handleViewerBackdropClick({ target: {
+      closest: (selector) => selector === ".cmf-viewer-batch-grid" ? {} : null,
+      classList: { contains: () => false },
+    } });
+    assert.equal(closed, 6, "clicking the grid itself keeps the viewer open");
+    context.actions.handleViewerBackdropClick({ target: runtime.viewer.main });
+    assert.equal(closed, 7);
+    assert.equal(visibilityChanges.length, 8);
   } finally {
     if (originalImageElement === undefined) delete globalThis.HTMLImageElement;
     else globalThis.HTMLImageElement = originalImageElement;

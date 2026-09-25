@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { displayEntries, entrySignature, isBatchPresentation } from "../web/js/media_feed/batch_entries.js";
-import { pinnedComparisonEntry } from "../web/js/media_feed/viewer_compare.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
 import { installViewerShell } from "../web/js/media_feed/viewer_shell.js";
@@ -35,17 +34,6 @@ test("batch view groups prompt outputs in output order and leaves ungrouped medi
 
   const replaced = displayEntries([{ ...items[0], id: "a3-new" }, ...items.slice(1)], true);
   assert.notEqual(entrySignature(entries[0]), entrySignature(replaced[0]));
-});
-
-test("comparison pins a batch snapshot while the browsing batch changes", () => {
-  const left = displayEntries([media("two", "p"), media("one", "p")], true)[0];
-  const pinned = pinnedComparisonEntry({ entry: left, item: left.items[1] });
-  assert.notEqual(pinned, left);
-  assert.notEqual(pinned.items, left.items);
-  assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
-
-  left.items.push(media("three", "p"));
-  assert.deepEqual(pinned.items.map((item) => item.id), ["one", "two"]);
 });
 
 test("switching grid cells keeps rendered metadata visible while the next item loads", async () => {

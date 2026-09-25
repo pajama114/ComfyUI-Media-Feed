@@ -2,7 +2,7 @@ import { installViewerZoom } from "./viewer_zoom.js";
 import { installViewerSupport } from "./viewer_support.js";
 import { installViewerRender } from "./viewer_render.js";
 import { installViewerMetadata } from "./viewer_metadata.js";
-import { VIEWER_IMAGE_ZOOM_STEP, VIEWER_IMAGE_WHEEL_ZOOM_FACTOR } from "./constants.js";
+import { VIEWER_IMAGE_ZOOM_STEP } from "./constants.js";
 import { isBatchPresentation } from "./batch_entries.js";
 
 // Store zoom relative to the fitted size and pan as fractions of the media,
@@ -52,11 +52,6 @@ export function comparisonMetadataSpace(leftVisible, rightVisible, synchronized)
   };
 }
 
-export function pinnedComparisonEntry(viewer) {
-  const entry = viewer.entry?.kind === "batch" ? viewer.entry : viewer.item;
-  return entry?.kind === "batch" ? { ...entry, items: [...entry.items] } : { ...entry };
-}
-
 export function installViewerCompare(context) {
   const { actions, runtime, state, ICONS } = context;
 
@@ -71,12 +66,6 @@ export function installViewerCompare(context) {
     const rightHeader = leftHeader.cloneNode(true);
     rightHeader.classList.add("cmf-viewer-reference-bar");
     rightHeader.hidden = true;
-    const pin = document.createElement("span");
-    pin.className = "cmf-viewer-pin";
-    pin.innerHTML = `${ICONS.pin}<span>Pinned</span>`;
-    pin.title = "Pinned comparison media";
-    pin.setAttribute("aria-label", pin.title);
-    rightHeader.prepend(pin);
     const globalControls = document.createElement("div");
     globalControls.className = "cmf-viewer-global-controls";
     const compare = document.createElement("button");
@@ -91,22 +80,24 @@ export function installViewerCompare(context) {
 
     const leftPane = document.createElement("section");
     leftPane.className = "cmf-viewer-pane";
-    leftPane.setAttribute("aria-label", "Browsing media");
+    leftPane.setAttribute("aria-label", "Left media pane");
     const leftStage = document.createElement("div");
     leftStage.className = "cmf-viewer-media-stage";
     leftStage.append(...viewer.main.children);
     leftPane.append(leftStage);
     const rightPane = document.createElement("section");
     rightPane.className = "cmf-viewer-pane cmf-viewer-reference";
-    rightPane.setAttribute("aria-label", "Pinned comparison media");
+    rightPane.setAttribute("aria-label", "Right media pane");
     rightPane.hidden = true;
     const rightStage = document.createElement("div");
     rightStage.className = "cmf-viewer-media-stage";
     const media = document.createElement("div");
     media.className = "cmf-viewer-media";
-    rightStage.append(media);
+    const prevButton = viewer.prevButton.cloneNode(true);
+    const nextButton = viewer.nextButton.cloneNode(true);
+    rightStage.append(prevButton, nextButton, media);
     const rightPanel = viewer.promptPanel.cloneNode(true);
-    rightPanel.setAttribute("aria-label", "Pinned media metadata");
+    rightPanel.setAttribute("aria-label", "Right media metadata");
     const rightShowMetadataButton = viewer.showMetadataButton.cloneNode(true);
     rightPane.append(rightStage, rightPanel, rightShowMetadataButton);
     viewer.main.append(leftPane, rightPane);
@@ -116,8 +107,6 @@ export function installViewerCompare(context) {
     function arrangeHeader(header) {
       const identity = document.createElement("div");
       identity.className = "cmf-viewer-pane-identity";
-      const pin = header.querySelector(".cmf-viewer-pin");
-      if (pin) identity.append(pin);
       identity.append(header.querySelector(".cmf-viewer-title"));
       const controls = document.createElement("div");
       controls.className = "cmf-viewer-pane-actions";
@@ -201,6 +190,9 @@ export function installViewerCompare(context) {
       imageBaseMode: "fit", imageZoom: 1, imagePanX: 0, imagePanY: 0,
       renderRequestId: 0, pendingMedia: null,
       body: rightPane,
+      paneElement: rightPane, paneHeader: rightHeader,
+      prevButton, nextButton,
+      newestUnseenEntryKey: "", newestUnseenEntrySignature: "",
       promptPanel: rightPanel,
       promptStatus: rightPanel.querySelector(".cmf-prompt-status"),
       scanFullMetadataButton: rightPanel.querySelector(".cmf-scan-full-metadata"),
@@ -239,7 +231,10 @@ export function installViewerCompare(context) {
     installViewerRender(referenceContext);
     installViewerMetadata(referenceContext);
     controller.ensureViewer = () => reference;
-    controller.syncViewerNav = () => {};
+    controller.syncViewerNav = () => actions.syncViewerNav(reference);
+    reference.controller = controller;
+    viewer.paneElement = leftPane;
+    viewer.paneHeader = leftHeader;
     reference.favoriteButton.addEventListener("click", () => actions.toggleFavorite(reference.item));
     reference.downloadButton.addEventListener("click", controller.downloadViewerMedia);
     reference.copyImageButton.addEventListener("click", controller.copyViewerImage);
@@ -276,14 +271,6 @@ export function installViewerCompare(context) {
       actions.syncViewerProgressSpace();
     }
     viewer.setComparisonMetadataVisible = setComparisonMetadataVisible;
-    rightPane.addEventListener("wheel", (event) => {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
-      if (delta) controller.setViewerImageZoom(reference.imageZoom * (delta < 0 ? VIEWER_IMAGE_WHEEL_ZOOM_FACTOR : 1 / VIEWER_IMAGE_WHEEL_ZOOM_FACTOR), { x: event.clientX, y: event.clientY });
-    }, { passive: false });
-
     let sharedView = null;
     const capture = (pane, owner) => captureComparisonView(pane, owner, state.viewerFitScale);
     const apply = (pane, owner, view) => applyComparisonView(pane, owner, view, state.viewerFitScale);
@@ -338,7 +325,8 @@ export function installViewerCompare(context) {
     viewer.setComparisonViewSync = (enabled) => {
       const nextEnabled = Boolean(enabled);
       if (viewer.comparing && nextEnabled && !viewer.comparisonViewSyncEnabled) {
-        sharedView = capture(viewer, actions) || sharedView;
+        const pane = actions.getViewerPane();
+        sharedView = capture(pane, pane === reference ? controller : actions) || sharedView;
       }
       viewer.comparisonViewSyncEnabled = nextEnabled;
       syncComparisonMetadataSpace();
@@ -346,9 +334,15 @@ export function installViewerCompare(context) {
     };
     viewer.reference = reference;
     viewer.stopComparison = ({ closing = false } = {}) => {
+      const retainRight = !closing && viewer.comparing && actions.getViewerPane() === reference;
       viewer.comparing = false;
       viewer.root.dataset.comparing = "false";
       syncComparisonMetadataSpace();
+      actions.setActiveViewerPane(viewer);
+      rightPanel.hidden = true;
+      viewer.body.append(viewer.promptPanel, viewer.showMetadataButton);
+      rightPane.hidden = rightHeader.hidden = true;
+      if (retainRight) actions.adoptViewerPane(reference);
       reference.promptRequestId++;
       controller.clearViewerPromptLoadingTimer();
       reference.renderRequestId++;
@@ -361,15 +355,15 @@ export function installViewerCompare(context) {
       reference.media.replaceChildren();
       reference.item = null;
       reference.entry = null;
+      reference.items = [];
+      reference.index = -1;
+      actions.clearViewerNewMediaIndicator(reference);
       reference.imageDrag = null;
-      if (viewer.item?.kind === "video") {
+      if (viewer.item?.kind === "video" && !isBatchPresentation(viewer.entry)) {
         viewer.imagePanX = 0;
         viewer.imagePanY = 0;
         viewer.imageDrag = null;
       }
-      rightPanel.hidden = true;
-      viewer.body.append(viewer.promptPanel, viewer.showMetadataButton);
-      rightPane.hidden = rightHeader.hidden = true;
       compare.setAttribute("aria-pressed", "false");
       actions.syncViewerMetadataPosition();
       actions.syncViewerMetadataToggle();
@@ -384,6 +378,7 @@ export function installViewerCompare(context) {
       sharedView = capture(viewer, actions) || { zoom: 1, x: 0, y: 0 };
       viewer.comparisonViewSyncEnabled = state.syncComparisonView;
       viewer.comparing = true;
+      actions.setActiveViewerPane(viewer);
       viewer.root.dataset.comparing = "true";
       compare.setAttribute("aria-pressed", "true");
       rightPane.hidden = rightHeader.hidden = false;
@@ -397,19 +392,21 @@ export function installViewerCompare(context) {
       if (viewer.comparisonViewSyncEnabled) apply(viewer, actions, sharedView);
       const playback = isBatchPresentation(viewer.entry) ? null : viewer.media.querySelector("video, audio");
       const playbackTime = playback?.currentTime || 0;
-      const pinnedEntry = pinnedComparisonEntry(viewer);
-      if (pinnedEntry.kind === "batch") {
-        reference.entry = pinnedEntry;
-        reference.item = viewer.item;
-      }
-      const rendering = controller.renderViewerItem(pinnedEntry);
+      reference.items = viewer.items;
+      reference.index = viewer.index;
+      reference.entry = viewer.entry || viewer.item;
+      reference.item = viewer.item;
+      reference.batchSelectionVisible = viewer.batchSelectionVisible;
+      reference.newestUnseenEntryKey = viewer.newestUnseenEntryKey;
+      reference.newestUnseenEntrySignature = viewer.newestUnseenEntrySignature;
+      const rendering = controller.renderViewerItem(reference.entry, undefined, { autoplay: false });
       setComparisonMetadataVisible("right", state.showPrompts);
       const requestId = reference.renderRequestId;
       rendering.then(() => {
         if (!viewer.comparing || reference.renderRequestId !== requestId) return;
-        const pinnedPlayback = reference.media.querySelector("video, audio");
-        if (pinnedPlayback && playbackTime && pinnedPlayback.readyState >= 1) {
-          pinnedPlayback.currentTime = playbackTime;
+        const comparisonPlayback = reference.media.querySelector("video, audio");
+        if (comparisonPlayback && playbackTime && comparisonPlayback.readyState >= 1) {
+          comparisonPlayback.currentTime = playbackTime;
         }
       });
     });

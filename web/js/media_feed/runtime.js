@@ -34,7 +34,6 @@ export function createMediaFeedRuntime() {
     loopVideosSettingSeen: false,
     loopAudioSettingSeen: false,
     viewer: null,
-    viewerWheelLock: false,
     workflowTabSequence: 0,
     activeWorkflowTabId: "",
     activeQueueRequest: null,

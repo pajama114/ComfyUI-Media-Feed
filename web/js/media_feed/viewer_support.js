@@ -60,7 +60,7 @@ export function installViewerSupport(context) {
     });
   }
   
-  function replaceViewerMedia(currentViewer, nextMedia) {
+  function replaceViewerMedia(currentViewer, nextMedia, { autoplay = true } = {}) {
     const previousMedia = currentViewer.media.querySelector("video, audio");
     currentViewer.media.replaceChildren(nextMedia);
     previousMedia?.pause();
@@ -69,7 +69,7 @@ export function installViewerSupport(context) {
       : nextMedia.querySelector?.("video, audio");
     if (!playbackMedia) return;
     playbackMedia.muted = false;
-    if (!currentViewer.isComparisonPane) playbackMedia.play().catch(() => {});
+    if (autoplay) playbackMedia.play().catch(() => {});
   }
   
   function waitForImageReady(image) {
