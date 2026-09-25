@@ -9,6 +9,7 @@ import {
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
 import { installViewerMetadata } from "../web/js/media_feed/viewer_metadata.js";
 import { installViewerZoom } from "../web/js/media_feed/viewer_zoom.js";
+import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 
 function pane(width, height, frameWidth = 500, frameHeight = 500) {
   const media = {};
@@ -223,4 +224,58 @@ test("clicking viewer chrome hides batch selection frames without closing the vi
     if (originalImageElement === undefined) delete globalThis.HTMLImageElement;
     else globalThis.HTMLImageElement = originalImageElement;
   }
+});
+
+test("viewer controls keep selected grid cells visible in both comparison panes", () => {
+  function element(tag, className = "", parentElement = null) {
+    return {
+      tagName: tag.toUpperCase(), className, parentElement,
+      classList: { contains: (name) => className.split(" ").includes(name) },
+      closest(selector) {
+        const matches = selector.split(",").map((part) => part.trim());
+        for (let current = this; current; current = current.parentElement) {
+          if (matches.some((part) => part === current.tagName.toLowerCase()
+            || part.startsWith(".") && current.className.split(" ").includes(part.slice(1)))) return current;
+        }
+        return null;
+      },
+    };
+  }
+
+  const leftGrid = { dataset: { selectionVisible: "true" } };
+  const rightGrid = { dataset: { selectionVisible: "true" } };
+  const reference = {
+    batchSelectionVisible: true,
+    media: { querySelector: () => rightGrid },
+  };
+  const viewer = {
+    batchSelectionVisible: true,
+    root: {}, body: {}, main: {},
+    media: { querySelector: () => leftGrid },
+    reference,
+  };
+  const context = {
+    state: {}, runtime: { viewer }, actions: { closeViewer() {} },
+  };
+  installViewerZoom(context);
+  installViewerRender(context);
+
+  const header = element("div", "cmf-viewer-bar");
+  const metadata = element("aside", "cmf-prompt-panel");
+  for (const [name, control] of [
+    ["zoom", element("button", "cmf-viewer-zoom-in", header)],
+    ["open original", element("a", "cmf-open-link", header)],
+    ["overflow menu", element("summary", "", header)],
+    ["prompt copy", element("button", "cmf-prompt-copy", metadata)],
+    ["Copy all", element("button", "cmf-copy-all", metadata)],
+    ["JSON", element("button", "cmf-download-json", metadata)],
+  ]) {
+    context.actions.handleViewerBackdropClick({ target: element("svg", "", control) });
+    assert.equal(leftGrid.dataset.selectionVisible, "true", `${name} preserves the left selection`);
+    assert.equal(rightGrid.dataset.selectionVisible, "true", `${name} preserves the right selection`);
+  }
+
+  context.actions.handleViewerBackdropClick({ target: element("span", "", header) });
+  assert.equal(leftGrid.dataset.selectionVisible, "false", "empty header space hides selection");
+  assert.equal(rightGrid.dataset.selectionVisible, "false", "empty header space hides selection in both panes");
 });

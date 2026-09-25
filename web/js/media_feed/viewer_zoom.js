@@ -408,7 +408,8 @@ export function installViewerZoom(context) {
       return;
     }
 
-    if (!event.target?.closest?.(".cmf-viewer-batch-cell")) {
+    const viewerControl = event.target?.closest?.("button, a, summary");
+    if (!event.target?.closest?.(".cmf-viewer-batch-cell") && !viewerControl) {
       setViewerBatchSelectionVisible(false);
       if (runtime.viewer?.reference) setViewerBatchSelectionVisible(false, runtime.viewer.reference);
     }
