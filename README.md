@@ -6,44 +6,73 @@ Browse recent outputs, inspect metadata, compare generations, and save favorites
 
 ## Preview
 
+**Browse images, videos, and audio in a horizontal feed**
+
 <p>
-  <img src="sample1.png" alt="Media Feed preview showing generated images" width="60%">
-  <img src="sample2.png" alt="Media Feed preview showing generated images" width="60%">
-  <img src="sample3.png" alt="Media Feed preview showing metadata" width="60%">
+  <img src="sample1.png" alt="Horizontal Media Feed showing generated images, videos, and audio" width="100%">
 </p>
 
-Generated media appears in a fixed panel on the chosen edge of the canvas.
+
+**Compare individual outputs side by side**
+
+<p>
+  <img src="sample4.png" alt="Side-by-side comparison of individual generated images with metadata" width="100%">
+</p>
+
+
+**Compare whole batches in grid view**
+
+<p>
+  <img src="sample5.png" alt="Side-by-side comparison of generated batches in grid view" width="100%">
+</p>
 
 ## Key Features
 
-- **All your generated media in one feed** — Browse images, videos, and audio
-  directly inside ComfyUI.
-- **Batch view** — Group the outputs of one queued generation into a grid card
-  and compare whole batches side by side.
-- **Full-screen media viewer** — Inspect images with zoom and pan, play videos
-  and audio, and navigate between outputs.
-- **Generation metadata at a glance** — View and copy embedded prompts, seeds,
-  model details, and other available generation settings.
-- **One-click favorites** — Save copies of your favorite outputs to
-  `output/favorites` with the star button.
-- **A feed that fits your workspace** — Choose its canvas edge, resize
-  thumbnails, and automatically follow new generations.
+- **Batch grid view** — Review the outputs of each queued generation together
+  in a grid, both in the feed and in the viewer.
+- **Side-by-side comparison** — Compare individual outputs or whole batches
+  with synchronized zoom and pan.
+- **Images, videos, and audio** — Browse newly generated media inside ComfyUI
+  and open it in a full-screen viewer.
+- **Generation metadata** — Inspect embedded prompts, seeds, and model details
+  alongside your outputs when available.
+- **One-click favorites** — Save copies of favorite outputs to
+  `output/favorites`.
+
+## More Screenshots
+
+
+**Place the feed on any canvas edge**
+
+<p>
+  <img src="sample2.png" alt="Vertical Media Feed on the left edge of the ComfyUI canvas" width="100%">
+</p>
+
+**Inspect outputs and their embedded generation metadata**
+
+<p>
+  <img src="sample3.png" alt="Full-screen image viewer showing embedded generation metadata" width="100%">
+</p>
 
 ## Detailed Features
 
-- Filters newly generated images, videos, and audio in a canvas-edge feed.
-- Groups outputs from the same generation in batch view and lets you select an
-  item for viewing or file actions.
-- Opens media in a full-screen viewer with navigation, zoom and pan, video and
-  audio playback, and audio waveforms.
-- Compares individual media or whole batches side by side.
-- Displays embedded prompts, seeds, model resources, and other generation
-  details, with copy and JSON export actions.
-- Saves output media to `output/favorites` from the feed or viewer.
-- Provides controls for thumbnail size, feed position, automatic following,
-  workflow scope, looping, and other display preferences.
-- Follows ComfyUI themes, localizes its settings, and restores recent media
-  after a reload in the same browser tab.
+- **Batch selection** — Select an item within a grid to inspect its metadata,
+  download it, copy an image, or save it as a favorite.
+- **Comparison controls** — Browse each side independently, show or hide its
+  metadata, and choose synchronized or independent zoom and pan.
+- **Viewing and playback** — Zoom and pan images, switch between fitted and
+  actual-size views, and preview videos and audio in the feed or viewer, with
+  audio waveforms and separate video/audio loop settings.
+- **Metadata tools** — Copy individual fields or all displayed metadata, and
+  export embedded JSON when available.
+- **Feed controls** — Filter by media type, automatically follow new outputs,
+  show all workflow tabs or only the current one, and optionally exclude
+  Preview node media.
+- **Workspace customization** — Place the feed on any of the four canvas edges,
+  resize thumbnails, and choose Default or Frameless styling. The feed follows
+  ComfyUI themes and provides localized settings.
+- **Session history** — Restore recent media after a reload in the same browser
+  tab, with a configurable limit on retained entries.
 
 ## Settings Defaults
 
