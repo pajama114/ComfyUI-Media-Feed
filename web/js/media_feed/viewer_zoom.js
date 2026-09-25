@@ -264,7 +264,9 @@ export function installViewerZoom(context) {
       }
       drag.moved = true;
     }
-    if (drag.capturePending) return;
+    // Pointer jitter during a click must not pan the media. Once a drag starts,
+    // keep following it even when it returns within the starting threshold.
+    if (!drag.moved) return;
     runtime.viewer.imagePanX = drag.panX + deltaX;
     runtime.viewer.imagePanY = drag.panY + deltaY;
     updateViewerImageLayout();

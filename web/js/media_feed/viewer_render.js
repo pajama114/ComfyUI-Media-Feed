@@ -176,6 +176,14 @@ export function installViewerRender(context) {
     title.replaceChildren(first, separator, last);
   }
 
+  function setBatchMediaAspect(media) {
+    const width = media.naturalWidth || media.videoWidth;
+    const height = media.naturalHeight || media.videoHeight;
+    if (width > 0 && height > 0) {
+      media.parentElement.style.setProperty("--cmf-batch-media-aspect", String(width / height));
+    }
+  }
+
   async function renderViewerBatch(currentViewer, batch, requestId) {
     const grid = document.createElement("div");
     grid.className = "cmf-viewer-batch-grid";
@@ -222,6 +230,7 @@ export function installViewerRender(context) {
         image.loading = "eager";
         image.decoding = "async";
         image.addEventListener("load", () => {
+          setBatchMediaAspect(image);
           rememberDecodedImage(item.url, image);
           rememberMediaDimensions(item, image);
           if (currentViewer.item?.key === item.key) refreshViewerPromptPanelDetails();
@@ -241,6 +250,7 @@ export function installViewerRender(context) {
         video.loop = state.loopVideos;
         video.dataset.mediaItemKey = item.key;
         video.addEventListener("loadedmetadata", () => {
+          setBatchMediaAspect(video);
           rememberMediaDimensions(item, video);
           if (currentViewer.item?.key === item.key) refreshViewerPromptPanelDetails();
         }, { once: true });

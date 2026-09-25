@@ -304,6 +304,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       min-width: 0;
       min-height: 0;
       border: 1.5px solid var(--cmf-border);
+      container-type: size;
       /* Reserve the stroke's space even when unselected; media never shifts
          or sits beneath the selection indicator. */
       padding: 3px;
@@ -316,13 +317,21 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-batch-cell::after {
       content: "";
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      box-sizing: border-box;
+      top: 50%;
+      left: 50%;
+      box-sizing: content-box;
+      width: min(100cqw, calc(100cqh * var(--cmf-batch-media-aspect, 1)));
+      height: min(100cqh, calc(100cqw / var(--cmf-batch-media-aspect, 1)));
+      transform: translate(-50%, -50%);
+      /* Keep selection paint separate from the media's rasterization. */
       border: 3px solid transparent;
+      will-change: transform;
       pointer-events: none;
+    }
+
+    .cmf-viewer-batch-cell[data-media-kind="audio"]::after {
+      width: 90cqw;
+      height: min(90cqh, 286px);
     }
 
     .cmf-viewer-batch-grid[data-selection-visible="true"] .cmf-viewer-batch-cell[data-selected="true"]::after {
@@ -334,19 +343,17 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       border-style: dashed;
     }
 
-    .cmf-viewer-batch-cell img,
-    .cmf-viewer-batch-cell video {
+    .cmf-viewer-media .cmf-viewer-batch-cell img,
+    .cmf-viewer-media .cmf-viewer-batch-cell video {
       width: 100%;
       height: 100%;
-      max-width: none;
-      max-height: none;
+      /* Size the element to the contained picture so the frame excludes
+         letterboxing, including when a small image is scaled up. */
+      max-width: min(100cqw, calc(100cqh * var(--cmf-batch-media-aspect, 1)));
+      max-height: min(100cqh, calc(100cqw / var(--cmf-batch-media-aspect, 1)));
       object-fit: contain;
       user-select: none;
       -webkit-user-drag: none;
-    }
-
-    .cmf-viewer-batch-cell[data-media-kind="audio"] {
-      container-type: size;
     }
 
     .cmf-viewer-media[data-pannable="true"] .cmf-viewer-batch-grid {

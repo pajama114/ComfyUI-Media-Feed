@@ -727,9 +727,26 @@ test("batch grid uses fit, zoom, and drag without presenting an arbitrary 1:1 si
       currentTarget: grid, target: { closest: () => null }, button: 0,
       pointerId: 1, clientX: 100, clientY: 100, preventDefault() {},
     });
+    for (const [clientX, clientY] of [[102, 101], [97, 103], [101, 99]]) {
+      context.actions.handleViewerImagePointerMove({ pointerId: 1, clientX, clientY });
+      assert.equal(viewer.imagePanX, 0, "pointer jitter during a click must not shift the grid");
+      assert.equal(viewer.imagePanY, 0);
+      assert.equal(grid.properties.get("--cmf-image-pan-x"), "0px");
+      assert.equal(grid.properties.get("--cmf-image-pan-y"), "0px");
+    }
+    context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 1 });
+    assert.notEqual(viewer.suppressBatchClick, true, "a click with slight pointer movement still selects media");
+
+    context.actions.handleViewerImagePointerDown({
+      currentTarget: grid, target: { closest: () => null }, button: 0,
+      pointerId: 1, clientX: 100, clientY: 100, preventDefault() {},
+    });
     context.actions.handleViewerImagePointerMove({ pointerId: 1, clientX: 150, clientY: 70 });
     assert.equal(viewer.imagePanX, 50);
     assert.equal(viewer.imagePanY, -30);
+    context.actions.handleViewerImagePointerMove({ pointerId: 1, clientX: 101, clientY: 102 });
+    assert.equal(viewer.imagePanX, 1, "an established drag still follows movement back toward its starting point");
+    assert.equal(viewer.imagePanY, 2);
     context.actions.finishViewerImageDrag({ currentTarget: grid, pointerId: 1 });
     runTimers();
 
