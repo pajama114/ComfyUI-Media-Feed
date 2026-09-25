@@ -560,6 +560,74 @@ test("loadPromptMetadata extracts workflow graph values", async () => {
   assert.ok(result.resources.some((entry) => entry.value === "workflow.safetensors"));
 });
 
+for (const mode of [undefined, 0, 2, 4]) {
+  const active = mode === undefined || mode === 0;
+
+  test(`loadPromptMetadata ${active ? "includes" : "excludes"} MiniMax LoRA with mode ${mode}`, async () => {
+    const workflow = structuredClone(workflowGraph);
+    // Preserve the reported workflow's loader schema and model connection.
+    workflow.nodes.push({
+      id: 343,
+      type: "MiniMaxH3TurboLoRA",
+      mode,
+      inputs: [
+        { name: "model", type: "MODEL", link: 552 },
+        { name: "lora_name", widget: { name: "lora_name" }, link: null },
+        { name: "strength", widget: { name: "strength" }, link: null },
+        { name: "low_vram", widget: { name: "low_vram" }, link: null },
+      ],
+      outputs: [{ name: "MODEL", type: "MODEL", links: [10] }],
+      widgets_values: ["minimax\\example.safetensors", 1.35, false],
+      widgets_values_named: {
+        lora_name: "minimax\\example.safetensors",
+        strength: 1.35,
+        low_vram: false,
+      },
+    });
+    workflow.links.find((link) => link[0] === 10)[1] = 343;
+    workflow.links.push([552, 4, 0, 343, 0, "MODEL"]);
+
+    // An execution prompt omits disabled LoRAs, but workflow fallback must also
+    // work when the media embeds only the editor workflow.
+    for (const withPrompt of [false, true]) {
+      const chunks = { workflow: JSON.stringify(workflow) };
+      if (withPrompt) chunks.prompt = JSON.stringify(promptGraph);
+      globalThis.fetch = async () => rangeResponse(pngText(chunks));
+
+      const result = await loadPromptMetadata({ ...mediaItem(), nodeId: 1 });
+
+      assert.deepEqual(result.resources, [
+        { label: "Checkpoint", value: withPrompt ? "example.safetensors" : "workflow.safetensors" },
+        ...(active ? [{ label: "LoRA", value: "example.safetensors · 1.35" }] : []),
+      ]);
+      assert.equal(result.positive, withPrompt ? "a red fox" : "a blue bird");
+    }
+  });
+
+  test(`loadPromptMetadata ${active ? "includes" : "excludes"} LoRA stack values with mode ${mode}`, async () => {
+    const workflow = structuredClone(workflowGraph);
+    workflow.nodes.push({
+      id: 5,
+      type: "LoraStack",
+      mode,
+      inputs: [
+        { name: "loras", value: [{ name: "stack.safetensors", strength: 0.75, active: true }] },
+        { name: "lora_text", value: "<lora:tag.safetensors:0.5>" },
+      ],
+      widgets_values: [{ name: "widget.safetensors", strength: 1, active: true }],
+    });
+    globalThis.fetch = async () => rangeResponse(pngText({ workflow: JSON.stringify(workflow) }));
+
+    const result = await loadPromptMetadata(mediaItem());
+
+    assert.deepEqual(result.resources.filter((entry) => entry.label === "LoRA"), active ? [
+      { label: "LoRA", value: "stack.safetensors · 0.75" },
+      { label: "LoRA", value: "tag.safetensors · 0.50" },
+      { label: "LoRA", value: "widget.safetensors · 1.00" },
+    ] : []);
+  });
+}
+
 test("loadPromptMetadata limits prompt graph inference to the selected output branch", async () => {
   const payload = pngText({ prompt: JSON.stringify(branchedPromptGraph()) });
   globalThis.fetch = async () => rangeResponse(payload);

@@ -193,6 +193,9 @@ export function workflowNodeOutputLinks(node) {
 }
 
 export function workflowLoraNodeIsActive(node, maps, context) {
+  // LiteGraph NEVER (2) and BYPASS (4) nodes do not apply their saved LoRAs.
+  if (node?.mode === 2 || node?.mode === 4) return false;
+
   const outputLinks = workflowNodeOutputLinks(node);
   let sawSwitchConsumer = false;
 
@@ -286,6 +289,7 @@ export function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMap
       || Array.isArray(node?.properties?.models)
         && node.properties.models.some((model) => /diffusion|checkpoint|unet/i.test(String(model?.directory || "")));
     const loraNode = /lora/i.test(nodeType);
+    if (loraNode && !workflowLoraNodeIsActive(node, maps, context)) continue;
     let hasSelectedCheckpoint = false;
 
     for (const input of node.inputs || []) {
@@ -318,8 +322,6 @@ export function collectWorkflowResourceEntries(workflow, maps = buildWorkflowMap
     }
 
     if (loraNode || /lora/i.test(JSON.stringify(node.properties || {}))) {
-      if (loraNode && !workflowLoraNodeIsActive(node, maps, context)) continue;
-
       const loraNameInput = workflowInputByName(node, "lora_name");
       const strengthInput = workflowInputByName(node, "strength_model")
         || workflowInputByName(node, "strength")
