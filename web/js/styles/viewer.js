@@ -1181,7 +1181,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: min(42%, var(--cmf-metadata-width)) minmax(0, 1fr);
+      grid-template-columns: min(33.333%, var(--cmf-metadata-width)) minmax(0, 1fr);
       gap: 8px;
     }
 
@@ -1198,7 +1198,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: minmax(0, 1fr) min(42%, var(--cmf-metadata-width));
+      grid-template-columns: minmax(0, 1fr) min(33.333%, var(--cmf-metadata-width));
     }
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"] .cmf-viewer-media-stage,
