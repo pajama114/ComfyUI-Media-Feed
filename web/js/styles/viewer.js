@@ -555,6 +555,63 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       }
     }
 
+    /* Fit scale reduces the grid's layout width, so fixed audio controls
+       need their own row before they squeeze the seek bar. */
+    @container (max-width: 180px) {
+      .cmf-viewer-batch-cell .cmf-viewer-audio-controls {
+        grid-template-columns: 28px repeat(2, minmax(0, 1fr));
+        gap: 2px 4px;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-play {
+        grid-column: 1;
+        grid-row: 1;
+        width: 28px;
+        height: 28px;
+      }
+
+      .cmf-viewer-batch-cell :is(.cmf-viewer-audio-current, .cmf-viewer-audio-duration) {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 10px;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-current {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-duration {
+        grid-column: 3;
+        grid-row: 1;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-seek {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        margin: 0;
+      }
+
+      .cmf-viewer-batch-cell .cmf-viewer-audio-volume {
+        grid-column: 1 / -1;
+        grid-row: 3;
+      }
+    }
+
+    @container (max-width: 90px) {
+      .cmf-viewer-batch-cell :is(.cmf-viewer-audio-current, .cmf-viewer-audio-duration) {
+        display: none;
+      }
+    }
+
+    @container (max-width: 180px) and (max-height: 120px) {
+      .cmf-viewer-batch-cell .cmf-viewer-audio-volume {
+        display: none;
+      }
+    }
+
     .cmf-prompt-panel {
       box-sizing: border-box;
       display: flex;
@@ -1204,13 +1261,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     @media (max-width: 1000px) {
-      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume {
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio:not(.cmf-viewer-batch-audio) .cmf-viewer-audio-volume {
         grid-template-columns: auto 45px;
       }
-      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume input { width: 45px; }
-      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-controls {
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio:not(.cmf-viewer-batch-audio) .cmf-viewer-audio-volume input { width: 45px; }
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio:not(.cmf-viewer-batch-audio) .cmf-viewer-audio-controls {
         grid-template-columns: 32px auto minmax(20px, 1fr) auto;
       }
-      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio-volume { grid-column: 1 / -1; }
+      .cmf-viewer[data-comparing="true"] .cmf-viewer-audio:not(.cmf-viewer-batch-audio) .cmf-viewer-audio-volume { grid-column: 1 / -1; }
     }
   `;
