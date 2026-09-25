@@ -60,8 +60,8 @@ cross modules or affect shared behavior. These tests use local fixtures and can
 be run and fixed without asking for approval:
 
 ```bash
-node --experimental-default-type=module --test tests/metadata.test.js
-node --experimental-default-type=module --test tests/*.test.js
+node --test tests/metadata.test.js
+node --test tests/*.test.js
 ```
 
 The first command is an example of a focused test; select the test file that
