@@ -181,7 +181,7 @@ avi, m4v, mkv, mov, mp4, webm
 Audio:
 
 ```text
-aac, flShow metadata in viewers, wav
+aac, flac, wav
 ```
 
 ## Embedded Metadata
