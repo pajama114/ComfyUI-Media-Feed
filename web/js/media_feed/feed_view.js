@@ -300,7 +300,11 @@ export function installFeedView(context) {
     const vertical = isVerticalView(view);
   
     if (vertical) {
-      const totalHeight = Math.max(view.viewport.clientHeight, feedRailPadding() * 2 + items.length * pitch);
+      // CSS min-height fills the viewport without rounding its height up to an
+      // integer clientHeight, which can introduce overflow in a shorter side feed.
+      const totalHeight = items.length
+        ? feedRailPadding() * 2 + items.length * pitch - ITEM_GAP
+        : 0;
       view.rail.style.width = "100%";
       view.rail.style.height = `${totalHeight}px`;
       view.root.dataset.scrollable = String(totalHeight > view.viewport.clientHeight + 1);

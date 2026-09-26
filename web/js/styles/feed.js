@@ -93,6 +93,16 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       border-width: 1px;
     }
 
+    /* Keep the gutter, but only paint a scrollbar when the media needs it. */
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-scrollable="false"] .cmf-viewport {
+      scrollbar-color: transparent transparent;
+    }
+
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-scrollable="false"] .cmf-viewport::-webkit-scrollbar-thumb,
+    .cmf-root.cmf-fallback[data-orientation="vertical"][data-scrollable="false"] .cmf-viewport::-webkit-scrollbar-thumb:hover {
+      background: transparent;
+    }
+
     .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport {
       scrollbar-gutter: stable;
       scrollbar-color: transparent transparent;
