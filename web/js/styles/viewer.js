@@ -320,21 +320,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       top: 0;
       left: 0;
       box-sizing: border-box;
+      /* Frame the whole cell, including any space around the media. */
       width: 100%;
       height: 100%;
       /* Keep selection paint separate from the media's rasterization. */
       border: 3px solid transparent;
       will-change: transform;
       pointer-events: none;
-    }
-
-    .cmf-viewer-batch-cell[data-media-kind="image"]::after {
-      top: 50%;
-      left: 50%;
-      box-sizing: content-box;
-      width: min(100cqw, calc(100cqh * var(--cmf-batch-media-aspect, 1)));
-      height: min(100cqh, calc(100cqw / var(--cmf-batch-media-aspect, 1)));
-      transform: translate(-50%, -50%);
     }
 
     .cmf-viewer-batch-grid[data-selection-visible="true"] .cmf-viewer-batch-cell[data-selected="true"]::after {
@@ -350,8 +342,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-media .cmf-viewer-batch-cell video {
       width: 100%;
       height: 100%;
-      /* Size the element to the contained picture so the frame excludes
-         letterboxing, including when a small image is scaled up. */
+      /* Fit the media element to its picture, including when scaled up. */
       max-width: min(100cqw, calc(100cqh * var(--cmf-batch-media-aspect, 1)));
       max-height: min(100cqh, calc(100cqw / var(--cmf-batch-media-aspect, 1)));
       object-fit: contain;
