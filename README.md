@@ -69,8 +69,10 @@ Browse recent outputs, inspect metadata, compare generations, and save favorites
   show all workflow tabs or only the current one, and optionally exclude
   Preview node media.
 - **Workspace customization** — Place the feed on any of the four canvas edges,
-  resize thumbnails, and choose Default or Frameless styling. The feed follows
-  ComfyUI themes and provides localized settings.
+  resize thumbnails, and choose Default, Frameless, or Compact styling. Compact
+  reveals controls outside the media on hover, keeps scrollbars hidden, and hides
+  the feed when its history is empty. The feed follows ComfyUI themes and provides
+  localized settings.
 - **Session history** — Restore recent media after a reload in the same browser
   tab, with a configurable limit on retained entries.
 

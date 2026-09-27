@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "信息流样式",
-    "tooltip": "选择标准信息流，或选择保留面板内尺寸控件并隐藏其他面板元素的无边框信息流。",
+    "tooltip": "选择标准、无边框或紧凑样式。紧凑样式在鼠标悬停于信息流时将控件显示在媒体区域外，始终隐藏滚动条，并在历史记录为空时隐藏整个信息流。",
     "options": {
       "Default": "默认",
       "Frameless": "无边框",
+      "Compact": "紧凑",
       "default": "默认",
-      "frameless": "无边框"
+      "frameless": "无边框",
+      "compact": "紧凑"
     }
   },
   "comfyui-media-feed_media-scope": {

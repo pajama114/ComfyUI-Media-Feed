@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "Feed style",
-    "tooltip": "Choose the standard feed or a frameless feed that keeps the on-panel size control while hiding other panel chrome.",
+    "tooltip": "Choose Default, Frameless, or Compact. Compact reveals controls outside the media on hover, keeps scrollbars hidden, and hides the feed when its history is empty.",
     "options": {
       "Default": "Default",
       "Frameless": "Frameless",
+      "Compact": "Compact",
       "default": "Default",
-      "frameless": "Frameless"
+      "frameless": "Frameless",
+      "compact": "Compact"
     }
   },
   "comfyui-media-feed_media-scope": {

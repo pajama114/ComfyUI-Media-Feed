@@ -122,10 +122,11 @@ export function createMediaFeedExtension(context) {
         options: [
           { text: "Default", value: "default" },
           { text: "Frameless", value: "frameless" },
+          { text: "Compact", value: "compact" },
         ],
         category: ["Media Feed", "Feed", "Feed style"],
         sortOrder: 340,
-        tooltip: "Choose the standard feed or a frameless feed that keeps the on-panel size control while hiding other panel chrome.",
+        tooltip: "Choose Default, Frameless, or Compact. Compact reveals controls outside the media on hover, keeps scrollbars hidden, and hides the feed when its history is empty.",
         onChange: (newValue) => {
           runtime.feedStyleSettingSeen = true;
           setFeedStyle(newValue);

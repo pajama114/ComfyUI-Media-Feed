@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "Feed-Stil",
-    "tooltip": "Wählen Sie den Standard-Feed oder einen rahmenlosen Feed, der die Größensteuerung im Bedienfeld beibehält und andere Bedienfeldelemente ausblendet.",
+    "tooltip": "Wähle Standard, Rahmenlos oder Kompakt. Kompakt zeigt beim Bewegen des Mauszeigers über den Feed die Bedienelemente außerhalb der Medien an, hält die Bildlaufleisten verborgen und blendet den Feed bei leerem Verlauf aus.",
     "options": {
       "Default": "Standard",
       "Frameless": "Rahmenlos",
+      "Compact": "Kompakt",
       "default": "Standard",
-      "frameless": "Rahmenlos"
+      "frameless": "Rahmenlos",
+      "compact": "Kompakt"
     }
   },
   "comfyui-media-feed_media-scope": {

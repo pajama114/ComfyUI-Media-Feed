@@ -45,6 +45,126 @@ export function installFeedView(context) {
     button.innerHTML = state.batchMode ? ICONS.galleryHorizontal : ICONS.grid;
   }
 
+  function bindCompactControls(view) {
+    const { root, sizeSlider } = view;
+    let hideTimer = 0;
+    let hovered = false;
+    let dragging = false;
+    let pointerDown = false;
+    let keyboardFocus = false;
+    let crossingFeed = false;
+    let trackingPointer = false;
+
+    function isHorizontalCompact() {
+      return root.dataset.feedStyle === "compact"
+        && root.dataset.orientation === "horizontal";
+    }
+
+    function stopTrackingPointer() {
+      if (trackingPointer) {
+        window.removeEventListener("pointermove", trackPointer, true);
+        window.removeEventListener("pointerout", handleWindowPointerOut, true);
+        window.removeEventListener("blur", leaveWindow);
+      }
+      trackingPointer = false;
+      crossingFeed = false;
+    }
+
+    function trackPointer(event) {
+      // Collapsing/reopening changes the hit area under a stationary pointer;
+      // reconcile native hover as well as the enter/leave events.
+      hovered = root.matches(":hover");
+      if (!isHorizontalCompact()) {
+        stopTrackingPointer();
+      } else {
+        const rect = root.getBoundingClientRect();
+        crossingFeed = root.dataset.collapsed !== "true" && root.dataset.hasMedia !== "false"
+          && event.clientX >= rect.left && event.clientX < rect.right
+          && event.clientY >= rect.top && event.clientY < rect.bottom;
+      }
+      hideLater();
+    }
+
+    function leaveWindow() {
+      hovered = false;
+      crossingFeed = false;
+      hideLater();
+    }
+
+    function handleWindowPointerOut(event) {
+      if (!event.relatedTarget) leaveWindow();
+    }
+
+    function show() {
+      window.clearTimeout(hideTimer);
+      hideTimer = 0;
+      root.dataset.controlsVisible = "true";
+      // Once revealed, follow the pointer across horizontal gaps without
+      // making those transparent areas intercept canvas input or reveal UI.
+      if (isHorizontalCompact() && !trackingPointer) {
+        trackingPointer = true;
+        window.addEventListener("pointermove", trackPointer, { capture: true, passive: true });
+        window.addEventListener("pointerout", handleWindowPointerOut, { capture: true, passive: true });
+        window.addEventListener("blur", leaveWindow);
+      }
+    }
+
+    function hideLater() {
+      if (hovered || dragging || keyboardFocus || crossingFeed) {
+        window.clearTimeout(hideTimer);
+        hideTimer = 0;
+        return;
+      }
+      if (hideTimer) return;
+      hideTimer = window.setTimeout(() => {
+        hideTimer = 0;
+        root.dataset.controlsVisible = "false";
+        stopTrackingPointer();
+      }, 250);
+    }
+
+    root.addEventListener("pointerenter", () => {
+      hovered = true;
+      show();
+    });
+    root.addEventListener("pointerleave", (event) => {
+      hovered = false;
+      pointerDown = false;
+      if (trackingPointer) trackPointer(event);
+      hideLater();
+    });
+    root.addEventListener("pointerdown", () => {
+      pointerDown = true;
+      keyboardFocus = false;
+    });
+    root.addEventListener("pointerup", () => { pointerDown = false; });
+    root.addEventListener("pointercancel", () => { pointerDown = false; });
+    root.addEventListener("focusin", (event) => {
+      keyboardFocus = !pointerDown && event.target.matches(":focus-visible");
+      show();
+      hideLater();
+    });
+    root.addEventListener("focusout", () => {
+      keyboardFocus = false;
+      hideLater();
+    });
+    root.addEventListener("keydown", () => {
+      keyboardFocus = true;
+      show();
+    });
+    sizeSlider.addEventListener("pointerdown", (event) => {
+      if (root.dataset.feedStyle !== "compact") return;
+      dragging = true;
+      sizeSlider.setPointerCapture(event.pointerId);
+      show();
+    });
+    sizeSlider.addEventListener("lostpointercapture", () => {
+      dragging = false;
+      pointerDown = false;
+      hideLater();
+    });
+  }
+
   function createView(root, kind = "embedded") {
     ensureStyles();
   
@@ -96,12 +216,18 @@ export function installFeedView(context) {
       entryIds: new Set(),
     };
     syncBatchModeButton(root.querySelector(".cmf-batch-mode"));
+    bindCompactControls(view);
   
     view.viewport.addEventListener("scroll", () => {
       renderVisibleItems(view);
       updateJumpButtons(view);
     }, { passive: true });
     view.viewport.addEventListener("wheel", (event) => handleFeedWheel(event, view), { passive: false });
+    root.querySelector(".cmf-toolbar").addEventListener("wheel", (event) => {
+      if (root.dataset.feedStyle === "compact" && root.dataset.collapsed !== "true") {
+        handleFeedWheel(event, view, true);
+      }
+    }, { passive: false });
     view.resizeObserver = new ResizeObserver(() => updateView(view, false));
     view.resizeObserver.observe(view.viewport);
   
@@ -222,10 +348,18 @@ export function installFeedView(context) {
     view.sizeSlider.value = String(state.itemHeight);
   }
   
-  function handleFeedWheel(event, view) {
+  function handleFeedWheel(event, view, fromToolbar = false) {
     if (runtime.viewer?.root?.dataset.open === "true") return;
-    if (view.root.dataset.feedStyle === "frameless") event.stopPropagation();
-    if (isVerticalView(view)) return;
+    if (["frameless", "compact"].includes(view.root.dataset.feedStyle)) event.stopPropagation();
+    if (isVerticalView(view)) {
+      // The toolbar is outside the scrolling element, so forward its
+      // wheel movement instead of letting it reach the canvas behind the feed.
+      if (fromToolbar) {
+        event.preventDefault();
+        view.viewport.scrollTop += event.deltaY;
+      }
+      return;
+    }
   
     const canScroll = view.viewport.scrollWidth > view.viewport.clientWidth;
     if (!canScroll) return;
@@ -267,6 +401,9 @@ export function installFeedView(context) {
       counts.all++;
       if (counts[item.kind] !== undefined) counts[item.kind]++;
     }
+    // A type filter with no matches must remain recoverable via the toolbar.
+    view.root.dataset.hasMedia = String(counts.all > 0);
+    view.root.dataset.filterEmpty = String(counts.all > 0 && counts[state.filter] === 0);
   
     for (const button of view.root.querySelectorAll("button[data-filter]")) {
       const count = counts[button.dataset.filter] || 0;
@@ -315,7 +452,7 @@ export function installFeedView(context) {
       view.root.dataset.scrollable = String(totalWidth > view.viewport.clientWidth + 1);
     }
   
-    view.empty.style.display = items.length || state.feedStyle === "frameless" ? "none" : "grid";
+    view.empty.style.display = items.length || state.feedStyle !== "default" ? "none" : "grid";
     updateFilterCounts(view);
   
     if (scrollToLatest) {
@@ -476,6 +613,7 @@ export function installFeedView(context) {
   }
   
   Object.assign(actions, {
+    bindCompactControls,
     createView,
     isBatchBoundary,
     applyFallbackPlacement,

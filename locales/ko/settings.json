@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "피드 스타일",
-    "tooltip": "표준 피드 또는 패널의 크기 조절 컨트롤은 유지하면서 다른 패널 요소를 숨기는 프레임리스 피드를 선택합니다.",
+    "tooltip": "기본, 프레임리스 또는 컴팩트를 선택합니다. 컴팩트는 피드에 마우스를 올리면 미디어 영역 밖에 컨트롤을 표시합니다. 스크롤바는 항상 숨기며 기록이 비어 있으면 피드 전체를 숨깁니다.",
     "options": {
       "Default": "기본",
       "Frameless": "프레임리스",
+      "Compact": "컴팩트",
       "default": "기본",
-      "frameless": "프레임리스"
+      "frameless": "프레임리스",
+      "compact": "컴팩트"
     }
   },
   "comfyui-media-feed_media-scope": {

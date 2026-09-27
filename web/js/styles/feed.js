@@ -17,7 +17,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       pointer-events: none;
     }
 
-    .cmf-root[data-feed-style="frameless"] .cmf-feed-frame::before {
+    .cmf-root:is([data-feed-style="frameless"], [data-feed-style="compact"]) .cmf-feed-frame::before {
       display: none;
     }
 
@@ -43,7 +43,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       scrollbar-width: thin;
     }
 
-    .cmf-root[data-feed-style="frameless"][data-scrollable="true"] .cmf-viewport {
+    .cmf-root:is([data-feed-style="frameless"], [data-feed-style="compact"])[data-scrollable="true"] .cmf-viewport {
       scrollbar-width: none;
     }
 
@@ -57,7 +57,7 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       height: 12px;
     }
 
-    .cmf-root[data-feed-style="frameless"][data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
+    .cmf-root:is([data-feed-style="frameless"], [data-feed-style="compact"])[data-scrollable="true"] .cmf-viewport::-webkit-scrollbar {
       width: 0;
       height: 0;
     }
@@ -103,18 +103,18 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       background: transparent;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport {
+    .cmf-root.cmf-fallback[data-orientation="vertical"]:is([data-feed-style="frameless"], [data-feed-style="compact"]) .cmf-viewport {
       scrollbar-gutter: stable;
       scrollbar-color: transparent transparent;
       scrollbar-width: thin;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar {
+    .cmf-root.cmf-fallback[data-orientation="vertical"]:is([data-feed-style="frameless"], [data-feed-style="compact"]) .cmf-viewport::-webkit-scrollbar {
       width: 8px;
     }
 
-    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar-thumb,
-    .cmf-root.cmf-fallback[data-orientation="vertical"][data-feed-style="frameless"] .cmf-viewport::-webkit-scrollbar-thumb:hover {
+    .cmf-root.cmf-fallback[data-orientation="vertical"]:is([data-feed-style="frameless"], [data-feed-style="compact"]) .cmf-viewport::-webkit-scrollbar-thumb,
+    .cmf-root.cmf-fallback[data-orientation="vertical"]:is([data-feed-style="frameless"], [data-feed-style="compact"]) .cmf-viewport::-webkit-scrollbar-thumb:hover {
       background: transparent;
     }
 

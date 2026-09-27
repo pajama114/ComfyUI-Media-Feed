@@ -438,6 +438,231 @@ test("settings normalization and feed geometry remain bounded", () => {
   assert.equal(actions.feedCardTopOffset(), 2);
 });
 
+test("Compact persists alongside existing feed styles and uses Default media geometry", () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = { localStorage: createMemoryStorage() };
+  try {
+    const { actions, state } = createContext();
+    for (const style of ["Default", "Frameless", "Compact"]) {
+      actions.setFeedStyle(style);
+      assert.equal(actions.loadSavedFeedStyle(), style.toLowerCase());
+    }
+    assert.equal(actions.normalizeFeedStyle("unknown"), "default");
+
+    for (const placement of ["top", "bottom", "left", "right"]) {
+      state.placement = placement;
+      for (const size of [96, 143, 220]) {
+        actions.applyThumbnailHeight(size);
+        const geometry = () => [actions.feedCardTopOffset(), actions.viewportHeight(), actions.railHeight(), actions.horizontalContentWidth(20)];
+        actions.applyFeedStyle("default");
+        const baseline = geometry();
+        actions.applyFeedStyle("compact");
+        assert.deepEqual(geometry(), baseline, `${placement}, ${size}px`);
+      }
+    }
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
+test("Compact detects empty history within the media scope without trapping an empty type filter", () => {
+  const { actions, state, app } = createContext();
+  const view = { root: { dataset: {}, querySelectorAll: () => [] } };
+  actions.updateFilterCounts(view);
+  assert.equal(view.root.dataset.hasMedia, "false");
+  assert.equal(view.root.dataset.filterEmpty, "false");
+
+  state.items = [{ kind: "image", workflowTabId: "workflow-id:tab-a" }];
+  state.filter = "video";
+  actions.updateFilterCounts(view);
+  assert.equal(actions.filteredItems().length, 0);
+  assert.equal(view.root.dataset.hasMedia, "true", "the filter can still be changed");
+  assert.equal(view.root.dataset.filterEmpty, "true");
+  state.filter = "all";
+  actions.updateFilterCounts(view);
+  assert.equal(view.root.dataset.filterEmpty, "false");
+
+  state.mediaScope = "current-tab";
+  app.extensionManager.workflow.activeWorkflow = { id: "tab-b" };
+  actions.updateFilterCounts(view);
+  assert.equal(view.root.dataset.hasMedia, "false");
+  app.extensionManager.workflow.activeWorkflow = { id: "tab-a" };
+  actions.updateFilterCounts(view);
+  assert.equal(view.root.dataset.hasMedia, "true");
+
+  state.items = [];
+  actions.updateFilterCounts(view);
+  assert.equal(view.root.dataset.hasMedia, "false");
+});
+
+test("Compact hover controls stay reachable during pointer, drag, and keyboard interaction", (t) => {
+  const originalWindow = globalThis.window;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  globalThis.window = { setTimeout, clearTimeout };
+  const element = () => {
+    const listeners = new Map();
+    return {
+      dataset: {},
+      addEventListener(type, callback) { listeners.set(type, callback); },
+      emit(type, event = {}) { listeners.get(type)?.(event); },
+    };
+  };
+  try {
+    const { actions } = createContext();
+    const root = element();
+    root.dataset.feedStyle = "compact";
+    const sizeSlider = element();
+    let capturedPointer;
+    sizeSlider.setPointerCapture = (id) => { capturedPointer = id; };
+    actions.bindCompactControls({ root, sizeSlider });
+
+    root.emit("pointerenter");
+    assert.equal(root.dataset.controlsVisible, "true");
+    root.emit("pointerleave");
+    t.mock.timers.tick(249);
+    assert.equal(root.dataset.controlsVisible, "true");
+    root.emit("pointerenter");
+    t.mock.timers.tick(500);
+    assert.equal(root.dataset.controlsVisible, "true", "re-entering cancels the hide timer");
+    root.emit("pointerleave");
+    t.mock.timers.tick(250);
+    assert.equal(root.dataset.controlsVisible, "false");
+
+    root.emit("pointerenter");
+    sizeSlider.emit("pointerdown", { pointerId: 7 });
+    root.emit("pointerdown");
+    root.emit("focusin", { target: { matches: () => true } });
+    assert.equal(capturedPointer, 7);
+    root.emit("pointerleave");
+    t.mock.timers.tick(500);
+    assert.equal(root.dataset.controlsVisible, "true", "dragging outside retains controls");
+    sizeSlider.emit("lostpointercapture");
+    t.mock.timers.tick(250);
+    assert.equal(root.dataset.controlsVisible, "false", "mouse focus must not pin controls after dragging");
+
+    root.emit("focusin", { target: { matches: () => true } });
+    t.mock.timers.tick(500);
+    assert.equal(root.dataset.controlsVisible, "true", "keyboard focus reveals controls without hover");
+    root.emit("keydown");
+    root.emit("focusout");
+    t.mock.timers.tick(250);
+    assert.equal(root.dataset.controlsVisible, "false");
+  } finally {
+    globalThis.window = originalWindow;
+    t.mock.timers.reset();
+  }
+});
+
+test("horizontal Compact controls remain reachable across long transparent gaps without revealing from outside", (t) => {
+  const originalWindow = globalThis.window;
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const eventTarget = () => {
+    const listeners = new Map();
+    return {
+      listeners,
+      addEventListener(type, callback) { listeners.set(type, callback); },
+      removeEventListener(type, callback) {
+        if (listeners.get(type) === callback) listeners.delete(type);
+      },
+      emit(type, event = {}) { listeners.get(type)?.(event); },
+    };
+  };
+  const windowEvents = eventTarget();
+  globalThis.window = { ...windowEvents, setTimeout, clearTimeout };
+  try {
+    const { actions } = createContext();
+    const root = {
+      ...eventTarget(),
+      dataset: { feedStyle: "compact", orientation: "horizontal", hasMedia: "true" },
+      getBoundingClientRect: () => ({ left: 0, right: 1200, top: 0, bottom: 200 }),
+      matches: () => false,
+    };
+    actions.bindCompactControls({ root, sizeSlider: eventTarget() });
+    const gap = { clientX: 600, clientY: 100 };
+    const outside = { clientX: 600, clientY: 300 };
+
+    windowEvents.emit("pointermove", gap);
+    assert.notEqual(root.dataset.controlsVisible, "true", "blank space cannot reveal controls");
+    assert.equal(windowEvents.listeners.size, 0);
+    root.emit("pointerenter");
+    root.emit("pointerleave", gap);
+    t.mock.timers.tick(2000);
+    assert.equal(root.dataset.controlsVisible, "true", "pausing in the gap is safe");
+    windowEvents.emit("pointermove", { clientX: 1100, clientY: 20 });
+    t.mock.timers.tick(2000);
+    assert.equal(root.dataset.controlsVisible, "true", "distant controls remain reachable");
+
+    windowEvents.emit("pointermove", outside);
+    t.mock.timers.tick(100);
+    windowEvents.emit("pointermove", outside);
+    t.mock.timers.tick(150);
+    assert.equal(root.dataset.controlsVisible, "false", "moving outside must not restart the hide timer");
+    assert.equal(windowEvents.listeners.size, 0, "global listeners end when controls hide");
+    windowEvents.emit("pointermove", gap);
+    assert.equal(root.dataset.controlsVisible, "false");
+
+    for (const exitEvent of ["pointerout", "blur"]) {
+      root.emit("pointerenter");
+      root.emit("pointerleave", gap);
+      windowEvents.emit(exitEvent, { relatedTarget: null });
+      t.mock.timers.tick(250);
+      assert.equal(root.dataset.controlsVisible, "false", exitEvent);
+      assert.equal(windowEvents.listeners.size, 0);
+    }
+
+    root.emit("pointerenter");
+    root.dataset.collapsed = "true";
+    windowEvents.emit("pointermove", gap);
+    root.dataset.collapsed = "false";
+    windowEvents.emit("pointermove", outside);
+    t.mock.timers.tick(250);
+    assert.equal(root.dataset.controlsVisible, "false", "layout changes cannot leave a stale hover after reopening");
+    assert.equal(windowEvents.listeners.size, 0);
+
+    root.dataset.orientation = "vertical";
+    root.emit("pointerenter");
+    root.emit("pointerleave", gap);
+    t.mock.timers.tick(250);
+    assert.equal(root.dataset.controlsVisible, "false", "side feeds keep the existing hide behavior");
+    assert.equal(windowEvents.listeners.size, 0);
+  } finally {
+    globalThis.window = originalWindow;
+    t.mock.timers.reset();
+  }
+});
+
+test("scrolling over Compact's side toolbar scrolls the feed without reaching the canvas", () => {
+  const { actions, runtime } = createContext();
+  const view = {
+    root: { dataset: { feedStyle: "compact", orientation: "vertical" } },
+    viewport: { scrollTop: 10 },
+  };
+  let prevented = false;
+  let stopped = false;
+  const event = {
+    deltaY: 100,
+    preventDefault() { prevented = true; },
+    stopPropagation() { stopped = true; },
+  };
+  actions.handleFeedWheel(event, view, true);
+  assert.equal(view.viewport.scrollTop, 110);
+  assert.ok(prevented);
+  assert.ok(stopped);
+
+  prevented = stopped = false;
+  actions.handleFeedWheel(event, view);
+  assert.equal(view.viewport.scrollTop, 110, "the viewport itself keeps native vertical scrolling");
+  assert.equal(prevented, false);
+  assert.equal(stopped, true);
+
+  runtime.viewer = { root: { dataset: { open: "true" } } };
+  prevented = stopped = false;
+  actions.handleFeedWheel(event, view, true);
+  assert.equal(view.viewport.scrollTop, 110);
+  assert.equal(prevented, false);
+  assert.equal(stopped, false);
+});
+
 test("Fit scale persists and updates an open viewer layout", () => {
   const originalWindow = globalThis.window;
   const localStorage = createMemoryStorage();

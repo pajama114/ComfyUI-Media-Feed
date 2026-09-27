@@ -42,7 +42,7 @@ export function installLayout(context) {
   
   function feedCardTopOffset() {
     if (state.placement === "top") return DEFAULT_CARD_TOP_OFFSET;
-    return state.feedStyle === "default" ? DEFAULT_CARD_TOP_OFFSET : CARD_TOP_OFFSET;
+    return state.feedStyle === "frameless" ? CARD_TOP_OFFSET : DEFAULT_CARD_TOP_OFFSET;
   }
   
   function viewportHeight() {

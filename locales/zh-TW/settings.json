@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "動態樣式",
-    "tooltip": "選擇標準動態，或選擇保留面板內尺寸控制項並隱藏其他面板元素的無框動態。",
+    "tooltip": "選擇標準、無框或精簡樣式。精簡樣式會在滑鼠移至動態區時將控制項顯示於媒體區域外，始終隱藏捲軸，並在歷史記錄為空時隱藏整個動態區。",
     "options": {
       "Default": "預設",
       "Frameless": "無框",
+      "Compact": "精簡",
       "default": "預設",
-      "frameless": "無框"
+      "frameless": "無框",
+      "compact": "精簡"
     }
   },
   "comfyui-media-feed_media-scope": {

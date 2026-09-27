@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "Style du flux",
-    "tooltip": "Choisissez le flux standard ou un flux sans cadre qui conserve le contrôle de taille dans le panneau tout en masquant les autres éléments du panneau.",
+    "tooltip": "Choisissez Standard, Sans cadre ou Compact. Le style Compact affiche les commandes en dehors des médias au survol, masque les barres de défilement et cache le flux lorsque son historique est vide.",
     "options": {
       "Default": "Par défaut",
       "Frameless": "Sans cadre",
+      "Compact": "Compact",
       "default": "Par défaut",
-      "frameless": "Sans cadre"
+      "frameless": "Sans cadre",
+      "compact": "Compact"
     }
   },
   "comfyui-media-feed_media-scope": {

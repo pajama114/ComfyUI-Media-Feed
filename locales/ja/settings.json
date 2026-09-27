@@ -39,12 +39,14 @@
   },
   "comfyui-media-feed_feed-style": {
     "name": "フィードスタイル",
-    "tooltip": "標準フィード、またはパネル上のサイズ調整を残してその他のパネル表示を隠すフレームレスフィードを選びます。",
+    "tooltip": "標準、フレームレス、コンパクトから選びます。コンパクトではフィードにマウスを重ねるとメディアの外に操作部を表示します。スクロールバーは常に非表示で、履歴が空のときはフィード全体を隠します。",
     "options": {
       "Default": "標準",
       "Frameless": "フレームレス",
+      "Compact": "コンパクト",
       "default": "標準",
-      "frameless": "フレームレス"
+      "frameless": "フレームレス",
+      "compact": "コンパクト"
     }
   },
   "comfyui-media-feed_media-scope": {
