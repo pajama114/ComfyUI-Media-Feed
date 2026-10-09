@@ -30,6 +30,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       display: grid;
     }
 
+    /* Keep favorite error notifications visible above the fullscreen viewer.
+       Cover both the PrimeVue and Reka versions of ComfyUI's native toasts. */
+    body:has(> .cmf-viewer[data-open="true"])
+      :is(.p-toast, [data-testid="toast-viewport"]) {
+      z-index: 10001 !important;
+    }
+
     /* The native panel lives inside ComfyUI's z-indexed canvas overlay.
        Release only its ancestors' z-index/isolation while this option is active,
        so the rest of ComfyUI stays behind the viewer. No DOM reparenting or

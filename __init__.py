@@ -1,3 +1,4 @@
+import errno
 from pathlib import Path, PureWindowsPath
 from shutil import copyfileobj
 
@@ -95,6 +96,24 @@ def _remove_favorite(filename):
     favorite.unlink()
 
 
+def _favorite_os_error_response(error, fallback_message):
+    status = 500
+    message = fallback_message
+    if error.errno == errno.ENOSPC:
+        status = 507
+        message = "Not enough disk space for favorites. Free up space and try again."
+    elif error.errno == getattr(errno, "EDQUOT", -1):
+        status = 507
+        message = "The storage quota for favorites has been exceeded."
+    elif error.errno in {errno.EACCES, errno.EPERM}:
+        status = 403
+        message = "Permission denied when accessing favorite media. Check file and folder permissions."
+    elif error.errno == errno.EROFS:
+        status = 403
+        message = "The favorites storage location is read-only."
+    return web.json_response({"error": message}, status=status)
+
+
 @PromptServer.instance.routes.post("/media-feed/favorite")
 async def add_favorite(request):
     try:
@@ -106,8 +125,8 @@ async def add_favorite(request):
         return web.json_response({"error": str(error)}, status=400)
     except FileNotFoundError:
         return web.json_response({"error": "Media file was not found"}, status=404)
-    except OSError:
-        return web.json_response({"error": "Could not copy media to favorites"}, status=500)
+    except OSError as error:
+        return _favorite_os_error_response(error, "Could not copy media to favorites")
 
     return web.json_response({"filename": filename, "subfolder": FAVORITES_FOLDER, "type": "output"})
 
@@ -123,8 +142,8 @@ async def remove_favorite(request):
         return web.json_response({"error": str(error)}, status=400)
     except FileNotFoundError:
         return web.json_response({"error": "Favorite media was not found"}, status=404)
-    except OSError:
-        return web.json_response({"error": "Could not remove favorite media"}, status=500)
+    except OSError as error:
+        return _favorite_os_error_response(error, "Could not remove favorite media")
 
     return web.json_response({"removed": True})
 

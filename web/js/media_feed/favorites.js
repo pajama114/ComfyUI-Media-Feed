@@ -57,11 +57,11 @@ export function installFavorites(context) {
   async function toggleFavorite(item) {
     if (!canFavorite(item) || state.favoritingKeys.has(item.key)) return;
   
+    const favoriteFilename = state.favoriteFiles.get(item.key);
+    const adding = !favoriteFilename;
     state.favoritingKeys.add(item.key);
     syncFavoriteControls();
     try {
-      const favoriteFilename = state.favoriteFiles.get(item.key);
-      const adding = !favoriteFilename;
       const response = await fetch(apiUrl("/media-feed/favorite"), {
         method: adding ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -73,7 +73,11 @@ export function installFavorites(context) {
           }
           : { filename: favoriteFilename }),
       });
-      if (!response.ok) throw new Error("Could not update favorites");
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        const reason = typeof result?.error === "string" ? result.error.trim() : "";
+        throw new Error(reason || `Request failed (HTTP ${response.status}).`);
+      }
   
       if (adding) {
         const result = await response.json();
@@ -85,8 +89,20 @@ export function installFavorites(context) {
         state.favoriteFiles.delete(item.key);
       }
       saveFavoriteFiles();
-    } catch {
-      // Keep the action available so the user can retry after resolving a file error.
+    } catch (error) {
+      const summary = adding ? "Could not add to favorites" : "Could not remove from favorites";
+      const reason = typeof error?.message === "string" && error.message
+        ? error.message
+        : "Please try again.";
+      const detail = `${item.filename}\n${reason}`;
+      const toast = app.extensionManager?.toast;
+      if (typeof toast?.error === "function") {
+        toast.error(`Media Feed: ${summary}`, { description: detail, duration: 6000 });
+      } else if (typeof toast?.add === "function") {
+        toast.add({ severity: "error", summary: `Media Feed: ${summary}`, detail, life: 6000 });
+      } else {
+        window.alert(`${summary}\n${detail}`);
+      }
     } finally {
       state.favoritingKeys.delete(item.key);
       syncFavoriteControls();
