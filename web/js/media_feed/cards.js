@@ -2,13 +2,12 @@ import {
   AUDIO_WAVEFORM_BAR_COUNT,
   renderAudioWaveform,
 } from "./audio_waveform.js";
+import { attachThumbnailPreview, previewDescription } from "./media_previews.js";
 
 export function installCards(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
 
   const formatMediaDuration = (...args) => actions.formatMediaDuration(...args);
-  const rememberDecodedImage = (...args) => actions.rememberDecodedImage(...args);
-  const decodeImageElement = (...args) => actions.decodeImageElement(...args);
   const rememberMediaDimensions = (...args) => actions.rememberMediaDimensions(...args);
   const openViewer = (...args) => actions.openViewer(...args);
   const fitThumbnailMedia = (...args) => actions.fitThumbnailMedia(...args);
@@ -19,7 +18,8 @@ export function installCards(context) {
   const createAudioWaveform = (...args) => actions.createAudioWaveform(...args);
 
   function updateThumbnailRemainingTime(media, label) {
-    const duration = Number(media.duration);
+    const nativeDuration = Number(media.duration);
+    const duration = Number.isFinite(nativeDuration) ? nativeDuration : Number(media.dataset?.previewDuration);
     const currentTime = Number.isFinite(media.currentTime) ? Math.max(0, media.currentTime) : 0;
     const remainingTime = Number.isFinite(duration) && duration >= 0
       ? Math.max(0, duration - currentTime)
@@ -29,7 +29,7 @@ export function installCards(context) {
     label.hidden = !text;
   }
 
-  function setupAudioWaveform(card, svg, url) {
+  function setupAudioWaveform(card, svg, url, update = null) {
     let unsubscribe = null;
     let active = false;
     let activation = 0;
@@ -40,6 +40,7 @@ export function installCards(context) {
       const currentActivation = ++activation;
       svg.dataset.state = "loading";
       const consumer = {
+        update: (info) => { if (active && activation === currentActivation) update?.(info); },
         render(peaks) {
           if (active && activation === currentActivation) renderAudioWaveform(svg, peaks);
         },
@@ -63,7 +64,10 @@ export function installCards(context) {
     const audioMain = document.createElement("div");
     audioMain.className = "cmf-audio-main";
     const waveform = createAudioWaveform("cmf-audio-waveform", AUDIO_WAVEFORM_BAR_COUNT);
-    audioMain.appendChild(waveform);
+    const info = document.createElement("span");
+    info.className = "cmf-preview-info";
+    info.textContent = item.filename;
+    audioMain.append(waveform, info);
     const controls = document.createElement("div");
     const playButton = document.createElement("button");
     const duration = document.createElement("span");
@@ -76,14 +80,21 @@ export function installCards(context) {
     duration.hidden = true;
     controls.append(playButton, duration);
     const audio = document.createElement("audio");
-    audio.preload = "metadata";
+    audio.preload = "none";
     audio.loop = state.loopAudio;
-    audio.src = item.url;
+    audio.dataset.src = item.url;
     audio.dataset.mediaItemKey = item.key;
     audio.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
     audioPreview.append(audioMain, controls, audio);
     setupAudioPreview(audioPreview, audio, owner);
-    setupAudioWaveform(owner, waveform, item.url);
+    setupAudioWaveform(owner, waveform, item.url, (result) => {
+      info.textContent = previewDescription(result, item, formatMediaDuration);
+      info.hidden = result.status === "ready";
+      if (Number.isFinite(result.duration)) {
+        audio.dataset.previewDuration = String(result.duration);
+        updateThumbnailRemainingTime(audio, duration);
+      }
+    });
     return audioPreview;
   }
 
@@ -113,6 +124,8 @@ export function installCards(context) {
   
     const preview = document.createElement("div");
     preview.className = "cmf-preview";
+    const info = document.createElement("span");
+    info.className = "cmf-preview-info";
   
     if (item.kind === "image") {
       const image = document.createElement("img");
@@ -120,24 +133,22 @@ export function installCards(context) {
       image.decoding = "async";
       // Cards are already virtualized, so every created thumbnail is in or near the viewport.
       image.loading = "eager";
-      image.src = item.url;
       const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(image, preview));
       thumbnailResizeObserver.observe(preview);
       card.thumbnailResizeObserver = thumbnailResizeObserver;
       image.addEventListener("load", () => {
-        rememberDecodedImage(item.url, image);
-        rememberMediaDimensions(item, image);
         fitThumbnailMedia(image, preview);
       }, { once: true });
-      image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      preview.appendChild(image);
+      image.addEventListener("error", () => { info.dataset.ready = "false"; });
+      preview.append(image, info);
+      attachThumbnailPreview(context, card, image, item, info);
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
     } else if (item.kind === "video") {
       const video = document.createElement("video");
       const { controls, playButton, duration } = createVideoControls();
       video.muted = true;
       video.playsInline = true;
-      video.preload = "metadata";
+      video.preload = "none";
       video.loop = state.loopVideos;
       const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(video, preview));
       thumbnailResizeObserver.observe(preview);
@@ -147,9 +158,10 @@ export function installCards(context) {
         fitThumbnailMedia(video, preview);
       }, { once: true });
       video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      video.src = item.url;
-      preview.append(video, controls);
+      video.dataset.src = item.url;
+      preview.append(video, info, controls);
       setupVideoPreview(card, video, playButton, duration);
+      attachThumbnailPreview(context, card, video, item, info, duration);
       if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
         window.requestAnimationFrame(() => fitThumbnailMedia(video, preview));
       }
@@ -195,21 +207,25 @@ export function installCards(context) {
       image.alt = "";
       image.decoding = "async";
       image.loading = "eager";
-      image.addEventListener("load", () => rememberDecodedImage(item.url, image), { once: true });
-      image.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      image.src = item.url;
-      cell.append(image);
+      const info = document.createElement("span");
+      info.className = "cmf-preview-info";
+      image.addEventListener("error", () => { info.dataset.ready = "false"; });
+      cell.append(image, info);
+      attachThumbnailPreview(context, cell, image, item, info);
     } else if (item.kind === "video") {
       const video = document.createElement("video");
       const { controls, playButton, duration } = createVideoControls();
       video.muted = true;
       video.playsInline = true;
-      video.preload = "metadata";
+      video.preload = "none";
       video.loop = state.loopVideos;
-      video.src = item.url;
+      video.dataset.src = item.url;
       video.addEventListener("error", () => removeMissingMediaItem(item), { once: true });
-      cell.append(video, controls);
+      const info = document.createElement("span");
+      info.className = "cmf-preview-info";
+      cell.append(video, info, controls);
       setupVideoPreview(cell, video, playButton, duration);
+      attachThumbnailPreview(context, cell, video, item, info, duration);
     } else {
       cell.append(createAudioPreview(item, cell));
     }
@@ -232,20 +248,17 @@ export function installCards(context) {
     card.title = `${batch.items.length} media in batch`;
     const grid = card.querySelector(".cmf-batch-thumbnail-grid");
     const existingCells = new Map([...grid.children].map((cell) => [cell.dataset.mediaItemKey, cell]));
-    const imageLoads = [];
     const cells = batch.items.slice(0, 4).map((item) => {
       const existing = existingCells.get(item.key);
       if (existing?.dataset.mediaUrl === item.url) return existing;
       const cell = createBatchThumbnailCell(item);
-      const image = cell.querySelector("img");
-      if (image) imageLoads.push(decodeImageElement(image));
       return cell;
     });
-    await Promise.all(imageLoads);
     if (card.batchRenderRequestId !== requestId) return;
     for (const cell of grid.children) {
       if (cells.includes(cell)) continue;
       cell.deactivateAudioWaveform?.();
+      cell.deactivateMediaPreview?.();
       const media = cell.querySelector("video, audio");
       if (media) {
         media.pause();
@@ -257,7 +270,10 @@ export function installCards(context) {
     grid.dataset.count = String(cells.length);
     grid.replaceChildren(...cells);
     if (card.audioWaveformsActive) {
-      for (const cell of cells) cell.activateAudioWaveform?.();
+      for (const cell of cells) {
+        cell.activateAudioWaveform?.();
+        cell.activateMediaPreview?.();
+      }
     }
   }
 
@@ -281,11 +297,17 @@ export function installCards(context) {
     card.append(grid);
     card.activateAudioWaveform = () => {
       card.audioWaveformsActive = true;
-      for (const cell of grid.children) cell.activateAudioWaveform?.();
+      for (const cell of grid.children) {
+        cell.activateAudioWaveform?.();
+        cell.activateMediaPreview?.();
+      }
     };
     card.deactivateAudioWaveform = () => {
       card.audioWaveformsActive = false;
-      for (const cell of grid.children) cell.deactivateAudioWaveform?.();
+      for (const cell of grid.children) {
+        cell.deactivateAudioWaveform?.();
+        cell.deactivateMediaPreview?.();
+      }
     };
     card.addEventListener("click", (event) => {
       if (event?.target?.closest?.(".cmf-media-controls")) return;
@@ -303,6 +325,9 @@ export function installCards(context) {
 
   function setupVideoPreview(card, video, playButton, durationLabel) {
     let audiblePlayback = false;
+    const ensureSource = () => {
+      if (video.dataset?.src && !video.getAttribute?.("src")) video.src = video.dataset.src;
+    };
 
     const updatePlayButton = () => {
       const playingAudibly = audiblePlayback && !video.paused && !video.ended;
@@ -315,6 +340,7 @@ export function installCards(context) {
       if (audiblePlayback) return;
       audiblePlayback = false;
       video.muted = true;
+      ensureSource();
       video.play().catch(() => {});
     };
 
@@ -349,6 +375,7 @@ export function installCards(context) {
 
       audiblePlayback = true;
       video.muted = false;
+      ensureSource();
       try {
         video.currentTime = 0;
       } catch {
@@ -408,6 +435,7 @@ export function installCards(context) {
       event.preventDefault();
       event.stopPropagation();
       if (audio.paused || audio.ended) {
+        if (audio.dataset?.src && !audio.getAttribute?.("src")) audio.src = audio.dataset.src;
         try {
           audio.currentTime = 0;
         } catch {

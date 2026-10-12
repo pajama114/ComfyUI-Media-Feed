@@ -126,6 +126,30 @@ test("addItems replaces duplicates and keeps the feed bounded at the default 256
   assert.equal(viewerSyncs, 2);
 });
 
+test("replacing an output invalidates its thumbnails, waveform, and original image cache", () => {
+  const context = createContext();
+  const { actions, runtime, state } = context;
+  actions.updateViews = () => {};
+  actions.syncViewerItems = () => {};
+  const [original] = actions.collectMedia({ images: [{ filename: "overwritten.png" }] }, "one", 1);
+  actions.addItems([original]);
+  const key = new URL(original.url, "http://localhost/");
+  key.searchParams.set("preview_size", "512");
+  runtime.mediaPreviewCache.set(key.href, { status: "ready", version: "old" });
+  runtime.mediaPreviewCache.set("/view?filename=other.png", { status: "ready" });
+  runtime.audioWaveformCache.set(original.url, new Float32Array(512));
+  runtime.decodedImageCache.set(original.url, {});
+  runtime.mediaDimensionCache.set(original.key, { width: 100, height: 100 });
+  const [replacement] = actions.collectMedia({ images: [{ filename: "overwritten.png" }] }, "two", 1);
+  actions.addItems([replacement]);
+  assert.equal(state.items[0], replacement);
+  assert.equal(runtime.mediaPreviewCache.has(key.href), false);
+  assert.equal(runtime.mediaPreviewCache.size, 1);
+  assert.equal(runtime.audioWaveformCache.size, 0);
+  assert.equal(runtime.decodedImageCache.size, 0);
+  assert.equal(runtime.mediaDimensionCache.size, 0);
+});
+
 test("addItems prefetches metadata for a new video while the viewer is open", () => {
   const context = createContext();
   const { actions, runtime, state } = context;

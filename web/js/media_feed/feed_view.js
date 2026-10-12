@@ -278,6 +278,7 @@ export function installFeedView(context) {
       runtime.decodedImageCache.clear();
       runtime.mediaDimensionCache.clear();
       runtime.audioWaveformCache.clear();
+      runtime.mediaPreviewCache.clear();
       clearPromptMetadataCache();
       clearSessionItems();
       updateViews(false);
@@ -478,6 +479,7 @@ export function installFeedView(context) {
     if (!card) return;
     if (card.batch) card.batchRenderRequestId++;
     card.deactivateAudioWaveform?.();
+    card.deactivateMediaPreview?.();
     card.thumbnailResizeObserver?.disconnect();
     for (const media of card.querySelectorAll("video, audio")) discardStagedMedia(media);
     card.remove();
@@ -498,8 +500,9 @@ export function installFeedView(context) {
   
   function cacheCard(view, id, card) {
     card.deactivateAudioWaveform?.();
+    card.deactivateMediaPreview?.();
     card.thumbnailResizeObserver?.disconnect();
-    for (const media of card.querySelectorAll("video, audio")) media.pause();
+    for (const media of card.querySelectorAll("video, audio")) discardStagedMedia(media);
     card.remove();
     view.cards.delete(id);
   
@@ -576,6 +579,7 @@ export function installFeedView(context) {
         view.cards.set(item.id, card);
         view.rail.appendChild(card);
         card.activateAudioWaveform?.();
+        card.activateMediaPreview?.();
       }
       card.style.transform = vertical
         ? `translateY(${railPadding + index * pitch}px)`

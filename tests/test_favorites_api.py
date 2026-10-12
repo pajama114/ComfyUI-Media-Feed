@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 def load_extension():
     # The route tests run without installing ComfyUI or aiohttp.
     routes = SimpleNamespace(
+        get=lambda path: lambda handler: handler,
         post=lambda path: lambda handler: handler,
         delete=lambda path: lambda handler: handler,
     )
@@ -26,7 +27,7 @@ def load_extension():
         "media_feed_favorites_test", Path(__file__).resolve().parents[1] / "__init__.py"
     )
     extension = importlib.util.module_from_spec(spec)
-    with patch.dict(sys.modules, modules):
+    with patch.dict(sys.modules, {**modules, spec.name: extension}):
         spec.loader.exec_module(extension)
     return extension
 

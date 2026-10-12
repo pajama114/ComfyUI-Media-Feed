@@ -1,3 +1,5 @@
+import { subscribeMediaPreview } from "./media_previews.js";
+
 export const AUDIO_WAVEFORM_BAR_COUNT = 64;
 export const VIEWER_AUDIO_WAVEFORM_BAR_COUNT = 384;
 
@@ -125,22 +127,6 @@ export function installAudioWaveforms(context) {
     }
   }
 
-  function getAudioWaveformContext() {
-    if (runtime.audioWaveformContext) return runtime.audioWaveformContext;
-    const AudioContext = globalThis.AudioContext || globalThis.webkitAudioContext;
-    if (!AudioContext) throw new Error("Web Audio is unavailable");
-    runtime.audioWaveformContext = new AudioContext();
-    return runtime.audioWaveformContext;
-  }
-
-  async function decodeAudioWaveform(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Unable to load audio waveform (${response.status})`);
-    const encodedAudio = await response.arrayBuffer();
-    const audioBuffer = await getAudioWaveformContext().decodeAudioData(encodedAudio);
-    return calculateAudioWaveformPeaks(audioBuffer, AUDIO_WAVEFORM_SOURCE_BAR_COUNT);
-  }
-
   function runNextAudioWaveformJob() {
     while (
       runtime.activeAudioWaveformLoads < MAX_CONCURRENT_AUDIO_WAVEFORM_LOADS
@@ -154,17 +140,35 @@ export function installAudioWaveforms(context) {
       }
 
       runtime.activeAudioWaveformLoads++;
-      decodeAudioWaveform(job.url)
-        .then((peaks) => {
+      let settled = false;
+      let stop = null;
+      const finish = (peaks, error) => {
+        if (settled) return;
+        settled = true;
+        stop?.();
+        if (peaks) {
           rememberAudioWaveform(job.url, peaks);
           job.resolve(peaks);
-        })
-        .catch(job.reject)
-        .finally(() => {
-          runtime.activeAudioWaveformLoads--;
-          runtime.audioWaveformJobs.delete(job.url);
-          runNextAudioWaveformJob();
-        });
+        } else job.reject(error);
+        runtime.activeAudioWaveformLoads--;
+        runtime.audioWaveformJobs.delete(job.url);
+        runNextAudioWaveformJob();
+      };
+      job.cancel = () => finish(null, new Error("Audio waveform is no longer visible"));
+      stop = subscribeMediaPreview(context, job.url, {
+        update(info) {
+          for (const subscription of job.consumers) subscription.consumer.update?.(info);
+          if (info.status === "ready" && Array.isArray(info.peaks) && info.peaks.length === AUDIO_WAVEFORM_SOURCE_BAR_COUNT) {
+            finish(Float32Array.from(info.peaks, (level) => Math.min(1, Math.max(0, Number(level) || 0))));
+          } else if (info.status === "unavailable" || info.status === "ready") {
+            finish(null, new Error("Audio waveform is unavailable"));
+          }
+        },
+        fail(error) {
+          if (error.status === 400 || error.status === 404) finish(null, error);
+        },
+      });
+      if (settled) stop();
     }
   }
 
@@ -174,6 +178,8 @@ export function installAudioWaveforms(context) {
       runtime.audioWaveformCache.delete(url);
       runtime.audioWaveformCache.set(url, cachedPeaks);
       consumer.render(resampleAudioWaveformPeaks(cachedPeaks, barCount));
+      const info = runtime.mediaPreviewCache?.get(url);
+      if (info) consumer.update?.(info);
       return () => {};
     }
 
@@ -188,7 +194,7 @@ export function installAudioWaveforms(context) {
       runtime.audioWaveformQueue.push(job);
     }
 
-    const subscription = { active: true };
+    const subscription = { active: true, consumer };
     const render = (peaks) => {
       if (subscription.active) consumer.render(resampleAudioWaveformPeaks(peaks, barCount));
     };
@@ -201,6 +207,7 @@ export function installAudioWaveforms(context) {
     return () => {
       subscription.active = false;
       job.consumers.delete(subscription);
+      if (!job.consumers.size) job.cancel?.();
     };
   }
 

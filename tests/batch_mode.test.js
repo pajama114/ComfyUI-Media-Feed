@@ -471,7 +471,7 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
   }
 });
 
-test("batch thumbnail preserves decoded images and adds video and audio controls", async () => {
+test("batch thumbnail preserves cells and displays descriptors before previews load", async () => {
   const originalDocument = globalThis.document;
   class Element {
     constructor(tagName) {
@@ -517,15 +517,12 @@ test("batch thumbnail preserves decoded images and adds video and audio controls
     remove() {}
   }
   globalThis.document = { createElement: (tagName) => new Element(tagName) };
-  let finishNewImage;
-  const newImageReady = new Promise((resolve) => { finishNewImage = resolve; });
 
   try {
     const opened = [];
     let waveformSubscriptions = 0;
     const actions = {
       rememberDecodedImage() {},
-      decodeImageElement: (image) => image.src.includes("three") ? newImageReady : Promise.resolve(),
       openViewer: (batch) => opened.push(batch.items.length),
       createAudioWaveform(className) {
         const waveform = new Element("svg");
@@ -552,10 +549,11 @@ test("batch thumbnail preserves decoded images and adds video and audio controls
     const expanded = displayEntries([media("three", "p"), media("two", "p"), media("one", "p")], true)[0];
     const rendering = actions.updateBatchCard(card, expanded);
 
-    assert.deepEqual(grid.children, oldCells);
+    assert.deepEqual(grid.children.slice(0, 2), oldCells);
+    assert.equal(grid.children[2].querySelector("img").src, undefined);
+    assert.equal(grid.children[2].querySelector(".cmf-preview-info").textContent, "three.png");
     card.listeners.get("click")();
     assert.deepEqual(opened, [3]);
-    finishNewImage();
     await rendering;
     assert.equal(grid.children.length, 3);
     assert.equal(grid.children[0], oldCells[0]);

@@ -5,6 +5,7 @@ import {
 } from "./constants.js";
 
 import { displayEntries } from "./batch_entries.js";
+import { invalidateMediaPreview } from "./media_previews.js";
 
 export function installMediaItems(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -145,6 +146,8 @@ export function installMediaItems(context) {
         if (existingIndex !== -1) {
           const [replaced] = state.items.splice(existingIndex, 1);
           for (const view of state.views) discardCachedCard(view, replaced.id);
+          invalidateMediaPreview(context, replaced.url);
+          runtime.mediaDimensionCache.delete(replaced.key);
         }
       }
       state.itemKeys.add(item.key);

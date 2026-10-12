@@ -374,7 +374,7 @@ export function installViewerRender(context) {
       prepareViewerImage(image);
   
       const cached = runtime.decodedImageCache.get(mediaItem.url);
-      if (cached?.complete) {
+      if (cached?.complete && !cached.dataset?.originalMediaUrl) {
         image.src = cached.currentSrc || cached.src;
         await decodeImageElement(image);
         if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) return;
@@ -389,7 +389,7 @@ export function installViewerRender(context) {
         return;
       }
   
-      if (thumbnail?.complete) {
+      if (thumbnail?.complete && !thumbnail.dataset?.originalMediaUrl) {
         rememberDecodedImage(mediaItem.url, thumbnail);
         image.src = thumbnail.currentSrc || thumbnail.src;
         await decodeImageElement(image);

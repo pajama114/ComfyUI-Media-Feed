@@ -377,6 +377,25 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       object-position: center;
     }
 
+    .cmf-preview-info {
+      position: absolute;
+      z-index: 1;
+      inset: 8px;
+      display: grid;
+      place-content: center;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--cmf-text);
+      pointer-events: none;
+    }
+
+    .cmf-preview-info[hidden] { display: none; }
+
+    .cmf-audio-main { position: relative; }
+
     .cmf-card-favorite {
       position: absolute;
       z-index: 2;

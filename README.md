@@ -116,15 +116,19 @@ to browser `sessionStorage`, and only renders visible cards plus a small oversca
 buffer. Media files themselves are never copied into browser storage. The
 toolbar trash button clears both the visible feed and its saved session entries.
 
-Images, videos, and audio are loaded through ComfyUI's standard `/view` route.
-Image thumbnails and the full-screen image viewer use the same URL so the browser
-can reuse cache. Recently decoded images are also kept in a small in-memory LRU
-cache.
+The feed uses server-generated image thumbnails up to 512 pixels on the long
+edge and static video posters. Original media is loaded through ComfyUI's
+standard `/view` route when opening the viewer or starting playback. Cards
+outside the rendered area release their media sources. Retained image pixels
+have an estimated 64 MiB cache budget in addition to the cache's entry limit;
+an original image currently open in the viewer can use more memory.
 
-Video thumbnails use `preload="metadata"`. The native audio element uses
-`preload="none"` until playback, while visible audio cards load the same `/view`
-URL one at a time to derive a small waveform. Only the reduced waveform levels
-are cached after decoding.
+Audio waveforms are generated on the server with bounded WAV sampling or
+streamed decoding, without decoding a whole recording in the browser. Preview
+generation runs one file at a time and reuses a temporary disk cache bounded by
+256 MiB and 512 entries. Large files remain eligible: when estimated available
+server memory is insufficient, generation waits and retries while visible cards
+keep showing the filename and any available dimensions, duration, and file size.
 
 ## Install
 

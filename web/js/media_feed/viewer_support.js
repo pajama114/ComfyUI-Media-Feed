@@ -1,7 +1,9 @@
 import {
   MEDIA_DIMENSION_CACHE_SIZE,
   DECODED_IMAGE_CACHE_SIZE,
+  FEED_IMAGE_MEMORY_BUDGET,
 } from "./constants.js";
+import { estimatedImageBytes, retainedFeedImageBytes } from "./media_previews.js";
 
 export function installViewerSupport(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -10,10 +12,20 @@ export function installViewerSupport(context) {
   function rememberDecodedImage(url, image) {
     if (!url || !image?.complete) return;
     if (!image.naturalWidth && !image.naturalHeight) return;
+    // Thumbnails must never become the source of the original-image viewer.
+    if (image.dataset?.originalMediaUrl) return;
     runtime.decodedImageCache.delete(url);
+    if (estimatedImageBytes(image) > FEED_IMAGE_MEMORY_BUDGET) return;
     runtime.decodedImageCache.set(url, image);
   
-    while (runtime.decodedImageCache.size > DECODED_IMAGE_CACHE_SIZE) {
+    trimDecodedImageCache();
+  }
+
+  function trimDecodedImageCache() {
+    while (runtime.decodedImageCache?.size && (
+      runtime.decodedImageCache.size > DECODED_IMAGE_CACHE_SIZE
+      || retainedFeedImageBytes(runtime, state) > FEED_IMAGE_MEMORY_BUDGET
+    )) {
       const oldestKey = runtime.decodedImageCache.keys().next().value;
       runtime.decodedImageCache.delete(oldestKey);
     }
@@ -22,7 +34,9 @@ export function installViewerSupport(context) {
   function rememberMediaDimensions(item, element) {
     if (!item?.key) return;
   
-    const size = viewerMediaNaturalSize(element);
+    const size = element.dataset?.originalWidth && element.dataset?.originalHeight
+      ? { width: Number(element.dataset.originalWidth), height: Number(element.dataset.originalHeight) }
+      : viewerMediaNaturalSize(element);
     if (!size.width || !size.height) return;
   
     runtime.mediaDimensionCache.delete(item.key);
@@ -348,6 +362,7 @@ export function installViewerSupport(context) {
   }
   
   Object.assign(actions, {
+    trimDecodedImageCache,
     rememberDecodedImage,
     rememberMediaDimensions,
     discardStagedMedia,

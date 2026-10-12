@@ -7,10 +7,13 @@ from aiohttp import web
 import folder_paths
 from server import PromptServer
 
+from .media_previews import PreviewService
+
 
 WEB_DIRECTORY = "./web/js"
 
 FAVORITES_FOLDER = "favorites"
+_preview_service = None
 
 
 def _is_within(path, parent):
@@ -34,6 +37,63 @@ def _relative_media_path(subfolder, filename):
     if not parts or any(part in {".", ".."} for part in parts):
         raise ValueError("Invalid media reference")
     return Path(*parts)
+
+
+def _preview_media_path(query):
+    media_type = query.get("type", "output")
+    if media_type not in {"output", "temp"}:
+        raise ValueError("Only output and temporary media can be previewed")
+    directory = Path(folder_paths.get_directory_by_type(media_type)).resolve()
+    path = (directory / _relative_media_path(query.get("subfolder", ""), query.get("filename"))).resolve()
+    if not _is_within(path, directory):
+        raise ValueError("Invalid media reference")
+    if not path.is_file():
+        raise FileNotFoundError("Media file was not found")
+    return path
+
+
+def _get_preview_service():
+    global _preview_service
+    if _preview_service is None:
+        _preview_service = PreviewService(Path(folder_paths.get_temp_directory()) / "media-feed-previews")
+    return _preview_service
+
+
+def _preview_size(query):
+    size = int(query.get("size", "512"))
+    if size not in {128, 256, 512}:
+        raise ValueError("Invalid preview size")
+    return size
+
+
+@PromptServer.instance.routes.get("/media-feed/preview")
+async def media_preview(request):
+    try:
+        path = _preview_media_path(request.rel_url.query)
+        result = await _get_preview_service().request_preview(path, _preview_size(request.rel_url.query))
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
+    except ValueError as error:
+        return web.json_response({"error": str(error)}, status=400)
+    except FileNotFoundError:
+        return web.json_response({"error": "Media file was not found"}, status=404)
+    except OSError:
+        return web.json_response({"error": "Could not prepare media preview"}, status=503)
+
+
+@PromptServer.instance.routes.get("/media-feed/thumbnail")
+async def media_thumbnail(request):
+    try:
+        path = _preview_media_path(request.rel_url.query)
+        thumbnail = _get_preview_service().thumbnail(path, _preview_size(request.rel_url.query))
+        if thumbnail:
+            return web.FileResponse(thumbnail, headers={"Content-Type": "image/webp"})
+        return web.json_response({"status": "pending"}, status=202)
+    except ValueError as error:
+        return web.json_response({"error": str(error)}, status=400)
+    except FileNotFoundError:
+        return web.json_response({"error": "Media file was not found"}, status=404)
+    except OSError:
+        return web.json_response({"error": "Could not load media preview"}, status=503)
 
 
 def _favorites_directory(create=False):
