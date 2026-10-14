@@ -21,7 +21,7 @@ CACHE_BYTES = 256 * 1024 * 1024
 CACHE_ENTRIES = 512
 MEMORY_RESERVE = 128 * 1024 * 1024
 RETRY_SECONDS = 10
-FAST_PREVIEW_WAIT_SECONDS = 0.15
+PREVIEW_RESPONSE_WAIT_SECONDS = 1.0
 IMAGE_EXTENSIONS = {"avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"}
 AUDIO_EXTENSIONS = {"aac", "flac", "m4a", "mp3", "ogg", "opus", "wav"}
 VIDEO_EXTENSIONS = {"avi", "m4v", "mkv", "mov", "mp4", "webm"}
@@ -248,11 +248,13 @@ class PreviewService:
             job = self.jobs.get(result["version"])
         if job is None:
             return result
-        # Let quick thumbnails finish in this response without blocking ComfyUI
-        # or cancelling queued work when the response's short wait expires.
+        # A batch shares one decoder, so later thumbnails can take more than
+        # 150 ms even for ordinary images. Return each result as soon as it is
+        # ready instead of forcing it through a client polling delay. This is
+        # only a response timeout; it does not block ComfyUI or cancel the job.
         future = asyncio.wrap_future(job["future"])
         try:
-            await asyncio.wait_for(asyncio.shield(future), FAST_PREVIEW_WAIT_SECONDS)
+            await asyncio.wait_for(asyncio.shield(future), PREVIEW_RESPONSE_WAIT_SECONDS)
         except asyncio.TimeoutError:
             return result
         return self.request(path, size)

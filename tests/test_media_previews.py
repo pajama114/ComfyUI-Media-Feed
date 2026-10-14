@@ -58,11 +58,48 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         future = Future()
         pending = {"version": "slow", "status": "pending"}
         self.service.jobs["slow"] = {"future": future}
-        with patch.object(self.service, "request", return_value=pending), patch.object(previews, "FAST_PREVIEW_WAIT_SECONDS", 0.001):
+        with patch.object(self.service, "request", return_value=pending), patch.object(previews, "PREVIEW_RESPONSE_WAIT_SECONDS", 0.001):
             self.assertEqual(await self.service.request_preview(self.root / "slow.png"), pending)
             self.assertFalse(future.cancelled())
             future.set_result({"status": "ready"})
             await asyncio.sleep(0)
+
+    async def test_batch_responses_return_each_thumbnail_when_ready_without_a_polling_gap(self):
+        paths = [self.root / f"batch-{index}.png" for index in range(4)]
+        for path in paths:
+            path.write_bytes(b"image")
+        entered = [asyncio.Event() for _ in paths]
+        release = [threading.Event() for _ in paths]
+        loop = asyncio.get_running_loop()
+
+        def work(path, key, base, size):
+            index = paths.index(path)
+            loop.call_soon_threadsafe(entered[index].set)
+            release[index].wait(2)
+            return dict(base, status="ready", thumbnail=True)
+
+        with patch.object(self.service, "_generate", side_effect=work):
+            tasks = [asyncio.create_task(self.service.request_preview(path)) for path in paths]
+            try:
+                for index in range(2):
+                    await asyncio.wait_for(entered[index].wait(), 1)
+                    release[index].set()
+                    self.assertEqual((await tasks[index])["status"], "ready")
+                await asyncio.wait_for(entered[2].wait(), 1)
+                # Later images in a serialized batch can finish after the old
+                # 150 ms response timeout, without needing a client retry.
+                await asyncio.sleep(0.2)
+                self.assertFalse(tasks[2].done())
+                self.assertFalse(tasks[3].done())
+                release[2].set()
+                self.assertEqual((await tasks[2])["status"], "ready")
+                await asyncio.wait_for(entered[3].wait(), 1)
+                release[3].set()
+                self.assertEqual((await tasks[3])["status"], "ready")
+            finally:
+                for event in release:
+                    event.set()
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def test_disconnecting_preview_response_does_not_cancel_queued_generation(self):
         future = Future()
