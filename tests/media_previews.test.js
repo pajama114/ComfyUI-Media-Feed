@@ -9,6 +9,33 @@ import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const source = "/view?filename=large.png&subfolder=folder&type=output";
+function previewImage() {
+  const listeners = new Map();
+  return {
+    dataset: {}, src: "", complete: true, naturalWidth: 0, naturalHeight: 0,
+    addEventListener(type, callback) {
+      const callbacks = listeners.get(type) || [];
+      callbacks.push(callback);
+      listeners.set(type, callbacks);
+    },
+    removeAttribute(name) {
+      this[name] = "";
+      if (name === "src") this.naturalWidth = this.naturalHeight = 0;
+    },
+    finishLoading() {
+      this.complete = true;
+      this.naturalWidth = 512;
+      this.naturalHeight = 256;
+      for (const callback of listeners.get("load") || []) callback();
+    },
+    failLoading() {
+      this.complete = true;
+      this.naturalWidth = this.naturalHeight = 0;
+      for (const callback of listeners.get("error") || []) callback();
+    },
+  };
+}
+
 function context() {
   return {
     api: { apiURL: (path) => `/api${path}` }, state: { views: new Set() },
@@ -102,7 +129,7 @@ for (const slow of [false, true]) test(slow
     { status: "ready", thumbnail: true, version: "v1" },
   ];
   t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify(replies.shift())));
-  const media = { dataset: {}, src: "", addEventListener() {}, removeAttribute(name) { this[name] = ""; } };
+  const media = previewImage();
   const label = { dataset: {} }, card = {};
   attachThumbnailPreview(owner, card, media, { kind: "image", filename: "large.png", url: source }, label);
   card.activateMediaPreview();
@@ -127,12 +154,15 @@ for (const slow of [false, true]) test(slow
     retry();
     await flush();
   }
-  assert.equal(label.hidden, true);
   assert.ok(media.src.includes("thumbnail"));
+  assert.equal(media.dataset.previewLoaded, "false", "a ready descriptor does not mean the image is loaded");
+  media.finishLoading();
+  assert.equal(label.hidden, true);
   assert.equal(timers.size, 0, "a completed preview cannot reveal its old loading label later");
   card.deactivateMediaPreview();
   card.activateMediaPreview();
   assert.equal(label.hidden, true);
+  media.finishLoading();
   assert.equal(timers.size, 0, "reused previews have no loading delay");
   card.deactivateMediaPreview();
 });
@@ -156,10 +186,7 @@ test("leaving the feed aborts a preview request only after its last consumer lea
 
 test("thumbnails keep original dimensions, show useful waiting information, and unload outside the feed", async (t) => {
   const owner = context();
-  const media = {
-    dataset: {}, src: "", addEventListener() {},
-    removeAttribute(name) { this[name] = ""; },
-  };
+  const media = previewImage();
   const item = { key: "large", kind: "image", filename: "large.png", url: source };
   const label = { dataset: {} }, card = {};
   t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({
@@ -174,11 +201,86 @@ test("thumbnails keep original dimensions, show useful waiting information, and 
   assert.match(label.textContent, /16384 × 8192/);
   assert.equal(media.dataset.originalMediaUrl, source);
   assert.equal(media.dataset.originalWidth, "16384");
+  assert.equal(media.dataset.previewLoaded, "false");
+  media.finishLoading();
+  assert.equal(media.dataset.previewLoaded, "true");
   card.deactivateMediaPreview();
   assert.equal(media.src, "");
+  assert.equal(media.dataset.previewLoaded, "false");
   card.activateMediaPreview();
   assert.ok(media.src.includes("thumbnail"));
   card.deactivateMediaPreview();
+});
+
+test("a thumbnail stays hidden until image load and keeps useful file information during a slow download", async (t) => {
+  const owner = context();
+  const timers = new Map();
+  t.mock.method(globalThis, "setTimeout", (callback, delay) => { timers.set(callback, delay); return callback; });
+  t.mock.method(globalThis, "clearTimeout", (callback) => timers.delete(callback));
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({
+    status: "ready", thumbnail: true, width: 1024, height: 1024, version: "v1",
+  })));
+  const media = previewImage(), label = { dataset: {} }, card = {};
+  attachThumbnailPreview(owner, card, media, { kind: "image", filename: "large.png", url: source }, label);
+  assert.equal(media.dataset.previewLoaded, "false");
+  card.activateMediaPreview();
+  await flush();
+  assert.equal(media.dataset.previewLoaded, "false");
+  assert.equal(label.hidden, true);
+  const [reveal, delay] = timers.entries().next().value;
+  assert.equal(delay, 600);
+  timers.delete(reveal);
+  reveal();
+  assert.equal(label.hidden, false);
+  assert.match(label.textContent, /large.png.*1024 × 1024/);
+  media.finishLoading();
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(label.hidden, true);
+  card.deactivateMediaPreview();
+  media.finishLoading();
+  assert.equal(media.dataset.previewLoaded, "false", "an offscreen load event cannot reveal the image");
+  assert.equal(timers.size, 0);
+});
+
+test("a failed thumbnail is hidden, explains the failure, and can retry without invalidating offscreen previews", async (t) => {
+  const owner = context();
+  const timers = new Map();
+  let requests = 0;
+  t.mock.method(globalThis, "setTimeout", (callback, delay) => { timers.set(callback, delay); return callback; });
+  t.mock.method(globalThis, "clearTimeout", (callback) => timers.delete(callback));
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: "ready", thumbnail: true, version: "v1" }));
+  });
+  const media = previewImage(), label = { dataset: {} }, card = {};
+  let assignedSource = "", sourceAssignments = 0;
+  Object.defineProperty(media, "src", {
+    get: () => assignedSource,
+    set(value) { assignedSource = value; sourceAssignments++; media.complete = false; },
+  });
+  attachThumbnailPreview(owner, card, media, { kind: "image", filename: "large.png", url: source }, label);
+  card.activateMediaPreview();
+  await flush();
+  media.finishLoading();
+  media.failLoading();
+  assert.equal(media.dataset.previewLoaded, "false");
+  assert.equal(label.hidden, false);
+  assert.match(label.textContent, /Preview unavailable.*large.png/);
+  assert.equal(owner.runtime.mediaPreviewCache.size, 0);
+  const [retry, delay] = timers.entries().next().value;
+  assert.equal(delay, 5000);
+  timers.delete(retry);
+  retry();
+  await flush();
+  assert.equal(requests, 2);
+  assert.equal(sourceAssignments, 2, "retrying the same URL must start a new image load");
+  media.finishLoading();
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(label.hidden, true);
+  card.deactivateMediaPreview();
+  media.failLoading();
+  assert.equal(owner.runtime.mediaPreviewCache.size, 1);
+  assert.equal(timers.size, 0);
 });
 
 test("a video poster does not load the original video and offscreen playback is released", async (t) => {

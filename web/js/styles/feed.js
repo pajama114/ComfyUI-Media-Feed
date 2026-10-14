@@ -377,6 +377,10 @@ export const mediaFeedFeedStyles = `    .cmf-feed-frame {
       object-position: center;
     }
 
+    .cmf-card img[data-original-media-url]:not([data-preview-loaded="true"]) {
+      visibility: hidden;
+    }
+
     .cmf-preview-info {
       position: absolute;
       z-index: 1;

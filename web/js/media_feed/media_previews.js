@@ -123,12 +123,26 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   requestUrl.searchParams.set("preview_size", String(size));
   const previewKey = requestUrl.href;
   media.dataset.originalMediaUrl = item.url;
-  media.addEventListener("load", () => context.actions.trimDecodedImageCache?.());
+  if (item.kind === "image") media.dataset.previewLoaded = "false";
+  media.addEventListener("load", () => {
+    if (item.kind === "image") {
+      if (!active || !media.naturalWidth) return;
+      media.dataset.previewLoaded = "true";
+      label.hidden = true;
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+    context.actions.trimDecodedImageCache?.();
+  });
   if (item.kind === "image") media.addEventListener("error", () => {
+    if (!active) return;
+    media.dataset.previewLoaded = "false";
     label.dataset.ready = "false";
     label.hidden = false;
     clearTimeout(statusTimer);
     statusTimer = null;
+    label.textContent = previewDescription({ ...info, status: "unavailable" }, item, context.actions.formatMediaDuration);
+    label.title = label.textContent;
     info = null;
     context.runtime.mediaPreviewCache?.delete(previewKey);
     unsubscribe?.();
@@ -141,10 +155,12 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   });
   const update = (result) => {
     info = result;
+    const loadingImage = item.kind === "image" && result.status === "ready" && result.thumbnail
+      && media.dataset.previewLoaded !== "true";
     label.textContent = previewDescription(result, item, context.actions.formatMediaDuration);
     label.title = label.textContent;
-    label.hidden = result.status === "pending" && statusTimer !== null;
-    if (result.status !== "pending") {
+    label.hidden = (result.status === "pending" || loadingImage) && statusTimer !== null;
+    if (result.status !== "pending" && !loadingImage) {
       clearTimeout(statusTimer);
       statusTimer = null;
     }
@@ -164,22 +180,25 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       media.dataset.thumbnailWidth = String(result.thumbnailWidth || size);
       media.dataset.thumbnailHeight = String(result.thumbnailHeight || size);
       if (item.kind === "video") media.poster = url;
-      else if (media.src !== url && media.getAttribute?.("src") !== url) media.src = url;
+      else if ((media.src !== url && media.getAttribute?.("src") !== url) || (media.complete && !media.naturalWidth)) {
+        media.dataset.previewLoaded = "false";
+        media.src = url;
+      }
       label.dataset.ready = "true";
-      label.hidden = true;
+      if (item.kind !== "image" || media.dataset.previewLoaded === "true") label.hidden = true;
       context.actions.trimDecodedImageCache?.();
     }
   };
   owner.activateMediaPreview = () => {
     if (active) return;
     active = true;
+    label.hidden = true;
+    statusTimer = setTimeout(() => {
+      statusTimer = null;
+      if (active) label.hidden = false;
+    }, 600);
     if (info?.status === "ready") update(info);
     else {
-      label.hidden = true;
-      statusTimer = setTimeout(() => {
-        statusTimer = null;
-        if (active) label.hidden = false;
-      }, 600);
       unsubscribe = subscribeMediaPreview(context, previewKey, {
         update,
         fail(error) {
@@ -206,6 +225,7 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       media.removeAttribute("poster");
       media.load?.();
     } else {
+      media.dataset.previewLoaded = "false";
       media.removeAttribute("src");
     }
   };

@@ -139,7 +139,6 @@ export function installCards(context) {
       image.addEventListener("load", () => {
         fitThumbnailMedia(image, preview);
       }, { once: true });
-      image.addEventListener("error", () => { info.dataset.ready = "false"; });
       preview.append(image, info);
       attachThumbnailPreview(context, card, image, item, info);
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
@@ -209,7 +208,6 @@ export function installCards(context) {
       image.loading = "eager";
       const info = document.createElement("span");
       info.className = "cmf-preview-info";
-      image.addEventListener("error", () => { info.dataset.ready = "false"; });
       cell.append(image, info);
       attachThumbnailPreview(context, cell, image, item, info);
     } else if (item.kind === "video") {
