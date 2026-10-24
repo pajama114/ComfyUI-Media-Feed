@@ -1,4 +1,6 @@
-import { FEED_IMAGE_MEMORY_BUDGET } from "./constants.js";
+import { activateThumbnailImage, clearThumbnailImages, estimatedImageBytes, retainThumbnailImage } from "./thumbnail_images.js";
+
+export { estimatedImageBytes } from "./thumbnail_images.js";
 
 // Preview descriptors are small. Media files and decoded recordings stay out of
 // this cache; thumbnail pixels are accounted for separately by the feed.
@@ -14,6 +16,7 @@ export function invalidateMediaPreview(context, url) {
   }
   context.runtime.audioWaveformCache?.delete(url);
   context.runtime.decodedImageCache?.delete(url);
+  clearThumbnailImages(context, url);
 }
 
 export function mediaPreviewUrl(context, url, resource = "preview", version = "") {
@@ -86,9 +89,14 @@ export function subscribeMediaPreview(context, url, consumer) {
   return () => {
     job.consumers.delete(consumer);
     if (job.consumers.size) return;
-    clearTimeout(job.timer);
-    job.controller?.abort();
-    if (jobs.get(url) === job) jobs.delete(url);
+    // A layout switch hands a pending request to its replacement card in
+    // the same turn, so it must not abort and restart that request.
+    queueMicrotask(() => {
+      if (job.consumers.size || jobs.get(url) !== job) return;
+      clearTimeout(job.timer);
+      job.controller?.abort();
+      jobs.delete(url);
+    });
   };
 }
 
@@ -107,34 +115,34 @@ export function previewDescription(info, item, formatDuration) {
 export function attachThumbnailPreview(context, owner, media, item, label, durationLabel = null) {
   let unsubscribe = null;
   let active = false;
-  let info = null;
+  let info = media.mediaFeedPreviewInfo || null;
   let retryTimer = null;
   let statusTimer = null;
-  // Account for overscan and the four images in a batch card before loading.
-  const views = [...(context.state.views || [])];
-  const slots = views.reduce((total, view) => total + Math.ceil(
-    Math.max(view.viewport?.clientWidth || 0, view.viewport?.clientHeight || 0)
-      / Math.max(96, Math.min(context.state.itemWidth || 143, context.state.itemHeight || 143)),
-  ) + 12, 0) || 26;
-  const size = Math.max(128, Math.min(512, 2 ** Math.floor(Math.log2(
-    Math.sqrt(FEED_IMAGE_MEMORY_BUDGET / (slots * (context.state.batchMode ? 4 : 1) * 4)),
-  ))));
+  // Both layouts use the same resource; switching must never generate a
+  // second thumbnail just because a grid cell is smaller.
+  const size = 512;
   const requestUrl = new URL(item.url, globalThis.location?.href || "http://localhost/");
   requestUrl.searchParams.set("preview_size", String(size));
   const previewKey = requestUrl.href;
-  media.dataset.originalMediaUrl = item.url;
-  if (item.kind === "image") media.dataset.previewLoaded = "false";
-  media.addEventListener("load", () => {
+  if (!info) media.dataset.originalMediaUrl = item.url;
+  if (item.kind === "image" && !media.naturalWidth) media.dataset.previewLoaded = "false";
+  const onLoad = () => {
     if (item.kind === "image") {
       if (!active || !media.naturalWidth) return;
       media.dataset.previewLoaded = "true";
+      if (!media.dataset.originalMediaUrl) {
+        media.dataset.originalWidth = String(media.naturalWidth);
+        media.dataset.originalHeight = String(media.naturalHeight);
+        context.actions.rememberMediaDimensions?.(item, media);
+      }
       label.hidden = true;
       clearTimeout(statusTimer);
       statusTimer = null;
     }
     context.actions.trimDecodedImageCache?.();
-  });
-  if (item.kind === "image") media.addEventListener("error", () => {
+  };
+  media.addEventListener("load", onLoad);
+  const onError = () => {
     if (!active) return;
     media.dataset.previewLoaded = "false";
     label.dataset.ready = "false";
@@ -152,10 +160,11 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       active = false;
       owner.activateMediaPreview();
     }, 5000);
-  });
+  };
+  if (item.kind === "image") media.addEventListener("error", onError);
   const update = (result) => {
     info = result;
-    const loadingImage = item.kind === "image" && result.status === "ready" && result.thumbnail
+    const loadingImage = item.kind === "image" && result.status === "ready"
       && media.dataset.previewLoaded !== "true";
     label.textContent = previewDescription(result, item, context.actions.formatMediaDuration);
     label.title = label.textContent;
@@ -175,8 +184,12 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       durationLabel.textContent = context.actions.formatMediaDuration(result.duration);
       durationLabel.hidden = false;
     }
-    if (result.status === "ready" && result.thumbnail) {
-      const url = mediaPreviewUrl(context, previewKey, "thumbnail", result.version);
+    if (result.status === "ready" && (result.thumbnail || item.kind === "image")) {
+      const url = result.thumbnail ? mediaPreviewUrl(context, previewKey, "thumbnail", result.version) : item.url;
+      if (item.kind === "image") {
+        if (result.thumbnail) media.dataset.originalMediaUrl = item.url;
+        else delete media.dataset.originalMediaUrl;
+      }
       media.dataset.thumbnailWidth = String(result.thumbnailWidth || size);
       media.dataset.thumbnailHeight = String(result.thumbnailHeight || size);
       if (item.kind === "video") media.poster = url;
@@ -192,7 +205,13 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   owner.activateMediaPreview = () => {
     if (active) return;
     active = true;
+    activateThumbnailImage(context, media);
     label.hidden = true;
+    if (item.kind === "image" && info?.status === "ready" && media.complete && media.naturalWidth) {
+      media.dataset.previewLoaded = "true";
+      update(info);
+      return;
+    }
     statusTimer = setTimeout(() => {
       statusTimer = null;
       if (active) label.hidden = false;
@@ -225,25 +244,24 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       media.removeAttribute("poster");
       media.load?.();
     } else {
-      media.dataset.previewLoaded = "false";
-      media.removeAttribute("src");
+      retainThumbnailImage(context, media, item, info);
+    }
+  };
+  owner.disposeMediaPreview = () => {
+    owner.deactivateMediaPreview();
+    media.removeEventListener?.("load", onLoad);
+    if (item.kind === "image") {
+      media.removeEventListener?.("error", onError);
+      retainThumbnailImage(context, media, item, info, true);
     }
   };
   label.textContent = item.filename;
   label.hidden = true;
 }
 
-export function estimatedImageBytes(element) {
-  if (element?.tagName === "VIDEO") {
-    return element.getAttribute("poster")
-      ? (Number(element.dataset.thumbnailWidth) || 0) * (Number(element.dataset.thumbnailHeight) || 0) * 4
-      : 0;
-  }
-  return Math.max(0, Number(element?.naturalWidth) || 0) * Math.max(0, Number(element?.naturalHeight) || 0) * 4;
-}
-
 export function retainedFeedImageBytes(runtime, state) {
   const images = new Set(runtime.decodedImageCache?.values() || []);
+  for (const image of runtime.thumbnailImageCache?.keys() || []) images.add(image);
   for (const view of state.views || []) {
     for (const collection of [view.cards, view.cardCache]) {
       for (const card of collection?.values() || []) {

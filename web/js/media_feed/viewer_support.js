@@ -3,7 +3,7 @@ import {
   DECODED_IMAGE_CACHE_SIZE,
   FEED_IMAGE_MEMORY_BUDGET,
 } from "./constants.js";
-import { estimatedImageBytes, retainedFeedImageBytes } from "./media_previews.js";
+import { cachedImageBytes, estimatedImageBytes, trimThumbnailImageCache } from "./thumbnail_images.js";
 
 export function installViewerSupport(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -24,11 +24,12 @@ export function installViewerSupport(context) {
   function trimDecodedImageCache() {
     while (runtime.decodedImageCache?.size && (
       runtime.decodedImageCache.size > DECODED_IMAGE_CACHE_SIZE
-      || retainedFeedImageBytes(runtime, state) > FEED_IMAGE_MEMORY_BUDGET
+      || cachedImageBytes(runtime) > FEED_IMAGE_MEMORY_BUDGET
     )) {
       const oldestKey = runtime.decodedImageCache.keys().next().value;
       runtime.decodedImageCache.delete(oldestKey);
     }
+    trimThumbnailImageCache(context);
   }
   
   function rememberMediaDimensions(item, element) {

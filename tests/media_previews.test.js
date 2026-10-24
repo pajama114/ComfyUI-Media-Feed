@@ -6,6 +6,7 @@ import { installAudioWaveforms } from "../web/js/media_feed/audio_waveform.js";
 import { createMediaFeedRuntime } from "../web/js/media_feed/runtime.js";
 import { installViewerSupport } from "../web/js/media_feed/viewer_support.js";
 import { installViewerRender } from "../web/js/media_feed/viewer_render.js";
+import { cachedImageBytes, clearThumbnailImages, retainThumbnailImage, takeThumbnailImage } from "../web/js/media_feed/thumbnail_images.js";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const source = "/view?filename=large.png&subfolder=folder&type=output";
@@ -18,14 +19,17 @@ function previewImage() {
       callbacks.push(callback);
       listeners.set(type, callbacks);
     },
+    removeEventListener(type, callback) {
+      listeners.set(type, (listeners.get(type) || []).filter((current) => current !== callback));
+    },
     removeAttribute(name) {
       this[name] = "";
       if (name === "src") this.naturalWidth = this.naturalHeight = 0;
     },
-    finishLoading() {
+    finishLoading(width = 512, height = 256) {
       this.complete = true;
-      this.naturalWidth = 512;
-      this.naturalHeight = 256;
+      this.naturalWidth = width;
+      this.naturalHeight = height;
       for (const callback of listeners.get("load") || []) callback();
     },
     failLoading() {
@@ -179,12 +183,13 @@ test("leaving the feed aborts a preview request only after its last consumer lea
   stopFirst();
   assert.equal(signal.aborted, false);
   stopSecond();
+  await flush();
   assert.equal(signal.aborted, true);
   assert.equal(owner.runtime.mediaPreviewJobs.size, 0);
   await flush();
 });
 
-test("thumbnails keep original dimensions, show useful waiting information, and unload outside the feed", async (t) => {
+test("thumbnails keep dimensions and loaded pixels when returning from outside the feed", async (t) => {
   const owner = context();
   const media = previewImage();
   const item = { key: "large", kind: "image", filename: "large.png", url: source };
@@ -205,10 +210,13 @@ test("thumbnails keep original dimensions, show useful waiting information, and 
   media.finishLoading();
   assert.equal(media.dataset.previewLoaded, "true");
   card.deactivateMediaPreview();
-  assert.equal(media.src, "");
-  assert.equal(media.dataset.previewLoaded, "false");
+  assert.ok(media.src.includes("thumbnail"));
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(owner.runtime.thumbnailImageCache.has(media), true);
   card.activateMediaPreview();
   assert.ok(media.src.includes("thumbnail"));
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(owner.runtime.thumbnailImageCache.has(media), false);
   card.deactivateMediaPreview();
 });
 
@@ -238,7 +246,47 @@ test("a thumbnail stays hidden until image load and keeps useful file informatio
   assert.equal(label.hidden, true);
   card.deactivateMediaPreview();
   media.finishLoading();
-  assert.equal(media.dataset.previewLoaded, "false", "an offscreen load event cannot reveal the image");
+  assert.equal(media.dataset.previewLoaded, "true", "an offscreen image retains its loaded pixels");
+  assert.equal(timers.size, 0);
+});
+
+test("ordinary images reuse the original URL and remain loaded within the offscreen cache", async (t) => {
+  const owner = context();
+  const media = previewImage(), label = { dataset: {} }, card = {};
+  const item = { kind: "image", filename: "ordinary.png", url: source };
+  let requests = 0;
+  const timers = new Map();
+  t.mock.method(globalThis, "setTimeout", (callback, delay) => { timers.set(callback, delay); return callback; });
+  t.mock.method(globalThis, "clearTimeout", (callback) => timers.delete(callback));
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: "ready", thumbnail: false, width: 2000, height: 3999 }));
+  });
+  const dimensions = [];
+  owner.actions.rememberMediaDimensions = (item, image) => dimensions.push([image.dataset.originalWidth, image.dataset.originalHeight]);
+  attachThumbnailPreview(owner, card, media, item, label);
+  card.activateMediaPreview();
+  await flush();
+  assert.equal(media.src, source);
+  assert.equal(media.dataset.originalMediaUrl, undefined, "the viewer can reuse an original image");
+  assert.equal(media.dataset.previewLoaded, "false");
+  assert.equal(label.hidden, true);
+  const [reveal, delay] = timers.entries().next().value;
+  assert.equal(delay, 600);
+  timers.delete(reveal);
+  reveal();
+  assert.equal(label.hidden, false);
+  media.finishLoading(3999, 2000);
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(label.hidden, true);
+  assert.deepEqual(dimensions.at(-1), ["3999", "2000"], "browser dimensions account for orientation");
+  card.deactivateMediaPreview();
+  assert.equal(media.src, source);
+  assert.equal(media.dataset.previewLoaded, "true");
+  card.activateMediaPreview();
+  assert.equal(media.src, source);
+  assert.equal(requests, 1, "reactivation reuses the descriptor without requesting a thumbnail");
+  card.deactivateMediaPreview();
   assert.equal(timers.size, 0);
 });
 
@@ -308,6 +356,126 @@ test("a video poster does not load the original video and offscreen playback is 
   assert.equal(video.reloaded, true);
 });
 
+for (const reduced of [false, true]) test(`switching layouts transfers a loaded ${reduced ? "thumbnail" : "original"} without another load`, async (t) => {
+  const owner = context();
+  const item = { id: "same-output", kind: "image", filename: "large.png", url: source };
+  const media = previewImage();
+  let assigned = "", assignments = 0, requests = 0;
+  Object.defineProperty(media, "src", {
+    get: () => assigned,
+    set(value) { assigned = value; assignments++; media.complete = false; },
+  });
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: "ready", thumbnail: reduced, version: "v1", width: 4096, height: 4096 }));
+  });
+  let card = {}, label = { dataset: {} };
+  attachThumbnailPreview(owner, card, media, item, label);
+  card.activateMediaPreview();
+  await flush();
+  media.finishLoading();
+  const loadedUrl = media.src;
+  for (const batchMode of [true, false, true]) {
+    card.disposeMediaPreview();
+    owner.state.batchMode = batchMode;
+    const reused = takeThumbnailImage(owner, item);
+    assert.equal(reused, media, "the exact loaded element moves into the new layout");
+    card = {};
+    label = { dataset: {} };
+    attachThumbnailPreview(owner, card, reused, item, label);
+    card.activateMediaPreview();
+    assert.equal(media.src, loadedUrl);
+    assert.equal(media.complete, true);
+    assert.equal(media.dataset.previewLoaded, "true");
+    assert.equal(label.hidden, true, "no load event or timer is needed to reveal the new layout");
+  }
+  assert.equal(requests, 1);
+  assert.equal(assignments, 1);
+  card.disposeMediaPreview();
+  clearThumbnailImages(owner);
+});
+
+test("switching layouts hands an unfinished preview request to the new card without aborting or restarting it", async (t) => {
+  const owner = context();
+  const item = { id: "pending-output", kind: "image", filename: "large.png", url: source };
+  const media = previewImage();
+  let respond, signal, requests = 0;
+  t.mock.method(globalThis, "fetch", (_url, options) => {
+    requests++;
+    signal = options.signal;
+    return new Promise((resolve) => { respond = resolve; });
+  });
+  const first = {}, firstLabel = { dataset: {} };
+  attachThumbnailPreview(owner, first, media, item, firstLabel);
+  first.activateMediaPreview();
+  first.disposeMediaPreview();
+  owner.state.batchMode = true;
+  const next = {}, nextLabel = { dataset: {} };
+  attachThumbnailPreview(owner, next, takeThumbnailImage(owner, item), item, nextLabel);
+  next.activateMediaPreview();
+  await flush();
+  assert.equal(signal.aborted, false);
+  assert.equal(requests, 1);
+  respond(new Response(JSON.stringify({ status: "ready", thumbnail: true, version: "v1" })));
+  await flush();
+  assert.ok(media.src.includes("size=512"));
+  media.finishLoading();
+  assert.equal(nextLabel.hidden, true);
+  assert.equal(media.dataset.previewLoaded, "true");
+  assert.equal(firstLabel.textContent, "large.png", "disposed card callbacks do not handle the transferred image");
+  next.disposeMediaPreview();
+  clearThumbnailImages(owner);
+});
+
+test("offscreen images share a bounded cache with viewer images and old output versions cannot be reused", () => {
+  const owner = context();
+  installViewerSupport(owner);
+  const images = Array.from({ length: 5 }, () => previewImage());
+  for (const [index, image] of images.entries()) {
+    image.src = source;
+    image.finishLoading(4000, 4000);
+    retainThumbnailImage(owner, image, { id: String(index), url: source }, { status: "ready" }, true);
+  }
+  assert.equal(images[0].src, "", "the oldest extra image releases its source when the cache is full");
+  assert.equal(owner.runtime.thumbnailImageCache.size, 4);
+  assert.ok(cachedImageBytes(owner.runtime) <= 256 * 1024 * 1024);
+  assert.equal(takeThumbnailImage(owner, { id: "new-output", url: source }), null);
+  assert.equal(takeThumbnailImage(owner, { id: "4", url: source }), images[4]);
+  clearThumbnailImages(owner);
+  assert.equal(owner.runtime.thumbnailImageCache.size, 0);
+  assert.equal(images[1].src, "");
+  assert.equal(images[4].src, source, "the image already handed to an active card is not released");
+});
+
+test("a layout transfer keeps active images available even when they exceed the extra cache budget", () => {
+  const owner = context();
+  installViewerSupport(owner);
+  owner.runtime.transferringThumbnailImages = true;
+  const image = previewImage();
+  image.src = source;
+  image.finishLoading(10000, 10000);
+  retainThumbnailImage(owner, image, { id: "active", url: source }, { status: "ready" }, true);
+  assert.equal(takeThumbnailImage(owner, { id: "active", url: source }), image);
+  owner.runtime.transferringThumbnailImages = false;
+  owner.actions.trimDecodedImageCache();
+  assert.equal(image.src, source);
+});
+
+test("a disposed image that finishes loading offscreen still obeys the cache budget", async (t) => {
+  const owner = context();
+  installViewerSupport(owner);
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ status: "ready", thumbnail: false })));
+  const media = previewImage(), card = {};
+  attachThumbnailPreview(owner, card, media, { kind: "image", filename: "large.png", url: source }, { dataset: {} });
+  card.activateMediaPreview();
+  await flush();
+  card.disposeMediaPreview();
+  assert.equal(owner.runtime.thumbnailImageCache.size, 1);
+  media.finishLoading(10000, 10000);
+  assert.equal(owner.runtime.thumbnailImageCache.size, 0);
+  assert.equal(media.src, "");
+});
+
 test("waveforms use server levels and never decode or download the original recording", async (t) => {
   const owner = context();
   installAudioWaveforms(owner);
@@ -331,11 +499,11 @@ test("waveforms use server levels and never decode or download the original reco
   stop();
 });
 
-test("image cache observes a combined byte budget and never caches thumbnails as originals", () => {
+test("extra image caching has a byte budget independent of active cards and excludes thumbnails from originals", () => {
   const owner = context();
   installViewerSupport(owner);
   const image = (width, height) => ({ complete: true, naturalWidth: width, naturalHeight: height, dataset: {} });
-  const first = image(3000, 3000), second = image(3000, 3000);
+  const first = image(6000, 6000), second = image(6000, 6000);
   owner.actions.rememberDecodedImage("one", first);
   owner.actions.rememberDecodedImage("two", second);
   assert.deepEqual([...owner.runtime.decodedImageCache.keys()], ["two"]);
@@ -343,7 +511,7 @@ test("image cache observes a combined byte budget and never caches thumbnails as
   thumb.dataset.originalMediaUrl = source;
   owner.actions.rememberDecodedImage(source, thumb);
   assert.equal(owner.runtime.decodedImageCache.has(source), false);
-  const feedImages = Array.from({ length: 32 }, () => image(512, 512));
+  const feedImages = Array.from({ length: 32 }, () => image(2048, 2048));
   const poster = {
     tagName: "VIDEO", dataset: { thumbnailWidth: "512", thumbnailHeight: "512" },
     getAttribute: () => "poster.webp",
@@ -351,12 +519,12 @@ test("image cache observes a combined byte budget and never caches thumbnails as
   feedImages.push(poster);
   owner.state.views.add({ cards: new Map([["card", { querySelectorAll: () => feedImages }]]), cardCache: new Map() });
   owner.actions.trimDecodedImageCache();
-  assert.equal(owner.runtime.decodedImageCache.size, 0);
-  assert.equal(retainedFeedImageBytes(owner.runtime, owner.state), 33 * 1048576);
+  assert.equal(owner.runtime.decodedImageCache.size, 1, "active cards do not consume the extra cache budget");
+  assert.equal(retainedFeedImageBytes(owner.runtime, owner.state), 513 * 1048576 + 6000 * 6000 * 4);
   poster.getAttribute = () => null;
-  assert.equal(retainedFeedImageBytes(owner.runtime, owner.state), 32 * 1048576);
+  assert.equal(retainedFeedImageBytes(owner.runtime, owner.state), 512 * 1048576 + 6000 * 6000 * 4);
   owner.actions.rememberDecodedImage("huge", image(16384, 16384));
-  assert.equal(owner.runtime.decodedImageCache.size, 0);
+  assert.equal(owner.runtime.decodedImageCache.size, 1);
 });
 
 test("the viewer loads the original even when opened from a ready thumbnail", async (t) => {

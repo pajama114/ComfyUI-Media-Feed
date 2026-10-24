@@ -1,6 +1,8 @@
 export function createMediaFeedRuntime() {
   return {
     decodedImageCache: new Map(),
+    thumbnailImageCache: new Map(),
+    transferringThumbnailImages: false,
     mediaDimensionCache: new Map(),
     audioWaveformCache: new Map(),
     mediaPreviewCache: new Map(),

@@ -559,6 +559,14 @@ test("batch thumbnail preserves cells and displays descriptors before previews l
     assert.equal(grid.children[0], oldCells[0]);
     assert.equal(grid.children[1], oldCells[1]);
 
+    const beforeReplacement = [...grid.children];
+    await actions.updateBatchCard(card, {
+      ...expanded,
+      items: expanded.items.map((item, index) => index === 0 ? { ...item, id: "overwritten-output" } : item),
+    });
+    assert.notEqual(grid.children[0], beforeReplacement[0], "an overwritten file cannot reuse its old pixels");
+    assert.equal(grid.children[1], beforeReplacement[1]);
+
     const videoBatch = displayEntries([media("clip", "video-prompt", "video")], true)[0];
     const videoCard = actions.createBatchCard(videoBatch);
     const videoCell = videoCard.children[0].children[0];

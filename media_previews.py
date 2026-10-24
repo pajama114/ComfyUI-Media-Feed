@@ -15,6 +15,7 @@ import warnings
 
 
 THUMBNAIL_SIZE = 512
+IMAGE_THUMBNAIL_MIN_PIXELS = 8_000_000
 WAVEFORM_BARS = 512
 WAVEFORM_SAMPLES = 200_000
 CACHE_BYTES = 256 * 1024 * 1024
@@ -193,12 +194,13 @@ class PreviewService:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-feed-preview")
+        self.header_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-feed-header")
         self.lock = threading.Lock()
         self.jobs = OrderedDict()
 
     def key(self, path, size=THUMBNAIL_SIZE):
         stat = path.stat()
-        return sha256(f"v1:{size}:{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+        return sha256(f"v2:{size}:{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
 
     def request(self, path, size=THUMBNAIL_SIZE):
         path = Path(path)
@@ -229,11 +231,14 @@ class PreviewService:
                             self.jobs.pop(old_key, None)
                 if len(self.jobs) >= CACHE_ENTRIES:
                     return dict(base, status="deferred", retryAfter=RETRY_SECONDS)
-                job = dict(requested=now, retry=now + RETRY_SECONDS)
-                job["future"] = self.executor.submit(self._generate, path, key, base, size)
+                job = dict(requested=now, retry=now + RETRY_SECONDS, info=base)
+                if path.suffix[1:].lower() in IMAGE_EXTENSIONS:
+                    job["future"] = self.header_executor.submit(self._inspect_image, path, key, base, size)
+                else:
+                    job["future"] = self.executor.submit(self._generate, path, key, base, size)
                 self.jobs[key] = job
             job["requested"] = now
-            return dict(base, status="pending", retryAfter=2)
+            return dict(job.get("info", base), status="pending", retryAfter=2)
 
     def thumbnail(self, path, size=THUMBNAIL_SIZE):
         result = self.request(path, size)
@@ -242,22 +247,58 @@ class PreviewService:
 
     async def request_preview(self, path, size=THUMBNAIL_SIZE):
         result = self.request(path, size)
-        if result["status"] != "pending":
-            return result
-        with self.lock:
-            job = self.jobs.get(result["version"])
-        if job is None:
-            return result
-        # A batch shares one decoder, so later thumbnails can take more than
-        # 150 ms even for ordinary images. Return each result as soon as it is
-        # ready instead of forcing it through a client polling delay. This is
-        # only a response timeout; it does not block ComfyUI or cancel the job.
-        future = asyncio.wrap_future(job["future"])
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + PREVIEW_RESPONSE_WAIT_SECONDS
+        while result["status"] == "pending":
+            with self.lock:
+                job = self.jobs.get(result["version"])
+                future = job["future"] if job else None
+            remaining = deadline - loop.time()
+            if future is None or remaining <= 0:
+                return result
+            # An image can move from header inspection to serialized decoding.
+            # Both stages share one response deadline, without polling between
+            # them or cancelling either stage when the response times out.
+            try:
+                await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(future)), remaining)
+            except asyncio.TimeoutError:
+                return self.request(path, size)
+            result = self.request(path, size)
+        return result
+
+    def _inspect_image(self, path, key, base, size):
+        result = dict(base)
         try:
-            await asyncio.wait_for(asyncio.shield(future), PREVIEW_RESPONSE_WAIT_SECONDS)
-        except asyncio.TimeoutError:
-            return result
-        return self.request(path, size)
+            from PIL import Image
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+                with open_preview_image(path) as image:
+                    result.update(width=image.width, height=image.height)
+                    result["thumbnail"] = image.width * image.height >= IMAGE_THUMBNAIL_MIN_PIXELS
+                    # Do not ask PNG readers to search beyond the header for
+                    # EXIF: that can decode the entire image.
+                    if "exif" in image.info and image.getexif().get(274) in {5, 6, 7, 8}:
+                        result.update(width=image.height, height=image.width)
+            if self.key(path, size) != key:
+                raise PreviewDeferred("Media changed")
+            if result["thumbnail"]:
+                # Enqueue the decoder and release the header worker immediately;
+                # later ordinary images must not wait for this thumbnail.
+                with self.lock:
+                    job = self.jobs[key]
+                    job["info"] = result
+                    job["future"] = self.executor.submit(self._generate, path, key, base, size)
+                return dict(result, status="pending", retryAfter=2)
+            result["status"] = "ready"
+        except (PreviewDeferred, MemoryError):
+            result.pop("thumbnail", None)
+            result.update(status="deferred", retryAfter=RETRY_SECONDS)
+        except Exception:
+            result.pop("thumbnail", None)
+            result.update(status="unavailable")
+        self._cache_result(key, result)
+        return result
 
     def _generate(self, path, key, base, size=THUMBNAIL_SIZE):
         result = dict(base)
@@ -267,22 +308,27 @@ class PreviewService:
             extension = path.suffix[1:].lower()
             if extension in IMAGE_EXTENSIONS:
                 from PIL import Image, ImageOps
-                require_memory(path.stat().st_size * 2 + 16 * 1024 * 1024)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", Image.DecompressionBombWarning)
                     with open_preview_image(path) as image:
                         result.update(width=image.width, height=image.height)
-                        if image.getexif().get(274) in {5, 6, 7, 8}:
+                        result["thumbnail"] = image.width * image.height >= IMAGE_THUMBNAIL_MIN_PIXELS
+                        if result["thumbnail"]:
+                            require_memory(path.stat().st_size * 2 + 16 * 1024 * 1024)
+                            image.draft(image.mode, (size, size))
+                            require_memory(image.width * image.height * 12 + 16 * 1024 * 1024)
+                            if image.getexif().get(274) in {5, 6, 7, 8}:
+                                result.update(width=result["height"], height=result["width"])
+                            image.thumbnail((size, size))
+                            small = ImageOps.exif_transpose(image)
+                            if small.mode not in {"RGB", "RGBA"}:
+                                small = small.convert("RGBA")
+                            small.save(temporary, format="WEBP", quality=82)
+                            result.update(thumbnailWidth=small.width, thumbnailHeight=small.height)
+                        # PNG getexif() can load pixels when EXIF was not found
+                        # in the header. Ordinary images only need their header.
+                        elif "exif" in image.info and image.getexif().get(274) in {5, 6, 7, 8}:
                             result.update(width=image.height, height=image.width)
-                        image.draft(image.mode, (size, size))
-                        require_memory(image.width * image.height * 12 + 16 * 1024 * 1024)
-                        image.thumbnail((size, size))
-                        small = ImageOps.exif_transpose(image)
-                        if small.mode not in {"RGB", "RGBA"}:
-                            small = small.convert("RGBA")
-                        small.save(temporary, format="WEBP", quality=82)
-                        result.update(thumbnailWidth=small.width, thumbnailHeight=small.height)
-                        result["thumbnail"] = True
             elif extension in AUDIO_EXTENSIONS:
                 layout = wav_layout(path) if extension == "wav" else None
                 if layout:
@@ -348,7 +394,12 @@ class PreviewService:
                 temporary.unlink(missing_ok=True)
             except OSError:
                 pass
+        self._cache_result(key, result)
+        return result
+
+    def _cache_result(self, key, result):
         if result["status"] in {"ready", "unavailable"}:
+            temporary = self.directory / f"{key}.tmp"
             try:
                 temporary.write_text(json.dumps(result, allow_nan=False))
                 temporary.replace(self.directory / f"{key}.json")
@@ -358,7 +409,6 @@ class PreviewService:
                     temporary.unlink(missing_ok=True)
                 except OSError:
                     pass
-        return result
 
     def _trim_cache(self):
         entries = []

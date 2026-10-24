@@ -22,18 +22,20 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.memory.start()
 
     def tearDown(self):
+        self.service.header_executor.shutdown(wait=True, cancel_futures=True)
         self.service.executor.shutdown(wait=True, cancel_futures=True)
         self.memory.stop()
         self.temporary.cleanup()
 
     def complete(self, path, size=512):
         result = self.service.request(path, size)
-        if result["status"] == "pending":
+        while result["status"] == "pending":
             self.service.jobs[result["version"]]["future"].result(timeout=10)
-        return self.service.request(path, size)
+            result = self.service.request(path, size)
+        return result
 
     async def test_quick_previews_finish_in_first_response_without_blocking_the_event_loop(self):
-        path = self.root / "quick.png"
+        path = self.root / "quick.wav"
         path.write_bytes(b"image")
         entered = asyncio.Event()
         release = threading.Event()
@@ -64,10 +66,14 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             future.set_result({"status": "ready"})
             await asyncio.sleep(0)
 
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
     async def test_batch_responses_return_each_thumbnail_when_ready_without_a_polling_gap(self):
+        from PIL import Image
         paths = [self.root / f"batch-{index}.png" for index in range(4)]
-        for path in paths:
-            path.write_bytes(b"image")
+        Image.new("L", (4000, 2000)).save(paths[0])
+        image_bytes = paths[0].read_bytes()
+        for path in paths[1:]:
+            path.write_bytes(image_bytes)
         entered = [asyncio.Event() for _ in paths]
         release = [threading.Event() for _ in paths]
         loop = asyncio.get_running_loop()
@@ -115,14 +121,121 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0)
 
     @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    async def test_small_image_finishes_while_audio_and_a_large_thumbnail_are_waiting(self):
+        from PIL import Image
+        audio = self.root / "busy.wav"
+        audio.write_bytes(b"RIFF" + struct.pack("<I", 38) + b"WAVEfmt "
+                         + struct.pack("<IHHIIHH", 16, 1, 1, 8000, 16000, 2, 16)
+                         + b"data" + struct.pack("<I", 2) + b"\0\0")
+        small = self.root / "ordinary.png"
+        large = self.root / "large.png"
+        Image.new("L", (32, 16)).save(small)
+        Image.new("L", (4000, 2000)).save(large)
+        entered = asyncio.Event()
+        release = threading.Event()
+        loop = asyncio.get_running_loop()
+        request_thread = threading.get_ident()
+        header_reads = []
+        real_open = previews.open_preview_image
+
+        def inspect(path):
+            header_reads.append((path, threading.get_ident()))
+            return real_open(path)
+
+        def waveform(path, layout):
+            loop.call_soon_threadsafe(entered.set)
+            release.wait(10)
+            return [0.5] * 512
+
+        with patch.object(previews, "wav_waveform", side_effect=waveform), \
+                patch.object(previews, "open_preview_image", side_effect=inspect), \
+                patch.object(self.service, "_generate", wraps=self.service._generate) as generate:
+            audio_pending = self.service.request(audio)
+            try:
+                await asyncio.wait_for(entered.wait(), 2)
+                self.service.request(large)
+                first, second = await asyncio.wait_for(asyncio.gather(
+                    self.service.request_preview(small), self.service.request_preview(small),
+                ), 2)
+                self.assertEqual(first, second)
+                self.assertEqual(first["status"], "ready")
+                self.assertFalse(first["thumbnail"])
+                self.assertEqual((first["width"], first["height"]), (32, 16))
+                self.assertFalse(self.service.jobs[audio_pending["version"]]["future"].done())
+                queued = self.service.request(large)
+                self.assertEqual(queued["status"], "pending")
+                self.assertEqual((queued["width"], queued["height"]), (4000, 2000))
+                self.assertEqual(generate.call_count, 1, "large images cannot decode alongside the audio")
+                self.assertEqual(generate.call_args.args[0], audio)
+                self.assertEqual(sum(path == small for path, _ in header_reads), 1)
+                self.assertTrue(all(thread != request_thread for _, thread in header_reads))
+            finally:
+                release.set()
+            self.assertEqual(self.complete(audio)["status"], "ready")
+            self.assertTrue(self.complete(large)["thumbnail"])
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    async def test_slow_header_reads_do_not_block_the_event_loop(self):
+        from PIL import Image
+        path = self.root / "ordinary.png"
+        Image.new("L", (32, 16)).save(path)
+        entered = asyncio.Event()
+        release = threading.Event()
+        loop = asyncio.get_running_loop()
+        real_open = previews.open_preview_image
+
+        def inspect(path):
+            loop.call_soon_threadsafe(entered.set)
+            release.wait(2)
+            return real_open(path)
+
+        with patch.object(previews, "open_preview_image", side_effect=inspect):
+            task = asyncio.create_task(self.service.request_preview(path))
+            try:
+                await asyncio.wait_for(entered.wait(), 1)
+                self.assertFalse(task.done(), "the event loop runs while the header worker is blocked")
+            finally:
+                release.set()
+            self.assertEqual((await task)["status"], "ready")
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    async def test_timed_out_header_inspection_still_hands_off_to_thumbnail_generation(self):
+        from PIL import Image
+        path = self.root / "large.png"
+        Image.new("L", (4000, 2000)).save(path)
+        entered = asyncio.Event()
+        release = threading.Event()
+        loop = asyncio.get_running_loop()
+        real_open = previews.open_preview_image
+
+        def inspect(path):
+            loop.call_soon_threadsafe(entered.set)
+            release.wait(2)
+            return real_open(path)
+
+        with patch.object(previews, "open_preview_image", side_effect=inspect), \
+                patch.object(previews, "PREVIEW_RESPONSE_WAIT_SECONDS", 0.01):
+            task = asyncio.create_task(self.service.request_preview(path))
+            try:
+                await asyncio.wait_for(entered.wait(), 1)
+                pending = await task
+                self.assertEqual(pending["status"], "pending")
+                self.assertFalse(self.service.jobs[pending["version"]]["future"].cancelled())
+            finally:
+                release.set()
+            ready = self.complete(path)
+            self.assertEqual(ready["status"], "ready")
+            self.assertTrue(ready["thumbnail"])
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
     def test_thumbnail_preserves_original_and_is_reused_across_requests(self):
         from PIL import Image
         path = self.root / "large.png"
-        Image.new("RGBA", (2000, 1000), (30, 80, 120, 100)).save(path)
+        Image.new("RGBA", (4000, 2000), (30, 80, 120, 100)).save(path)
         original = path.read_bytes()
         result = self.complete(path)
         self.assertEqual(result["status"], "ready")
-        self.assertEqual((result["width"], result["height"]), (2000, 1000))
+        self.assertEqual((result["width"], result["height"]), (4000, 2000))
         with Image.open(self.service.thumbnail(path)) as small:
             self.assertEqual(small.size, (512, 256))
             self.assertEqual(small.mode, "RGBA")
@@ -137,14 +250,58 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(self.complete(path)["version"], result["version"])
 
     @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    def test_images_below_eight_million_pixels_only_read_headers_even_with_low_memory(self):
+        from PIL import Image, PngImagePlugin
+        for width, height in [(2000, 3999), (4096, 1024)]:
+            path = self.root / f"{width}-{height}.png"
+            Image.new("RGB", (width, height)).save(path)
+            with self.subTest(size=(width, height)), \
+                    patch.object(PngImagePlugin.PngImageFile, "load", side_effect=AssertionError("must not decode pixels")), \
+                    patch.object(previews, "available_memory", return_value=0):
+                result = self.complete(path)
+                self.assertEqual(result["status"], "ready")
+                self.assertFalse(result["thumbnail"])
+                self.assertEqual((result["width"], result["height"]), (width, height))
+                self.assertIsNone(self.service.thumbnail(path))
+        self.assertFalse(list(self.service.directory.glob("*.webp")))
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    def test_images_over_eight_million_pixels_resize_even_with_both_edges_below_4096(self):
+        from PIL import Image
+        path = self.root / "square.png"
+        Image.new("RGB", (3072, 3072)).save(path)
+        result = self.complete(path)
+        self.assertEqual(result["status"], "ready")
+        self.assertTrue(result["thumbnail"])
+        with Image.open(self.service.thumbnail(path)) as small:
+            self.assertEqual(small.size, (512, 512))
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    def test_rotated_image_dimensions_are_preserved_for_originals_and_thumbnails(self):
+        from PIL import Image
+        for width, height, thumbnail in [(100, 200, False), (2000, 4000, True)]:
+            path = self.root / f"rotated-{width}.jpg"
+            exif = Image.Exif()
+            exif[274] = 6
+            Image.new("RGB", (width, height)).save(path, exif=exif)
+            with self.subTest(size=(width, height)):
+                result = self.complete(path)
+                self.assertEqual(result["status"], "ready")
+                self.assertEqual(result["thumbnail"], thumbnail)
+                self.assertEqual((result["width"], result["height"]), (height, width))
+                if thumbnail:
+                    with Image.open(self.service.thumbnail(path)) as small:
+                        self.assertEqual(small.size, (512, 256))
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
     def test_low_memory_defers_and_retries_without_a_fixed_pixel_rejection(self):
         from PIL import Image
         path = self.root / "large.png"
-        Image.new("RGB", (2000, 2000)).save(path)
+        Image.new("RGB", (4000, 2000)).save(path)
         with patch.object(previews, "available_memory", return_value=160 * 1024 ** 2):
             result = self.complete(path)
         self.assertEqual(result["status"], "deferred")
-        self.assertEqual(result["width"], 2000)
+        self.assertEqual(result["width"], 4000)
         self.assertFalse(list(self.service.directory.glob("*.json")))
         self.service.jobs[result["version"]]["retry"] = 0
         # Our RAM estimate replaces Pillow's fixed PNG pixel rejection without
@@ -218,8 +375,8 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(previews.wav_waveform(path, layout), [1.0] * 512)
 
     def test_generation_is_serialized_and_cache_has_a_total_byte_limit(self):
-        first = self.root / "one.png"
-        second = self.root / "two.png"
+        first = self.root / "one.wav"
+        second = self.root / "two.wav"
         first.write_bytes(b"first")
         second.write_bytes(b"second")
         entered = threading.Event()
@@ -234,7 +391,7 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             self.service.request(first)
             self.assertTrue(entered.wait(2))
             self.service.request(second)
-            self.assertEqual(calls, ["one.png"])
+            self.assertEqual(calls, ["one.wav"])
             release.set()
             for job in self.service.jobs.values():
                 job["future"].result(timeout=5)

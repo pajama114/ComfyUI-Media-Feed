@@ -3,6 +3,7 @@ import {
   renderAudioWaveform,
 } from "./audio_waveform.js";
 import { attachThumbnailPreview, previewDescription } from "./media_previews.js";
+import { takeThumbnailImage } from "./thumbnail_images.js";
 
 export function installCards(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -128,7 +129,7 @@ export function installCards(context) {
     info.className = "cmf-preview-info";
   
     if (item.kind === "image") {
-      const image = document.createElement("img");
+      const image = takeThumbnailImage(context, item) || document.createElement("img");
       image.alt = item.filename;
       image.decoding = "async";
       // Cards are already virtualized, so every created thumbnail is in or near the viewport.
@@ -136,9 +137,11 @@ export function installCards(context) {
       const thumbnailResizeObserver = new ResizeObserver(() => fitThumbnailMedia(image, preview));
       thumbnailResizeObserver.observe(preview);
       card.thumbnailResizeObserver = thumbnailResizeObserver;
-      image.addEventListener("load", () => {
+      const onLoad = () => {
         fitThumbnailMedia(image, preview);
-      }, { once: true });
+      };
+      image.addEventListener("load", onLoad, { once: true });
+      card.disposeThumbnailLayout = () => image.removeEventListener?.("load", onLoad);
       preview.append(image, info);
       attachThumbnailPreview(context, card, image, item, info);
       if (image.complete) window.requestAnimationFrame(() => fitThumbnailMedia(image, preview));
@@ -200,9 +203,12 @@ export function installCards(context) {
     const cell = document.createElement("div");
     cell.className = "cmf-batch-thumbnail-cell";
     cell.dataset.mediaItemKey = item.key;
+    cell.dataset.mediaItemId = item.id;
     cell.dataset.mediaUrl = item.url;
     if (item.kind === "image") {
-      const image = document.createElement("img");
+      const image = takeThumbnailImage(context, item) || document.createElement("img");
+      // Single cards fit with inline dimensions; grid cells use their CSS box.
+      for (const property of ["width", "height", "max-width", "max-height"]) image.style?.removeProperty(property);
       image.alt = "";
       image.decoding = "async";
       image.loading = "eager";
@@ -248,7 +254,7 @@ export function installCards(context) {
     const existingCells = new Map([...grid.children].map((cell) => [cell.dataset.mediaItemKey, cell]));
     const cells = batch.items.slice(0, 4).map((item) => {
       const existing = existingCells.get(item.key);
-      if (existing?.dataset.mediaUrl === item.url) return existing;
+      if (existing?.dataset.mediaUrl === item.url && existing.dataset.mediaItemId === item.id) return existing;
       const cell = createBatchThumbnailCell(item);
       return cell;
     });
@@ -256,7 +262,7 @@ export function installCards(context) {
     for (const cell of grid.children) {
       if (cells.includes(cell)) continue;
       cell.deactivateAudioWaveform?.();
-      cell.deactivateMediaPreview?.();
+      cell.disposeMediaPreview?.();
       const media = cell.querySelector("video, audio");
       if (media) {
         media.pause();
@@ -306,6 +312,9 @@ export function installCards(context) {
         cell.deactivateAudioWaveform?.();
         cell.deactivateMediaPreview?.();
       }
+    };
+    card.disposeMediaPreview = () => {
+      for (const cell of grid.children) cell.disposeMediaPreview?.();
     };
     card.addEventListener("click", (event) => {
       if (event?.target?.closest?.(".cmf-media-controls")) return;

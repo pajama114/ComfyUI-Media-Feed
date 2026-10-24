@@ -116,12 +116,16 @@ to browser `sessionStorage`, and only renders visible cards plus a small oversca
 buffer. Media files themselves are never copied into browser storage. The
 toolbar trash button clears both the visible feed and its saved session entries.
 
-The feed uses server-generated image thumbnails up to 512 pixels on the long
-edge and static video posters. Original media is loaded through ComfyUI's
-standard `/view` route when opening the viewer or starting playback. Cards
-outside the rendered area release their media sources. Retained image pixels
-have an estimated 64 MiB cache budget in addition to the cache's entry limit;
-an original image currently open in the viewer can use more memory.
+Images with at least 8 million pixels use server-generated thumbnails up to
+512 pixels on the long edge; smaller images use the same standard ComfyUI
+`/view` URL in the feed and viewer so the browser can reuse cache. Video cards
+use static posters and load the original video when playback starts. Normal
+and batch layouts reuse loaded image elements and the same thumbnail size, so
+switching layouts does not generate another thumbnail or reload those images.
+Recent offscreen images and decoded viewer images share an estimated 256 MiB
+cache budget, in addition to entry limits. Visible cards and an original image
+currently open in the viewer can use more memory. Offscreen video and audio
+players release their media sources.
 
 Audio waveforms are generated on the server with bounded WAV sampling or
 streamed decoding, without decoding a whole recording in the browser. Preview

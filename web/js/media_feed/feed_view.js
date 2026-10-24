@@ -8,6 +8,7 @@ import {
 } from "./constants.js";
 import { visibleItemRange } from "./virtualization.js";
 import { displayEntries, entrySignature } from "./batch_entries.js";
+import { clearThumbnailImages, trimThumbnailImageCache } from "./thumbnail_images.js";
 
 export function installFeedView(context) {
   const { app, api, ICONS, state, runtime, actions } = context;
@@ -257,14 +258,20 @@ export function installFeedView(context) {
       } catch {
         // Keep the in-memory choice when storage is unavailable.
       }
-      for (const currentView of state.views) {
-        for (const card of currentView.cards.values()) destroyCard(card);
-        currentView.cards.clear();
-        clearCachedCards(currentView);
-        for (const gap of currentView.gaps.values()) gap.remove();
-        currentView.gaps.clear();
+      runtime.transferringThumbnailImages = true;
+      try {
+        for (const currentView of state.views) {
+          for (const card of currentView.cards.values()) destroyCard(card);
+          currentView.cards.clear();
+          clearCachedCards(currentView);
+          for (const gap of currentView.gaps.values()) gap.remove();
+          currentView.gaps.clear();
+        }
+        updateViews(false);
+      } finally {
+        runtime.transferringThumbnailImages = false;
+        trimThumbnailImageCache(context);
       }
-      updateViews(false);
       actions.syncViewerItems();
     });
   
@@ -282,6 +289,7 @@ export function installFeedView(context) {
       clearPromptMetadataCache();
       clearSessionItems();
       updateViews(false);
+      clearThumbnailImages(context);
     });
   
     view.sizeSlider.addEventListener("input", (event) => {
@@ -479,7 +487,9 @@ export function installFeedView(context) {
     if (!card) return;
     if (card.batch) card.batchRenderRequestId++;
     card.deactivateAudioWaveform?.();
-    card.deactivateMediaPreview?.();
+    if (card.disposeMediaPreview) card.disposeMediaPreview();
+    else card.deactivateMediaPreview?.();
+    card.disposeThumbnailLayout?.();
     card.thumbnailResizeObserver?.disconnect();
     for (const media of card.querySelectorAll("video, audio")) discardStagedMedia(media);
     card.remove();

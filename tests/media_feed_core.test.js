@@ -139,6 +139,12 @@ test("replacing an output invalidates its thumbnails, waveform, and original ima
   runtime.mediaPreviewCache.set("/view?filename=other.png", { status: "ready" });
   runtime.audioWaveformCache.set(original.url, new Float32Array(512));
   runtime.decodedImageCache.set(original.url, {});
+  const retainedImage = {
+    dataset: {}, src: original.url,
+    removeEventListener() {},
+    removeAttribute(name) { this[name] = ""; },
+  };
+  runtime.thumbnailImageCache.set(retainedImage, { url: original.url, id: original.id, reusable: true });
   runtime.mediaDimensionCache.set(original.key, { width: 100, height: 100 });
   const [replacement] = actions.collectMedia({ images: [{ filename: "overwritten.png" }] }, "two", 1);
   actions.addItems([replacement]);
@@ -147,6 +153,8 @@ test("replacing an output invalidates its thumbnails, waveform, and original ima
   assert.equal(runtime.mediaPreviewCache.size, 1);
   assert.equal(runtime.audioWaveformCache.size, 0);
   assert.equal(runtime.decodedImageCache.size, 0);
+  assert.equal(runtime.thumbnailImageCache.size, 0);
+  assert.equal(retainedImage.src, "");
   assert.equal(runtime.mediaDimensionCache.size, 0);
 });
 
