@@ -215,12 +215,19 @@ class PreviewService:
         key = self.key(path, size)
         base = dict(version=key, bytes=path.stat().st_size, format=path.suffix[1:].upper())
         metadata = self.directory / f"{key}.json"
+        thumbnail = self.directory / f"{key}.webp"
         with self.lock:
             if metadata.is_file():
                 try:
                     result = json.loads(metadata.read_text())
-                    os.utime(metadata, None)
-                    return result
+                    # A thumbnail removed outside this service is regenerated
+                    # instead of being advertised forever.
+                    if not result.get("thumbnail") or thumbnail.is_file():
+                        os.utime(metadata, None)
+                        return result
+                    metadata.unlink(missing_ok=True)
+                    if key in self.jobs and self.jobs[key]["future"].done():
+                        self.jobs.pop(key)
                 except (OSError, ValueError):
                     pass
             job = self.jobs.get(key)
@@ -447,8 +454,13 @@ class PreviewService:
             for _, metadata, size in sorted(entries):
                 if total <= CACHE_BYTES * CACHE_TRIM_RATIO and count <= CACHE_ENTRIES * CACHE_TRIM_RATIO:
                     break
-                metadata.unlink(missing_ok=True)
-                metadata.with_suffix(".webp").unlink(missing_ok=True)
+                # Remove the image first: Windows refuses to delete one that is
+                # being served, and its metadata must remain so it is still counted.
+                try:
+                    metadata.with_suffix(".webp").unlink(missing_ok=True)
+                    metadata.unlink(missing_ok=True)
+                except OSError:
+                    continue
                 total -= size
                 count -= 1
         self.cache_usage = (count, total)

@@ -420,6 +420,34 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(list(self.service.directory.glob("*.json"))), 1)
         self.assertEqual(len(list(self.service.directory.glob("*.webp"))), 1)
 
+    def test_trim_keeps_metadata_counted_when_a_served_thumbnail_cannot_be_deleted(self):
+        for index in range(3):
+            (self.service.directory / f"{index}.json").write_text("{}")
+            (self.service.directory / f"{index}.webp").write_bytes(b"x" * 20)
+        locked = self.service.directory / "0.webp"
+        original_unlink = Path.unlink
+        def unlink(path, missing_ok=False):
+            if path == locked:
+                raise PermissionError("in use")
+            return original_unlink(path, missing_ok=missing_ok)
+        with patch.object(previews, "CACHE_BYTES", 30), patch.object(Path, "unlink", unlink):
+            self.service._trim_cache()
+        self.assertTrue((self.service.directory / "0.json").is_file())
+        self.assertEqual([path.name for path in self.service.directory.glob("*.webp")], ["0.webp"])
+        self.assertEqual(self.service.cache_usage, (1, 22))
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    def test_missing_thumbnail_file_is_regenerated_instead_of_reported_ready(self):
+        from PIL import Image
+        path = self.root / "large.png"
+        Image.new("RGB", (4000, 2000)).save(path)
+        result = self.complete(path)
+        self.service.cache_executor.submit(lambda: None).result(timeout=5)
+        (self.service.directory / f"{result['version']}.webp").unlink()
+        self.assertIsNone(self.service.thumbnail(path))
+        self.assertEqual(self.complete(path)["status"], "ready")
+        self.assertIsNotNone(self.service.thumbnail(path))
+
     def test_cache_writes_scan_directory_only_when_limits_are_exceeded(self):
         with patch.object(self.service, "_trim_cache", wraps=self.service._trim_cache) as trim:
             with patch.object(previews, "CACHE_ENTRIES", 10):

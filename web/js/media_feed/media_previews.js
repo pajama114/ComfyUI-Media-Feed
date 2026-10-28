@@ -222,9 +222,17 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
     }, 5000);
   };
   if (item.kind === "image") media.addEventListener("error", onError);
+  // The browser may still display an image the server cannot thumbnail.
+  const showOriginal = () => {
+    delete media.dataset.originalMediaUrl;
+    if ((media.src !== item.url && media.getAttribute?.("src") !== item.url) || (media.complete && !media.naturalWidth)) {
+      media.dataset.previewLoaded = "false";
+      media.src = item.url;
+    }
+  };
   const update = (result) => {
     info = result;
-    const loadingImage = item.kind === "image" && result.status === "ready"
+    const loadingImage = item.kind === "image" && (result.status === "ready" || result.status === "unavailable")
       && media.dataset.previewLoaded !== "true";
     label.textContent = previewDescription(result, item, context.actions.formatMediaDuration);
     label.title = label.textContent;
@@ -260,6 +268,8 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       label.dataset.ready = "true";
       if (item.kind !== "image" || media.dataset.previewLoaded === "true") label.hidden = true;
       context.actions.trimDecodedImageCache?.();
+    } else if (item.kind === "image" && result.status === "unavailable") {
+      showOriginal();
     }
   };
   owner.activateMediaPreview = () => {
@@ -291,6 +301,8 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
         label.hidden = false;
         label.textContent = previewDescription(info, item, context.actions.formatMediaDuration);
         if (error.status === 404) context.actions.removeMissingMediaItem(item);
+        // Media outside output/temp cannot be thumbnailed but may still load.
+        else if (error.status === 400 && item.kind === "image") showOriginal();
       },
     });
   }

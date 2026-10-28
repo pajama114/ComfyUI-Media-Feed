@@ -30,7 +30,7 @@ export function installCards(context) {
     label.hidden = !text;
   }
 
-  function setupAudioWaveform(card, svg, url, update = null) {
+  function setupAudioWaveform(card, svg, url, update = null, onMissing = null) {
     let unsubscribe = null;
     let active = false;
     let activation = 0;
@@ -45,8 +45,11 @@ export function installCards(context) {
         render(peaks) {
           if (active && activation === currentActivation) renderAudioWaveform(svg, peaks);
         },
-        fail() {
-          if (active && activation === currentActivation) svg.dataset.state = "unavailable";
+        fail(error) {
+          if (!active || activation !== currentActivation) return;
+          svg.dataset.state = "unavailable";
+          // The audio element has no source until playback, so it cannot report this.
+          if (error?.status === 404) onMissing?.();
         },
       };
       unsubscribe = subscribeAudioWaveform(url, AUDIO_WAVEFORM_BAR_COUNT, consumer);
@@ -95,7 +98,7 @@ export function installCards(context) {
         audio.dataset.previewDuration = String(result.duration);
         updateThumbnailRemainingTime(audio, duration);
       }
-    });
+    }, () => removeMissingMediaItem(item));
     return audioPreview;
   }
 

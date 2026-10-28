@@ -352,6 +352,29 @@ test("an original that fails to load asks the server whether the media still exi
   card.deactivateMediaPreview();
 });
 
+test("a large original the server cannot thumbnail is displayed as the original", async (t) => {
+  for (const response of [
+    new Response(JSON.stringify({ status: "unavailable", version: "v1", width: 4000, height: 2000 })),
+    new Response("{}", { status: 400 }),
+  ]) {
+    const owner = context();
+    t.mock.method(globalThis, "fetch", async () => response);
+    const media = previewImage(), label = { dataset: {} }, card = {};
+    attachThumbnailPreview(owner, card, media, { kind: "image", filename: "large.avif", url: source }, label);
+    card.activateMediaPreview();
+    revealLargeOriginal(media);
+    await flush();
+    assert.equal(media.src, source);
+    assert.equal(media.dataset.originalMediaUrl, undefined);
+    media.finishLoading(4000, 2000);
+    assert.equal(media.dataset.previewLoaded, "true");
+    assert.equal(label.hidden, true);
+    card.deactivateMediaPreview();
+    clearThumbnailImages(owner);
+    t.mock.restoreAll();
+  }
+});
+
 test("a failed thumbnail is hidden, explains the failure, and can retry without invalidating offscreen previews", async (t) => {
   const owner = context();
   const timers = new Map();
@@ -563,6 +586,22 @@ test("waveforms use server levels and never decode or download the original reco
   assert.match(requests[0], /^\/api\/media-feed\/preview\?/);
   assert.equal(rendered[0].length, 64);
   assert.deepEqual(durations, [3600]);
+  assert.equal(owner.runtime.activeAudioWaveformLoads, 0);
+  stop();
+});
+
+test("a missing recording reports 404 to waveform consumers so the feed can remove it", async (t) => {
+  const owner = context();
+  installAudioWaveforms(owner);
+  t.mock.method(globalThis, "fetch", async () => new Response("{}", { status: 404 }));
+  const failures = [];
+  const stop = owner.actions.subscribeAudioWaveform(source.replace("large.png", "gone.wav"), 64, {
+    render() { throw new Error("must not render"); },
+    fail: (error) => failures.push(error.status),
+  });
+  await flush();
+  await flush();
+  assert.deepEqual(failures, [404]);
   assert.equal(owner.runtime.activeAudioWaveformLoads, 0);
   stop();
 });
