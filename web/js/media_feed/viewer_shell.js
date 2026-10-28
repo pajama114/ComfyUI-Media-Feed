@@ -65,7 +65,21 @@ export function installViewerShell(context) {
     const viewer = runtime.viewer;
     if (!viewer?.comparing) return;
     const pane = getViewerPane(event.target);
-    setActiveViewerPane(pane);
+    // Like batch cell selection, a press activates its pane on release.
+    if (event.type === "pointerup" || event.type === "pointercancel") {
+      const press = viewer.panePress;
+      viewer.panePress = null;
+      // Panning moves the view, not the active pane, matching the batch frame.
+      // This capture listener runs before the media clears its drag state.
+      const panned = press?.pane.imageDrag?.pointerId === event.pointerId && press.pane.imageDrag.moved;
+      if (event.type === "pointerup" && press?.pointerId === event.pointerId && !panned) {
+        setActiveViewerPane(press.pane);
+      }
+      return;
+    }
+    if (event.type === "pointerdown") viewer.panePress = { pointerId: event.pointerId, pane };
+    // The press focuses its target before release; that is not an activation.
+    else if (event.type !== "focusin" || !viewer.panePress) setActiveViewerPane(pane);
     // A click on an unfocusable image must not leave the other pane's player
     // focused, where its native arrow/Space handling would receive later keys.
     const focused = document.activeElement;
@@ -307,6 +321,8 @@ export function installViewerShell(context) {
     root.addEventListener("pointerdown", () => showViewerNavigation());
     root.addEventListener("pointerleave", hideViewerNavigation);
     root.addEventListener("pointerdown", handleViewerPaneInteraction, true);
+    root.addEventListener("pointerup", handleViewerPaneInteraction, true);
+    root.addEventListener("pointercancel", handleViewerPaneInteraction, true);
     root.addEventListener("focusin", handleViewerPaneInteraction);
     root.addEventListener("wheel", handleViewerWheel, { passive: false });
     document.addEventListener("keydown", handleViewerGlobalKeydown, true);

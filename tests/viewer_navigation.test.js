@@ -165,8 +165,21 @@ test("removing an entry only replaces the affected pane", (t) => {
 test("selecting an image clears focus in the other pane and Space remembers the selected side", (t) => {
   const { left, right, actions, event } = navigation(t, [image("a")]);
   document.activeElement = event("left").target;
-  actions.handleViewerPaneInteraction(event("right", { type: "pointerdown" }));
+  actions.handleViewerPaneInteraction(event("right", { type: "pointerdown", pointerId: 1 }));
   assert.equal(document.activeElement, left.root);
+  actions.handleViewerPaneInteraction(event("right", { type: "focusin" }));
+  assert.equal(right.paneHeader.dataset.active, undefined, "a press waits for release before activating");
+  actions.handleViewerPaneInteraction(event("left", { type: "pointerup", pointerId: 1 }));
+  assert.equal(right.paneHeader.dataset.active, "true", "release activates the pressed pane");
+  assert.equal(left.paneHeader.dataset.active, "false");
+  actions.handleViewerPaneInteraction(event("left", { type: "pointerdown", pointerId: 2 }));
+  actions.handleViewerPaneInteraction(event("left", { type: "pointercancel", pointerId: 2 }));
+  assert.equal(right.paneHeader.dataset.active, "true", "a cancelled press keeps the active pane");
+  actions.handleViewerPaneInteraction(event("left", { type: "pointerdown", pointerId: 3 }));
+  left.imageDrag = { pointerId: 3, moved: true };
+  actions.handleViewerPaneInteraction(event("left", { type: "pointerup", pointerId: 3 }));
+  left.imageDrag = null;
+  assert.equal(right.paneHeader.dataset.active, "true", "panning the other pane keeps the active pane");
   let played = 0;
   right.media.querySelectorAll = () => [{ dataset: { mediaItemKey: right.item.key }, paused: true, play() { played++; return Promise.resolve(); } }];
   const space = event(null, { key: " " });
