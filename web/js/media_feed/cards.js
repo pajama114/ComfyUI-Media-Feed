@@ -213,7 +213,9 @@ export function installCards(context) {
       // Single cards fit with inline dimensions; grid cells use their CSS box.
       for (const property of ["width", "height", "max-width", "max-height"]) image.style?.removeProperty(property);
       image.alt = "";
-      image.decoding = "async";
+      // Chrome can leave async-decoded grid cells unpainted after a reload
+      // until hover repaints the card; grid cells have no load-time relayout.
+      image.decoding = "auto";
       image.loading = "eager";
       const info = document.createElement("span");
       info.className = "cmf-preview-info";
