@@ -67,40 +67,25 @@ export function installViewerMetadata(context) {
     runtime.viewer.lastPromptMetadataItemId = "";
     runtime.viewer.lastMetadataDetails = [];
     runtime.viewer.pendingPromptMetadataResult = null;
-    if (keepBatchMetadata) {
-      // Keep the previous contents visible until the selected cell's metadata is ready.
-      setViewerMetadataActionsInert(true);
-    } else {
-      runtime.viewer.promptStatus.textContent = "";
-      runtime.viewer.scanFullMetadataButton.hidden = true;
-      runtime.viewer.scanFullMetadataButton.disabled = false;
-      runtime.viewer.copyAllMetadataButton.disabled = true;
-      runtime.viewer.downloadMetadataButton.disabled = true;
-    }
     runtime.viewer.promptPanel.setAttribute("aria-busy", "true");
     if (!hasRenderedMetadata) {
       runtime.viewer.promptPanel.dataset.loading = "true";
       return;
     }
 
-    if ((runtime.viewer.comparing || runtime.viewer.isComparisonPane) && !keepBatchMetadata) {
-      runtime.viewer.promptPanel.dataset.loading = "false";
-      runtime.viewer.promptPanel.dataset.pending = "true";
-      return;
-    }
-
-    if (keepBatchMetadata) {
-      runtime.viewer.promptPanel.dataset.loading = "false";
-      runtime.viewer.promptPanel.dataset.pending = "false";
-      return;
-    }
-  
-    // Fast local Range reads finish before any loading state is shown.
+    // Keep the previous contents and controls steady until the next metadata
+    // is ready; only their actions pause so they cannot target the old item.
+    setViewerMetadataActionsInert(true);
     runtime.viewer.promptPanel.dataset.loading = "false";
+    runtime.viewer.promptPanel.dataset.pending = "false";
+    if (keepBatchMetadata) return;
+
+    // Fast local reads finish before any loading state is shown.
+    const comparing = runtime.viewer.comparing || runtime.viewer.isComparisonPane;
     runtime.viewer.promptLoadingTimer = window.setTimeout(() => {
       runtime.viewer.promptLoadingTimer = 0;
       if (runtime.viewer?.promptPanel.getAttribute("aria-busy") === "true") {
-        runtime.viewer.promptPanel.dataset.loading = "true";
+        runtime.viewer.promptPanel.dataset[comparing ? "pending" : "loading"] = "true";
       }
     }, VIEWER_METADATA_LOADING_DELAY_MS);
   }
@@ -186,10 +171,8 @@ export function installViewerMetadata(context) {
     if (!runtime.viewer || runtime.viewer.item?.id !== item?.id) return;
     const needsMediaDetails = item.kind === "image" || item.kind === "video";
     if (needsMediaDetails && runtime.viewer.mediaReadyItemId !== item.id) {
+      // Rendering before the media is ready would drop its size details.
       runtime.viewer.pendingPromptMetadataResult = { result, itemId: item.id };
-      if (runtime.viewer.comparing || runtime.viewer.isComparisonPane) {
-        renderPromptMetadata(result, item.id);
-      }
       return;
     }
   

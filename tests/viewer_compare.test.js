@@ -103,7 +103,14 @@ test("comparison metadata follows its own item and ignores stale loads", async (
     root: { dataset: { open: "true" } },
     body: { dataset: {} },
     media: { querySelector: () => null },
-    promptPanel: { hidden: true, dataset: { rendered: "false" }, setAttribute() {}, querySelectorAll: () => [] },
+    promptPanel: {
+      hidden: true,
+      dataset: { rendered: "false" },
+      attributes: {},
+      setAttribute(name, value) { this.attributes[name] = value; },
+      getAttribute(name) { return this.attributes[name]; },
+      querySelectorAll: () => [],
+    },
     promptStatus: {},
     scanFullMetadataButton: {},
     copyAllMetadataButton: {},
@@ -141,22 +148,38 @@ test("comparison metadata follows its own item and ignores stale loads", async (
   assert.equal(viewer.lastPromptMetadataItemId, "b");
   assert.equal(context.state.showPrompts, false);
 
-  viewer.item = { id: "c", kind: "audio" };
-  context.actions.updateViewerPromptPanel();
-  assert.equal(viewer.promptPositive.textContent, "new prompt");
-  assert.equal(viewer.promptPanel.dataset.pending, "true");
-  pending.get("c")({ positive: "later prompt" });
-  await Promise.resolve();
-  assert.equal(viewer.promptPositive.textContent, "later prompt");
-  assert.equal(viewer.promptPanel.dataset.pending, "false");
+  const originalWindow = globalThis.window;
+  const timers = new Map();
+  globalThis.window = {
+    setTimeout(callback) { timers.set(timers.size + 1, callback); return timers.size; },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  try {
+    viewer.item = { id: "c", kind: "audio" };
+    viewer.copyAllMetadataButton.disabled = false;
+    context.actions.updateViewerPromptPanel();
+    assert.equal(viewer.promptPositive.textContent, "new prompt");
+    assert.equal(viewer.promptPanel.dataset.pending, "false", "a quick read keeps the panel steady");
+    assert.equal(viewer.copyAllMetadataButton.disabled, false, "actions do not flash disabled");
+    assert.equal(viewer.copyAllMetadataButton.inert, true);
+    timers.get(viewer.promptLoadingTimer)();
+    assert.equal(viewer.promptPanel.dataset.pending, "true");
+    pending.get("c")({ positive: "later prompt" });
+    await Promise.resolve();
+    assert.equal(viewer.promptPositive.textContent, "later prompt");
+    assert.equal(viewer.promptPanel.dataset.pending, "false");
+  } finally {
+    globalThis.window = originalWindow;
+  }
 
   viewer.item = { id: "d", kind: "image" };
   viewer.mediaReadyItemId = "";
   context.actions.renderPromptMetadataWhenMediaReady({ positive: "image prompt" }, viewer.item);
-  assert.equal(viewer.promptPositive.textContent, "image prompt");
+  assert.equal(viewer.promptPositive.textContent, "later prompt", "waits for media size details");
   assert.equal(viewer.pendingPromptMetadataResult.itemId, "d");
   viewer.mediaReadyItemId = "d";
   context.actions.refreshViewerPromptPanelDetails();
+  assert.equal(viewer.promptPositive.textContent, "image prompt");
   assert.equal(viewer.pendingPromptMetadataResult, null);
 });
 
