@@ -29,6 +29,19 @@ export function installViewerRender(context) {
     if (grid) grid.dataset.selectionVisible = String(currentViewer.batchSelectionVisible);
   }
 
+  // The viewer covers the page, so leaving the window (another app, the
+  // desktop title bar) is the only way to click outside it.
+  function handleViewerWindowBlur() {
+    const currentViewer = runtime.viewer;
+    if (currentViewer?.root?.dataset.open !== "true") return;
+    // Returning to the window refocuses this element; that is not a selection.
+    // Each comparison pane checks its own state, so record it on both.
+    for (const pane of [currentViewer, currentViewer.reference].filter(Boolean)) {
+      setViewerBatchSelectionVisible(false, pane);
+      pane.blurredFocus = document.activeElement;
+    }
+  }
+
   function syncViewerSelection(currentViewer) {
     currentViewer.openLink.href = currentViewer.item.url;
     currentViewer.copyImageButton.hidden = currentViewer.item.kind !== "image";
@@ -126,8 +139,12 @@ export function installViewerRender(context) {
     // media item being tabbed into, but pointer selection is committed on
     // release so native video and custom audio controls behave consistently.
     grid.addEventListener("focusin", (event) => {
+      const restoredFocus = runtime.viewer?.blurredFocus === event.target;
+      if (runtime.viewer) runtime.viewer.blurredFocus = null;
       const cell = cellAt(event.target);
-      if (!cell) return;
+      // A press focuses its cell before release commits the selection; showing
+      // the frame now would flash it on the previously selected cell.
+      if (!cell || restoredFocus || pointer) return;
       setViewerBatchSelectionVisible(true);
       if (!pointer && isMediaControl(event.target)) selectViewerBatchItem(cell.dataset.mediaItemKey);
     });
@@ -494,6 +511,7 @@ export function installViewerRender(context) {
   Object.assign(actions, {
     renderViewerItem,
     selectViewerBatchItem,
+    handleViewerWindowBlur,
     setViewerBatchSelectionVisible,
   });
 }

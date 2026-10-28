@@ -335,6 +335,30 @@ test("batch selection follows clicks, drags, and keyboard and survives updates a
     assert.equal(viewer.item.id, "two");
     assert.equal(grid.dataset.selectionVisible, "true", "clicking the selected media restores its frame");
 
+    grid.children[1].focus();
+    const comparisonPane = { media: new Element("div") };
+    viewer.reference = comparisonPane;
+    actions.handleViewerWindowBlur();
+    delete viewer.reference;
+    assert.equal(comparisonPane.batchSelectionVisible, false, "leaving the window hides both comparison frames");
+    assert.equal(comparisonPane.blurredFocus, grid.children[1],
+      "the comparison pane also ignores the focus restored when returning to the window");
+    assert.equal(grid.dataset.selectionVisible, "false", "leaving the window hides the frame");
+    assert.equal(viewer.item.id, "two");
+    grid.dispatch("focusin", { target: grid.children[1] });
+    assert.equal(grid.dataset.selectionVisible, "false", "returning to the window keeps the frame hidden");
+    grid.dispatch("pointerdown", { button: 0, pointerId: 11, clientX: 10, clientY: 10, target: grid.children[0] });
+    grid.dispatch("focusin", { target: grid.children[0] });
+    assert.equal(grid.dataset.selectionVisible, "false",
+      "pressing another cell must not flash the frame on the previous selection");
+    grid.dispatch("pointerup", { button: 0, pointerId: 11, clientX: 10, clientY: 10, target: grid.children[0] });
+    assert.equal(viewer.item.id, "one");
+    assert.equal(grid.dataset.selectionVisible, "true");
+    actions.selectViewerBatchItem("image:two");
+    actions.setViewerBatchSelectionVisible(false);
+    grid.dispatch("focusin", { target: grid.children[2] });
+    assert.equal(grid.dataset.selectionVisible, "true", "moving focus to another cell shows the frame");
+
     const zoomPointer = { button: 0, pointerId: 10, clientX: 20, clientY: 20 };
     grid.dispatch("pointerdown", { ...zoomPointer, target: grid.children[0] });
     assert.equal(viewer.item.id, "two", "selection remains committed on release");

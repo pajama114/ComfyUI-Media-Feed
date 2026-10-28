@@ -310,7 +310,8 @@ export function installViewerShell(context) {
     root.addEventListener("focusin", handleViewerPaneInteraction);
     root.addEventListener("wheel", handleViewerWheel, { passive: false });
     document.addEventListener("keydown", handleViewerGlobalKeydown, true);
-  
+    window.addEventListener("blur", () => actions.handleViewerWindowBlur());
+
     document.body.appendChild(root);
     runtime.viewer = {
       root,
