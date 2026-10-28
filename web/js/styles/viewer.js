@@ -1274,8 +1274,14 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       border-left: 0;
     }
 
+    /* The active pane receives keyboard navigation. A tinted header reads more
+       clearly than a thin line against the dark viewer background. */
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane-bar[data-active="true"] {
-      box-shadow: inset 0 -2px #aad7ff;
+      background: color-mix(in srgb, var(--cmf-text) 10%, transparent);
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane-bar:not([data-active="true"]) .cmf-viewer-title {
+      color: var(--cmf-muted);
     }
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-media video.cmf-zoomable-video {
