@@ -77,6 +77,26 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       white-space: nowrap;
     }
 
+    /* Persistent new-media marker outside the media, so it never covers comparisons. */
+    .cmf-viewer-new-badge {
+      flex: none;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cmf-new-media);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--cmf-new-media) 30%, transparent);
+    }
+
+    /* Keep the dot's space reserved so the title does not shift when it appears. */
+    .cmf-viewer-new-badge[data-visible="false"] {
+      visibility: hidden;
+    }
+
+    :root:not(.dark-theme) .cmf-viewer-new-badge {
+      background: #3b82f6;
+      box-shadow: 0 0 0 2px color-mix(in srgb, #3b82f6 25%, transparent);
+    }
+
     .cmf-viewer-title[data-batch="true"] {
       display: flex;
       align-items: center;
@@ -1021,7 +1041,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer[data-nav-hidden="true"]
-      .cmf-nav-prev[data-new-media="true"]:not(:hover):not(:focus-visible) {
+      .cmf-nav-prev[data-new-media-highlight="true"]:not(:hover):not(:focus-visible) {
       opacity: 1;
       pointer-events: auto;
     }

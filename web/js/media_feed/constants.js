@@ -66,6 +66,8 @@ export const VIEWER_IMAGE_MAX_ZOOM = 8;
 export const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
 export const VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS = 200;
 export const VIEWER_NAV_HIDE_DELAY_MS = 2000;
+// How long a new arrival keeps the previous arrow visible over auto-hidden navigation.
+export const VIEWER_NEW_MEDIA_HIGHLIGHT_MS = 3000;
 export const VIEWER_METADATA_LOADING_DELAY_MS = 120;
 export const SIDE_PLACEMENTS = new Set(["left", "right"]);
 export const PLACEMENTS = new Set(["top", "right", "bottom", "left"]);

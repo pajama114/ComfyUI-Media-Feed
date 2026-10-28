@@ -4,6 +4,7 @@ import {
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
   VIEWER_NAV_HIDE_DELAY_MS,
+  VIEWER_NEW_MEDIA_HIGHLIGHT_MS,
 } from "./constants.js";
 
 export function installViewerShell(context) {
@@ -128,10 +129,29 @@ export function installViewerShell(context) {
     if (scheduleHide) scheduleViewerNavigationHide();
   }
 
+  function clearViewerNewMediaHighlight(pane) {
+    if (pane.newMediaHighlightTimer) window.clearTimeout(pane.newMediaHighlightTimer);
+    pane.newMediaHighlightTimer = 0;
+    pane.newMediaHighlighted = false;
+  }
+
+  // The arrow stays visible briefly after an arrival, then follows the normal
+  // navigation auto-hide so it does not cover the media during inspection.
+  function highlightViewerNewMedia(pane) {
+    clearViewerNewMediaHighlight(pane);
+    pane.newMediaHighlighted = true;
+    pane.newMediaHighlightTimer = window.setTimeout(() => {
+      pane.newMediaHighlightTimer = 0;
+      pane.newMediaHighlighted = false;
+      syncViewerNewMediaIndicator(pane);
+    }, VIEWER_NEW_MEDIA_HIGHLIGHT_MS);
+  }
+
   function clearViewerNewMediaIndicator(pane = runtime.viewer) {
     if (!pane) return;
     pane.newestUnseenEntryKey = "";
     pane.newestUnseenEntrySignature = "";
+    clearViewerNewMediaHighlight(pane);
   }
 
   function syncViewerNewMediaIndicator(pane = runtime.viewer) {
@@ -144,9 +164,18 @@ export function installViewerShell(context) {
       if (targetIndex === -1 || pane.index <= targetIndex) {
         clearViewerNewMediaIndicator(pane);
         hasNewMedia = false;
+        // Seeing the arrival in either comparison pane acknowledges it in both.
+        for (const other of viewerPanes()) {
+          if (other === pane || other.newestUnseenEntryKey !== newestUnseenEntryKey
+            || other.newestUnseenEntrySignature !== newestUnseenEntrySignature) continue;
+          clearViewerNewMediaIndicator(other);
+          syncViewerNewMediaIndicator(other);
+        }
       }
     }
     pane.prevButton.dataset.newMedia = String(hasNewMedia);
+    pane.prevButton.dataset.newMediaHighlight = String(hasNewMedia && Boolean(pane.newMediaHighlighted));
+    if (pane.newMediaBadge) pane.newMediaBadge.dataset.visible = String(hasNewMedia);
     const label = hasNewMedia ? "Previous — new media available" : "Previous";
     pane.prevButton.title = label;
     pane.prevButton.setAttribute("aria-label", label);
@@ -167,6 +196,7 @@ export function installViewerShell(context) {
     root.dataset.showComfyProgress = String(state.showComfyProgress);
     root.innerHTML = `
       <div class="cmf-viewer-bar">
+        <span class="cmf-viewer-new-badge" title="New media available" aria-hidden="true" data-visible="false"></span>
         <div class="cmf-viewer-title"></div>
         <div class="cmf-spacer"></div>
         <div class="cmf-viewer-zoom-controls" hidden aria-label="Media zoom controls">
@@ -314,6 +344,7 @@ export function installViewerShell(context) {
       zoomLevel: root.querySelector(".cmf-viewer-zoom-level"),
       prevButton: root.querySelector(".cmf-nav-prev"),
       nextButton: root.querySelector(".cmf-nav-next"),
+      newMediaBadge: root.querySelector(".cmf-viewer-new-badge"),
       promptRequestId: 0,
       promptLoadingTimer: 0,
       renderRequestId: 0,
@@ -471,6 +502,7 @@ export function installViewerShell(context) {
         if (newMediaAdded && index > 0) {
           pane.newestUnseenEntryKey = items[0].key;
           pane.newestUnseenEntrySignature = entrySignature(items[0]);
+          highlightViewerNewMedia(pane);
         }
         const next = items[index];
         const changed = previousEntry.key !== next.key

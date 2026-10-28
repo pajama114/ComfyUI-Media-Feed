@@ -31,7 +31,7 @@ function navigation(t, media, { batchMode = false } = {}) {
   const root = { dataset: { open: "true" }, focus() { document.activeElement = this; } };
   const pane = (side) => ({
     root, entry: entries[0], item: entries[0].items?.[0] || entries[0], items: entries, index: 0,
-    prevButton: button(), nextButton: button(), renderRequestId: 0,
+    prevButton: button(), nextButton: button(), newMediaBadge: { dataset: {} }, renderRequestId: 0,
     paneElement: { dataset: {}, contains: (target) => target?.side === side },
     paneHeader: { dataset: {}, contains: () => false },
     media: { querySelectorAll: () => [] },
@@ -117,7 +117,7 @@ test("wheel targets its pane, preserves metadata scrolling and zooms the targete
   assert.equal(right.item.key, "b", "Ctrl+wheel on audio must not navigate");
 });
 
-test("new arrivals keep both selections and clear each new-media indicator independently", (t) => {
+test("new arrivals keep both selections and reaching them in one pane clears both indicators", (t) => {
   const a = image("a"), b = image("b"), fresh = image("new");
   const { left, right, actions, setItems, rendered } = navigation(t, [a, b]);
   actions.showViewerRelative(1, right);
@@ -132,7 +132,10 @@ test("new arrivals keep both selections and clear each new-media indicator indep
   assert.equal(right.prevButton.dataset.newMedia, "true");
   actions.showViewerRelative(-1, left);
   assert.equal(left.prevButton.dataset.newMedia, "false");
-  assert.equal(right.prevButton.dataset.newMedia, "true");
+  assert.equal(right.prevButton.dataset.newMedia, "false");
+  assert.equal(left.newMediaBadge.dataset.visible, "false");
+  assert.equal(right.newMediaBadge.dataset.visible, "false");
+  assert.equal(right.item, b, "acknowledging must not move the other pane");
 });
 
 test("batch arrivals update both grids while preserving independent cell selections", (t) => {

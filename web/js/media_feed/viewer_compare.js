@@ -107,7 +107,7 @@ export function installViewerCompare(context) {
     function arrangeHeader(header) {
       const identity = document.createElement("div");
       identity.className = "cmf-viewer-pane-identity";
-      identity.append(header.querySelector(".cmf-viewer-title"));
+      identity.append(header.querySelector(".cmf-viewer-new-badge"), header.querySelector(".cmf-viewer-title"));
       const controls = document.createElement("div");
       controls.className = "cmf-viewer-pane-actions";
       controls.append(...header.querySelectorAll(".cmf-viewer-favorite, .cmf-viewer-download, .cmf-viewer-copy-image, .cmf-open-link"));
@@ -220,7 +220,7 @@ export function installViewerCompare(context) {
       downloadButton: ".cmf-viewer-download", zoomControls: ".cmf-viewer-zoom-controls",
       fitButton: ".cmf-viewer-fit", nativeButton: ".cmf-viewer-native",
       zoomOutButton: ".cmf-viewer-zoom-out", zoomInButton: ".cmf-viewer-zoom-in",
-      zoomLevel: ".cmf-viewer-zoom-level",
+      zoomLevel: ".cmf-viewer-zoom-level", newMediaBadge: ".cmf-viewer-new-badge",
     })) reference[key] = rightHeader.querySelector(selector);
 
     // Each pane owns its controller state; async renders never swap the main viewer.

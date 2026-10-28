@@ -201,8 +201,9 @@ test("viewer navigation fades after pointer inactivity while preserving active c
 
 test("viewer keeps the previous arrow highlighted until all newly added media is reached", () => {
   const originalWindow = globalThis.window;
+  const timers = [];
   globalThis.window = {
-    setTimeout() { return 1; },
+    setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; },
     clearTimeout() {},
     matchMedia() { return { matches: false }; },
   };
@@ -227,6 +228,7 @@ test("viewer keeps the previous arrow highlighted until all newly added media is
       index: 0,
       prevButton: control(),
       nextButton: control(),
+      newMediaBadge: { dataset: {} },
       navHideTimer: 0,
       newestUnseenEntryKey: "",
       newestUnseenEntrySignature: "",
@@ -249,6 +251,14 @@ test("viewer keeps the previous arrow highlighted until all newly added media is
     assert.equal(viewer.index, 2);
     assert.equal(viewer.prevButton.dataset.newMedia, "true");
     assert.equal(viewer.prevButton["aria-label"], "Previous — new media available");
+    assert.equal(viewer.prevButton.dataset.newMediaHighlight, "true");
+    assert.equal(viewer.newMediaBadge.dataset.visible, "true");
+
+    // After the short highlight the arrow follows auto-hide, while the badge stays.
+    timers.find(({ delay }) => delay === 3000).callback();
+    assert.equal(viewer.prevButton.dataset.newMedia, "true");
+    assert.equal(viewer.prevButton.dataset.newMediaHighlight, "false");
+    assert.equal(viewer.newMediaBadge.dataset.visible, "true");
 
     actions.showViewerRelative(-1);
     assert.equal(viewer.item, firstNew);
@@ -258,6 +268,7 @@ test("viewer keeps the previous arrow highlighted until all newly added media is
     assert.equal(viewer.item, latestNew);
     assert.equal(viewer.prevButton.dataset.newMedia, "false");
     assert.equal(viewer.prevButton["aria-label"], "Previous");
+    assert.equal(viewer.newMediaBadge.dataset.visible, "false");
   } finally {
     if (originalWindow === undefined) delete globalThis.window;
     else globalThis.window = originalWindow;
