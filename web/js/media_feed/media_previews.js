@@ -1,3 +1,4 @@
+import { IMAGE_THUMBNAIL_MIN_PIXELS } from "./constants.js";
 import { activateThumbnailImage, clearThumbnailImages, estimatedImageBytes, retainThumbnailImage } from "./thumbnail_images.js";
 
 export { estimatedImageBytes } from "./thumbnail_images.js";
@@ -33,6 +34,13 @@ export function mediaPreviewUrl(context, url, resource = "preview", version = ""
   return context.api?.apiURL ? context.api.apiURL(path) : path;
 }
 
+function rememberMediaPreview(context, url, info) {
+  const cache = context.runtime.mediaPreviewCache ||= new Map();
+  cache.delete(url);
+  cache.set(url, info);
+  while (cache.size > PREVIEW_CACHE_SIZE) cache.delete(cache.keys().next().value);
+}
+
 export function subscribeMediaPreview(context, url, consumer) {
   const { runtime } = context;
   const cache = runtime.mediaPreviewCache ||= new Map();
@@ -63,8 +71,7 @@ export function subscribeMediaPreview(context, url, consumer) {
       if (controller.signal.aborted || jobs.get(url) !== job) return;
       const finished = info.status === "ready" || info.status === "unavailable";
       if (finished) {
-        cache.set(url, info);
-        while (cache.size > PREVIEW_CACHE_SIZE) cache.delete(cache.keys().next().value);
+        rememberMediaPreview(context, url, info);
         jobs.delete(url);
       }
       for (const current of job.consumers) current.update(info);
@@ -118,6 +125,11 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   let info = media.mediaFeedPreviewInfo || null;
   let retryTimer = null;
   let statusTimer = null;
+  // An image without a descriptor loads its original directly. Its header
+  // reveals the size before the download finishes, so only large images
+  // switch to a server thumbnail and ordinary images never wait for one.
+  let probing = false;
+  let probeFrame = null;
   // Both layouts use the same resource; switching must never generate a
   // second thumbnail just because a grid cell is smaller.
   const size = 512;
@@ -126,9 +138,48 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   const previewKey = requestUrl.href;
   if (!info) media.dataset.originalMediaUrl = item.url;
   if (item.kind === "image" && !media.naturalWidth) media.dataset.previewLoaded = "false";
+  const stopProbe = () => {
+    probing = false;
+    if (probeFrame !== null) globalThis.cancelAnimationFrame?.(probeFrame);
+    probeFrame = null;
+  };
+  // Returns true when the original is too large and the thumbnail takes over.
+  const checkProbeSize = () => {
+    stopProbe();
+    if (media.naturalWidth * media.naturalHeight < IMAGE_THUMBNAIL_MIN_PIXELS) return false;
+    media.removeAttribute("src");
+    media.dataset.previewLoaded = "false";
+    media.dataset.originalMediaUrl = item.url;
+    media.dataset.serverPreview = "true";
+    subscribe();
+    return true;
+  };
+  const watchProbe = () => {
+    probeFrame = null;
+    if (!probing || !active) return;
+    if (media.naturalWidth && media.naturalHeight) checkProbeSize();
+    else if (globalThis.requestAnimationFrame) probeFrame = globalThis.requestAnimationFrame(watchProbe);
+  };
+  const probeOriginal = () => {
+    probing = true;
+    delete media.dataset.originalMediaUrl;
+    media.dataset.previewLoaded = "false";
+    if ((media.src !== item.url && media.getAttribute?.("src") !== item.url) || (media.complete && !media.naturalWidth)) {
+      media.src = item.url;
+    } else if (media.complete && media.naturalWidth) {
+      if (!checkProbeSize()) onLoad();
+      return;
+    }
+    watchProbe();
+  };
   const onLoad = () => {
     if (item.kind === "image") {
       if (!active || !media.naturalWidth) return;
+      if (probing && checkProbeSize()) return;
+      if (!info && !media.dataset.originalMediaUrl) {
+        info = { status: "ready", thumbnail: false, width: media.naturalWidth, height: media.naturalHeight };
+        rememberMediaPreview(context, previewKey, info);
+      }
       media.dataset.previewLoaded = "true";
       if (!media.dataset.originalMediaUrl) {
         media.dataset.originalWidth = String(media.naturalWidth);
@@ -144,6 +195,15 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
   media.addEventListener("load", onLoad);
   const onError = () => {
     if (!active) return;
+    if (probing) {
+      // The server distinguishes a missing file from an unreadable one.
+      stopProbe();
+      media.removeAttribute("src");
+      media.dataset.originalMediaUrl = item.url;
+      media.dataset.serverPreview = "true";
+      subscribe();
+      return;
+    }
     media.dataset.previewLoaded = "false";
     label.dataset.ready = "false";
     label.hidden = false;
@@ -217,21 +277,26 @@ export function attachThumbnailPreview(context, owner, media, item, label, durat
       if (active) label.hidden = false;
     }, 600);
     if (info?.status === "ready") update(info);
-    else {
-      unsubscribe = subscribeMediaPreview(context, previewKey, {
-        update,
-        fail(error) {
-          clearTimeout(statusTimer);
-          statusTimer = null;
-          label.hidden = false;
-          label.textContent = previewDescription(info, item, context.actions.formatMediaDuration);
-          if (error.status === 404) context.actions.removeMissingMediaItem(item);
-        },
-      });
-    }
+    else if (item.kind === "image" && media.dataset.serverPreview !== "true"
+      && !context.runtime.mediaPreviewCache?.has(previewKey)) probeOriginal();
+    else subscribe();
   };
+  function subscribe() {
+    unsubscribe?.();
+    unsubscribe = subscribeMediaPreview(context, previewKey, {
+      update,
+      fail(error) {
+        clearTimeout(statusTimer);
+        statusTimer = null;
+        label.hidden = false;
+        label.textContent = previewDescription(info, item, context.actions.formatMediaDuration);
+        if (error.status === 404) context.actions.removeMissingMediaItem(item);
+      },
+    });
+  }
   owner.deactivateMediaPreview = () => {
     active = false;
+    stopProbe();
     clearTimeout(retryTimer);
     retryTimer = null;
     clearTimeout(statusTimer);
