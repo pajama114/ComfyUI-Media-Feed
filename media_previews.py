@@ -20,6 +20,8 @@ WAVEFORM_BARS = 512
 WAVEFORM_SAMPLES = 200_000
 CACHE_BYTES = 256 * 1024 * 1024
 CACHE_ENTRIES = 512
+# Trimming leaves headroom so a full cache is not rescanned on every write.
+CACHE_TRIM_RATIO = 0.9
 MEMORY_RESERVE = 128 * 1024 * 1024
 RETRY_SECONDS = 10
 PREVIEW_RESPONSE_WAIT_SECONDS = 1.0
@@ -195,8 +197,14 @@ class PreviewService:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-feed-preview")
         self.header_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-feed-header")
+        # Finished jobs answer from memory, so responses need not wait for disk writes.
+        self.cache_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="media-feed-cache")
         self.lock = threading.Lock()
         self.jobs = OrderedDict()
+        # Cache usage is counted in memory; the directory is scanned only on the
+        # first write and when the estimate exceeds a limit.
+        self.cache_lock = threading.Lock()
+        self.cache_usage = None
 
     def key(self, path, size=THUMBNAIL_SIZE):
         stat = path.stat()
@@ -399,11 +407,25 @@ class PreviewService:
 
     def _cache_result(self, key, result):
         if result["status"] in {"ready", "unavailable"}:
-            temporary = self.directory / f"{key}.tmp"
+            self.cache_executor.submit(self._write_cache, key, dict(result))
+
+    def _write_cache(self, key, result):
+        if result["status"] in {"ready", "unavailable"}:
+            # Generated thumbnails use the same .tmp name; this writer uses its own.
+            temporary = self.directory / f"{key}.json.tmp"
             try:
                 temporary.write_text(json.dumps(result, allow_nan=False))
-                temporary.replace(self.directory / f"{key}.json")
-                self._trim_cache()
+                metadata = self.directory / f"{key}.json"
+                temporary.replace(metadata)
+                image = metadata.with_suffix(".webp")
+                size = metadata.stat().st_size + (image.stat().st_size if result.get("thumbnail") else 0)
+                with self.cache_lock:
+                    if self.cache_usage is not None:
+                        count, total = self.cache_usage
+                        self.cache_usage = (count + 1, total + size)
+                    if (self.cache_usage is None or self.cache_usage[0] > CACHE_ENTRIES
+                            or self.cache_usage[1] > CACHE_BYTES):
+                        self._trim_cache()
             except OSError:
                 try:
                     temporary.unlink(missing_ok=True)
@@ -421,10 +443,12 @@ class PreviewService:
                 continue
         total = sum(entry[2] for entry in entries)
         count = len(entries)
-        for _, metadata, size in sorted(entries):
-            if total <= CACHE_BYTES and count <= CACHE_ENTRIES:
-                break
-            metadata.unlink(missing_ok=True)
-            metadata.with_suffix(".webp").unlink(missing_ok=True)
-            total -= size
-            count -= 1
+        if total > CACHE_BYTES or count > CACHE_ENTRIES:
+            for _, metadata, size in sorted(entries):
+                if total <= CACHE_BYTES * CACHE_TRIM_RATIO and count <= CACHE_ENTRIES * CACHE_TRIM_RATIO:
+                    break
+                metadata.unlink(missing_ok=True)
+                metadata.with_suffix(".webp").unlink(missing_ok=True)
+                total -= size
+                count -= 1
+        self.cache_usage = (count, total)

@@ -24,6 +24,7 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         self.service.header_executor.shutdown(wait=True, cancel_futures=True)
         self.service.executor.shutdown(wait=True, cancel_futures=True)
+        self.service.cache_executor.shutdown(wait=True, cancel_futures=True)
         self.memory.stop()
         self.temporary.cleanup()
 
@@ -266,6 +267,22 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(list(self.service.directory.glob("*.webp")))
 
     @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
+    async def test_image_headers_respond_before_the_cache_is_written(self):
+        from PIL import Image
+        path = self.root / "ordinary.png"
+        Image.new("RGB", (1024, 1024)).save(path)
+        release = threading.Event()
+        write = self.service._write_cache
+        with patch.object(self.service, "_write_cache", side_effect=lambda *args: release.wait(5) and write(*args)):
+            result = await self.service.request_preview(path)
+            self.assertEqual(result["status"], "ready")
+            self.assertFalse(result["thumbnail"])
+            self.assertFalse(list(self.service.directory.glob("*.json")))
+            release.set()
+            self.service.cache_executor.submit(lambda: None).result(timeout=5)
+        self.assertEqual(len(list(self.service.directory.glob("*.json"))), 1)
+
+    @unittest.skipUnless(importlib.util.find_spec("PIL"), "Pillow is supplied by ComfyUI")
     def test_images_over_eight_million_pixels_resize_even_with_both_edges_below_4096(self):
         from PIL import Image
         path = self.root / "square.png"
@@ -402,6 +419,18 @@ class PreviewTests(unittest.IsolatedAsyncioTestCase):
             self.service._trim_cache()
         self.assertEqual(len(list(self.service.directory.glob("*.json"))), 1)
         self.assertEqual(len(list(self.service.directory.glob("*.webp"))), 1)
+
+    def test_cache_writes_scan_directory_only_when_limits_are_exceeded(self):
+        with patch.object(self.service, "_trim_cache", wraps=self.service._trim_cache) as trim:
+            with patch.object(previews, "CACHE_ENTRIES", 10):
+                for index in range(10):
+                    self.service._write_cache(f"{index:02}", dict(status="ready"))
+                self.assertEqual(trim.call_count, 1)
+                self.service._write_cache("10", dict(status="ready"))
+                self.assertEqual(trim.call_count, 2)
+                self.assertEqual(len(list(self.service.directory.glob("*.json"))), 9)
+                self.service._write_cache("11", dict(status="ready"))
+                self.assertEqual(trim.call_count, 2)
 
     @unittest.skipUnless(importlib.util.find_spec("av"), "PyAV is supplied by ComfyUI")
     def test_unknown_duration_audio_keeps_earlier_levels_when_bins_expand(self):
