@@ -20,7 +20,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       color: var(--cmf-text);
     }
 
-    :root:not(.dark-theme) .cmf-viewer {
+    :root[data-cmf-theme="light"] .cmf-viewer {
       --cmf-metadata-box-bg: #f5f5f5;
       --cmf-new-media: #1d4ed8;
       --cmf-new-media-icon: #10255c;
@@ -92,7 +92,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       visibility: hidden;
     }
 
-    :root:not(.dark-theme) .cmf-viewer-new-badge {
+    :root[data-cmf-theme="light"] .cmf-viewer-new-badge {
       background: #3b82f6;
       box-shadow: 0 0 0 2px color-mix(in srgb, #3b82f6 25%, transparent);
     }
@@ -1030,13 +1030,13 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       --cmf-new-media-surface-opacity: 90%;
     }
 
-    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled) {
+    :root[data-cmf-theme="light"] .cmf-nav-prev[data-new-media="true"]:not(:disabled) {
       border-color: color-mix(in srgb, #3b82f6 75%, transparent);
       background: color-mix(in srgb, #93c5fd 80%, transparent);
     }
 
-    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled):hover,
-    :root:not(.dark-theme) .cmf-nav-prev[data-new-media="true"]:not(:disabled):focus-visible {
+    :root[data-cmf-theme="light"] .cmf-nav-prev[data-new-media="true"]:not(:disabled):hover,
+    :root[data-cmf-theme="light"] .cmf-nav-prev[data-new-media="true"]:not(:disabled):focus-visible {
       background: color-mix(in srgb, #bfdbfe 90%, transparent);
     }
 

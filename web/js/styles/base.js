@@ -49,7 +49,7 @@ export function mediaFeedBaseStyles({
       font: 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    :root:not(.dark-theme) .cmf-root {
+    :root[data-cmf-theme="light"] .cmf-root {
       --cmf-filter-button-bg: #fafafa;
       --cmf-filter-button-bg: color-mix(in srgb, var(--cmf-button-bg) 55%, #fff 45%);
     }
