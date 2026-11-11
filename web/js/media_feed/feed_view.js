@@ -166,6 +166,58 @@ export function installFeedView(context) {
     });
   }
 
+  // Side feeds size the slider with the panel, so native dragging feeds each
+  // resize back into the value. Map the drag against the starting geometry.
+  function bindSizeSliderDrag(view) {
+    const { root, sizeSlider } = view;
+    const thumbInset = 8;
+    let drag = null;
+
+    function valueAt(clientX) {
+      const fraction = (clientX - drag.trackLeft) / drag.trackWidth;
+      const value = drag.startValue + (fraction - drag.startFraction) * (MAX_ITEM_HEIGHT - MIN_ITEM_HEIGHT);
+      return Math.round(Math.min(MAX_ITEM_HEIGHT, Math.max(MIN_ITEM_HEIGHT, value)));
+    }
+
+    sizeSlider.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.pointerType === "touch" || root.dataset.orientation !== "vertical") return;
+      const rect = sizeSlider.getBoundingClientRect();
+      const trackWidth = rect.width - thumbInset * 2;
+      if (trackWidth <= 0) return;
+      const range = MAX_ITEM_HEIGHT - MIN_ITEM_HEIGHT;
+      const trackLeft = rect.left + thumbInset;
+      const currentValue = Number(sizeSlider.value);
+      const thumbX = trackLeft + ((currentValue - MIN_ITEM_HEIGHT) / range) * trackWidth;
+      // Grabbing the thumb keeps its value; clicking the track jumps there first.
+      const startValue = Math.abs(event.clientX - thumbX) <= thumbInset
+        ? currentValue
+        : MIN_ITEM_HEIGHT + ((event.clientX - trackLeft) / trackWidth) * range;
+      drag = {
+        pointerId: event.pointerId,
+        trackLeft,
+        trackWidth,
+        startValue,
+        startFraction: (event.clientX - trackLeft) / trackWidth,
+      };
+      sizeSlider.setPointerCapture(event.pointerId);
+      sizeSlider.focus?.({ preventScroll: true });
+      setThumbnailHeight(valueAt(event.clientX));
+    });
+    // Suppress the browser's own slider drag while the custom drag is active.
+    sizeSlider.addEventListener("mousedown", (event) => {
+      if (drag) event.preventDefault();
+    });
+    sizeSlider.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const value = valueAt(event.clientX);
+      if (value !== state.itemHeight) setThumbnailHeight(value);
+    });
+    const endDrag = () => { drag = null; };
+    sizeSlider.addEventListener("pointerup", endDrag);
+    sizeSlider.addEventListener("pointercancel", endDrag);
+    sizeSlider.addEventListener("lostpointercapture", endDrag);
+  }
+
   function createView(root, kind = "embedded") {
     ensureStyles();
   
@@ -218,6 +270,7 @@ export function installFeedView(context) {
     };
     syncBatchModeButton(root.querySelector(".cmf-batch-mode"));
     bindCompactControls(view);
+    bindSizeSliderDrag(view);
   
     view.viewport.addEventListener("scroll", () => {
       renderVisibleItems(view);
@@ -628,6 +681,7 @@ export function installFeedView(context) {
   
   Object.assign(actions, {
     bindCompactControls,
+    bindSizeSliderDrag,
     createView,
     isBatchBoundary,
     applyFallbackPlacement,

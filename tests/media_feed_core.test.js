@@ -585,6 +585,40 @@ test("Compact hover controls stay reachable during pointer, drag, and keyboard i
   }
 });
 
+test("side feed size slider drag ignores its own resize", () => {
+  const { actions, state } = createContext();
+  const listeners = new Map();
+  let rect = { left: 100, width: 140 };
+  const sizeSlider = {
+    value: "96",
+    addEventListener(type, callback) { listeners.set(type, callback); },
+    emit(type, event = {}) { listeners.get(type)?.(event); },
+    getBoundingClientRect: () => rect,
+    setPointerCapture() {},
+  };
+  const heights = [];
+  actions.setThumbnailHeight = (value) => {
+    heights.push(value);
+    state.itemHeight = value;
+    sizeSlider.value = String(value);
+    // Simulate the side panel growing with the thumbnail size.
+    rect = { left: 100, width: 140 + (value - 96) };
+  };
+  actions.bindSizeSliderDrag({ root: { dataset: { orientation: "vertical" } }, sizeSlider });
+
+  sizeSlider.emit("pointerdown", { button: 0, pointerType: "mouse", pointerId: 1, clientX: 108 });
+  assert.deepEqual(heights, [96], "grabbing the thumb keeps its value");
+  sizeSlider.emit("pointermove", { pointerId: 1, clientX: 170 });
+  const afterMove = heights.at(-1);
+  sizeSlider.emit("pointermove", { pointerId: 1, clientX: 170 });
+  assert.equal(heights.at(-1), afterMove, "the same pointer position keeps the same size after resizing");
+  sizeSlider.emit("pointermove", { pointerId: 1, clientX: 1000 });
+  assert.equal(heights.at(-1), 220);
+  sizeSlider.emit("lostpointercapture");
+  sizeSlider.emit("pointermove", { pointerId: 1, clientX: 108 });
+  assert.equal(heights.at(-1), 220, "moves after release are ignored");
+});
+
 test("horizontal Compact controls remain reachable across long transparent gaps without revealing from outside", (t) => {
   const originalWindow = globalThis.window;
   t.mock.timers.enable({ apis: ["setTimeout"] });
