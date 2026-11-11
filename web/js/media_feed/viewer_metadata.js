@@ -12,7 +12,6 @@ export function installViewerMetadata(context) {
   const rememberMediaDimensions = (...args) => actions.rememberMediaDimensions(...args);
   const formatAllViewerMetadata = (...args) => actions.formatAllViewerMetadata(...args);
   const viewerMediaNaturalSize = (...args) => actions.viewerMediaNaturalSize(...args);
-  const generatedTextsForPrompt = (...args) => actions.generatedTextsForPrompt(...args);
   function setViewerMetadataActionsInert(inert) {
     const viewer = runtime.viewer;
     for (const button of [
@@ -46,9 +45,6 @@ export function installViewerMetadata(context) {
     runtime.viewer.resourcesSection.hidden = true;
     runtime.viewer.metadataGrid.replaceChildren();
     runtime.viewer.metadataSection.hidden = true;
-    runtime.viewer.lastGeneratedTexts = [];
-    runtime.viewer.generatedText.textContent = "";
-    runtime.viewer.generatedTextSection.hidden = true;
     runtime.viewer.promptSeed.textContent = "";
     runtime.viewer.promptPositive.textContent = "";
     runtime.viewer.promptNegative.textContent = "";
@@ -70,7 +66,6 @@ export function installViewerMetadata(context) {
     runtime.viewer.lastPromptMetadata = null;
     runtime.viewer.lastPromptMetadataItemId = "";
     runtime.viewer.lastMetadataDetails = [];
-    runtime.viewer.lastGeneratedTexts = [];
     runtime.viewer.pendingPromptMetadataResult = null;
     runtime.viewer.promptPanel.setAttribute("aria-busy", "true");
     if (!hasRenderedMetadata) {
@@ -203,30 +198,6 @@ export function installViewerMetadata(context) {
     }
   }
   
-  function renderViewerGeneratedText() {
-    const viewer = runtime.viewer;
-    const texts = generatedTextsForPrompt(viewer.item?.promptId);
-    viewer.lastGeneratedTexts = texts;
-    viewer.generatedText.textContent = texts.map((entry) => entry.text).join("\n\n");
-    viewer.generatedTextSection.hidden = !texts.length;
-  }
-
-  // Text from a node that runs after the media was saved arrives while the
-  // panel is already showing that media.
-  function refreshViewerGeneratedText(promptId) {
-    const viewer = runtime.viewer;
-    if (!viewer || viewer.root.dataset.open !== "true" || viewer.promptPanel.hidden) return;
-    if (!viewer.lastPromptMetadata || viewer.lastPromptMetadataItemId !== viewer.item?.id) return;
-    if (String(viewer.item?.promptId || "") !== String(promptId || "")) return;
-
-    renderViewerGeneratedText();
-    viewer.copyAllMetadataButton.disabled = !formatAllViewerMetadata(
-      viewer.lastPromptMetadata,
-      viewer.lastMetadataDetails,
-      viewer.lastGeneratedTexts,
-    );
-  }
-
   function renderPromptMetadata(result, itemId = runtime.viewer?.item?.id || "") {
     if (!runtime.viewer) return;
     clearViewerPromptLoadingTimer();
@@ -270,12 +241,7 @@ export function installViewerMetadata(context) {
     runtime.viewer.promptSeed.textContent = result.seed || "(not found)";
     runtime.viewer.promptPositive.textContent = result.positive || "(not found)";
     runtime.viewer.promptNegative.textContent = result.negative || "(not found)";
-    renderViewerGeneratedText();
-    runtime.viewer.copyAllMetadataButton.disabled = !formatAllViewerMetadata(
-      result,
-      details,
-      runtime.viewer.lastGeneratedTexts,
-    );
+    runtime.viewer.copyAllMetadataButton.disabled = !formatAllViewerMetadata(result, details);
     runtime.viewer.downloadMetadataButton.disabled = !Object.keys(result.embeddedJson || {}).length;
   }
   
@@ -366,8 +332,6 @@ export function installViewerMetadata(context) {
     refreshViewerPromptPanelDetails,
     renderPromptMetadataWhenMediaReady,
     appendMetadataChips,
-    renderViewerGeneratedText,
-    refreshViewerGeneratedText,
     renderPromptMetadata,
     scanFullViewerMetadata,
     updateViewerPromptPanel,

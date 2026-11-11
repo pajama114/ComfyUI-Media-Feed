@@ -842,10 +842,6 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       overflow: hidden;
     }
 
-    .cmf-generated-text-section[hidden] {
-      display: none;
-    }
-
     .cmf-prompt-section-header {
       display: flex;
       align-items: center;

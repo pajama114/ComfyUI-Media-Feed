@@ -8,7 +8,6 @@ import { createMediaFeedExtension } from "./media_feed/extension.js";
 import { installFavorites } from "./media_feed/favorites.js";
 import { installFeedView } from "./media_feed/feed_view.js";
 import { installFloatingPanel } from "./media_feed/floating_panel.js";
-import { installGeneratedText } from "./media_feed/generated_text.js";
 import { installLayout } from "./media_feed/layout.js";
 import { installMediaItems } from "./media_feed/media_items.js";
 import { createMediaFeedRuntime } from "./media_feed/runtime.js";
@@ -40,7 +39,6 @@ const context = {
 };
 
 installMediaItems(context);
-installGeneratedText(context);
 installLayout(context);
 installAudioWaveforms(context);
 installSettingsStorage(context);

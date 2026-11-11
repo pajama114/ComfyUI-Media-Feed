@@ -42,7 +42,6 @@ export function createMediaFeedRuntime() {
     activeQueueRequest: null,
     workflowTabIds: new WeakMap(),
     promptWorkflowTabs: new Map(),
-    generatedTexts: new Map(),
     pendingQueueRequests: [],
     missingMediaChecks: new Set(),
     copyFeedbackTimers: new WeakMap(),

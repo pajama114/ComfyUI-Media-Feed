@@ -98,12 +98,6 @@ export const STORAGE_KEYS = {
 };
 export const SESSION_ITEMS_STORAGE_KEY = "comfyui-media-feed:session-items";
 export const SESSION_ITEMS_VERSION = 1;
-export const GENERATED_TEXT_STORAGE_KEY = "comfyui-media-feed:session-generated-text";
-export const GENERATED_TEXT_VERSION = 1;
-export const GENERATED_TEXT_MAX_LENGTH = 20000;
-export const GENERATED_TEXT_MAX_NODES_PER_PROMPT = 16;
-export const GENERATED_TEXT_MAX_UNREFERENCED_PROMPTS = 32;
-export const GENERATED_TEXT_MAX_TOTAL_LENGTH = 400000;
 export const SHOW_PROMPTS_SETTING_ID = "comfyui-media-feed.show-prompts";
 export const SCALE_VIEWER_MEDIA_SETTING_ID = "comfyui-media-feed.scale-viewer-media";
 export const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "webp"]);

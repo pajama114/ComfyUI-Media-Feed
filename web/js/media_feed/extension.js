@@ -26,7 +26,6 @@ export function createMediaFeedExtension(context) {
   const loadSavedLoopAudio = (...args) => actions.loadSavedLoopAudio(...args);
   const loadSettings = (...args) => actions.loadSettings(...args);
   const loadSessionItems = (...args) => actions.loadSessionItems(...args);
-  const loadSessionGeneratedText = (...args) => actions.loadSessionGeneratedText(...args);
   const setShowPrompts = (...args) => actions.setShowPrompts(...args);
   const setScaleViewerMedia = (...args) => actions.setScaleViewerMedia(...args);
   const setViewerFitScale = (...args) => actions.setViewerFitScale(...args);
@@ -309,7 +308,6 @@ export function createMediaFeedExtension(context) {
       console.info("[ComfyUI Media Feed] extension loaded");
       loadSettings();
       loadSessionItems();
-      loadSessionGeneratedText();
       ensureStyles();
       watchActiveWorkflow();
       api.addEventListener("promptQueueing", handlePromptQueueing);

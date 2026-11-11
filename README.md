@@ -202,11 +202,6 @@ and generation details from ComfyUI prompt/workflow data, including data inside
 subgraphs. When available, the viewer also lists the checkpoint and active LoRA
 resources used by the workflow.
 
-Text produced while a workflow runs, such as an LLM-enhanced prompt, is not
-stored in the output file. When a node displays that text in the graph (for
-example **Preview Any**), the viewer shows it as **Generated Text** below the
-Negative Prompt for media generated in the current browser session.
-
 Embedded metadata reading is supported for:
 
 ```text

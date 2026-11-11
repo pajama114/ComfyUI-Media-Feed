@@ -8,7 +8,6 @@ import { createMediaFeedExtension } from "../web/js/media_feed/extension.js";
 import { installFavorites } from "../web/js/media_feed/favorites.js";
 import { installFeedView } from "../web/js/media_feed/feed_view.js";
 import { installFloatingPanel } from "../web/js/media_feed/floating_panel.js";
-import { installGeneratedText } from "../web/js/media_feed/generated_text.js";
 import { installLayout } from "../web/js/media_feed/layout.js";
 import { installMediaItems } from "../web/js/media_feed/media_items.js";
 import { createMediaFeedRuntime } from "../web/js/media_feed/runtime.js";
@@ -25,7 +24,6 @@ import { installWorkflowTracking } from "../web/js/media_feed/workflow_tracking.
 
 const installers = [
   installMediaItems,
-  installGeneratedText,
   installLayout,
   installAudioWaveforms,
   installSettingsStorage,
@@ -597,7 +595,7 @@ test("reopening right-side viewer metadata restores progress space", () => {
     for (const key of [
       "promptPanel", "promptStatus", "scanFullMetadataButton", "copyAllMetadataButton",
       "downloadMetadataButton", "resourcesGrid", "resourcesSection", "metadataGrid",
-      "metadataSection", "generatedText", "generatedTextSection", "promptSeed", "promptPositive", "promptNegative",
+      "metadataSection", "promptSeed", "promptPositive", "promptNegative",
       "metadataToggleButton",
     ]) viewer[key] = element();
     viewer.promptPanel.querySelector = () => element();
@@ -624,28 +622,5 @@ test("reopening right-side viewer metadata restores progress space", () => {
       if (value === undefined) delete globalThis[key];
       else globalThis[key] = value;
     }
-  }
-});
-
-test("text shown by a preview node is recorded even when preview media is excluded", () => {
-  const originalWindow = globalThis.window;
-  globalThis.window = { sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} } };
-  try {
-    const { context } = createContext();
-    context.state.excludePreviewMedia = true;
-    context.app.graph = { getNodeById: () => ({ type: "PreviewAny", title: "Enhanced prompt" }) };
-    context.actions.handleExecuted({
-      detail: {
-        prompt_id: "prompt-1",
-        node: 4,
-        output: { text: ["a cinematic cat"], images: [{ filename: "preview.png", type: "temp" }] },
-      },
-    });
-    assert.equal(context.state.items.length, 0);
-    assert.deepEqual(context.actions.generatedTextsForPrompt("prompt-1"), [
-      { nodeId: "4", text: "a cinematic cat" },
-    ]);
-  } finally {
-    globalThis.window = originalWindow;
   }
 });
