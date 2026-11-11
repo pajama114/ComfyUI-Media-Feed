@@ -872,6 +872,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       overflow: hidden;
     }
 
+    .cmf-generated-text-section[hidden] {
+      display: none;
+    }
+
     .cmf-prompt-section-header {
       display: flex;
       align-items: center;
@@ -908,6 +912,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       max-height: 34vh;
       overflow: auto;
       scrollbar-gutter: stable;
+      /* An opaque scrollbar track is square and would cut the rounded corners. */
+      scrollbar-color: var(--cmf-muted) transparent;
       margin: 0;
       padding: 9px;
       border: 1px solid var(--cmf-border);

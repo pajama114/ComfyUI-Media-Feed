@@ -168,7 +168,7 @@ export function installViewerSupport(context) {
     showCopyFeedback(button);
   }
   
-  function formatAllViewerMetadata(result, details) {
+  function formatAllViewerMetadata(result, details, generatedTexts = []) {
     const sections = [];
     const appendSection = (heading, values) => {
       const lines = values.filter((value) => String(value || "").trim());
@@ -182,6 +182,10 @@ export function installViewerSupport(context) {
     );
     appendSection("Prompt", [result?.positive]);
     appendSection("Negative Prompt", [result?.negative]);
+    appendSection(
+      "Generated Text",
+      [(Array.isArray(generatedTexts) ? generatedTexts : []).map((entry) => entry.text).join("\n\n")],
+    );
     appendSection("Seed", [result?.seed]);
     appendSection(
       "Other Metadata",
@@ -194,7 +198,11 @@ export function installViewerSupport(context) {
   }
   
   function copyAllViewerMetadata(event) {
-    const text = formatAllViewerMetadata(runtime.viewer?.lastPromptMetadata, runtime.viewer?.lastMetadataDetails);
+    const text = formatAllViewerMetadata(
+      runtime.viewer?.lastPromptMetadata,
+      runtime.viewer?.lastMetadataDetails,
+      runtime.viewer?.lastGeneratedTexts,
+    );
     return copyPromptText(event, text);
   }
   

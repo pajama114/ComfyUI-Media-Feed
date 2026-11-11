@@ -202,6 +202,8 @@ export function installViewerCompare(context) {
       resourcesGrid: rightPanel.querySelector(".cmf-resource-grid"),
       metadataSection: rightPanel.querySelector(".cmf-metadata-section"),
       metadataGrid: rightPanel.querySelector(".cmf-metadata-grid"),
+      generatedTextSection: rightPanel.querySelector(".cmf-generated-text-section"),
+      generatedText: rightPanel.querySelector(".cmf-generated-text"),
       promptSeed: rightPanel.querySelector(".cmf-seed-text"),
       promptPositive: rightPanel.querySelector(".cmf-prompt-positive"),
       promptNegative: rightPanel.querySelector(".cmf-prompt-negative"),
@@ -212,6 +214,7 @@ export function installViewerCompare(context) {
       mediaReadyItemId: "",
       lastPromptMetadataItemId: "",
       lastMetadataDetails: [],
+      lastGeneratedTexts: [],
       items: [], index: -1,
     };
     for (const [key, selector] of Object.entries({
@@ -249,6 +252,7 @@ export function installViewerCompare(context) {
       [".cmf-copy-seed", (event) => controller.copyPromptText(event, reference.promptSeed)],
       [".cmf-copy-positive", (event) => controller.copyPromptText(event, reference.promptPositive)],
       [".cmf-copy-negative", (event) => controller.copyPromptText(event, reference.promptNegative)],
+      [".cmf-copy-generated-text", (event) => controller.copyPromptText(event, reference.generatedText)],
       [".cmf-copy-all", controller.copyAllViewerMetadata],
       [".cmf-copy-resources", controller.copyViewerResources],
       [".cmf-copy-other-metadata", controller.copyViewerOtherMetadata],

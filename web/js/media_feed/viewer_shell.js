@@ -266,6 +266,13 @@ export function installViewerShell(context) {
             </div>
             <pre class="cmf-prompt-text cmf-prompt-negative"></pre>
           </section>
+          <section class="cmf-prompt-section cmf-prompt-body-section cmf-generated-text-section" hidden>
+            <div class="cmf-prompt-section-header">
+              <h2 class="cmf-prompt-heading">Generated Text</h2>
+              <button class="cmf-button cmf-icon-button cmf-prompt-copy cmf-copy-generated-text" type="button" title="Copy generated text" aria-label="Copy generated text">${ICONS.copy}</button>
+            </div>
+            <pre class="cmf-prompt-text cmf-generated-text"></pre>
+          </section>
           <section class="cmf-prompt-section">
             <div class="cmf-prompt-section-header">
               <h2 class="cmf-prompt-heading">Seed</h2>
@@ -302,6 +309,7 @@ export function installViewerShell(context) {
     root.querySelector(".cmf-copy-seed").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptSeed));
     root.querySelector(".cmf-copy-positive").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptPositive));
     root.querySelector(".cmf-copy-negative").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.promptNegative));
+    root.querySelector(".cmf-copy-generated-text").addEventListener("click", (event) => copyPromptText(event, runtime.viewer?.generatedText));
     root.querySelector(".cmf-copy-all").addEventListener("click", copyAllViewerMetadata);
     root.querySelector(".cmf-copy-resources").addEventListener("click", copyViewerResources);
     root.querySelector(".cmf-copy-other-metadata").addEventListener("click", copyViewerOtherMetadata);
@@ -344,6 +352,8 @@ export function installViewerShell(context) {
       resourcesGrid: root.querySelector(".cmf-resource-grid"),
       metadataSection: root.querySelector(".cmf-metadata-section"),
       metadataGrid: root.querySelector(".cmf-metadata-grid"),
+      generatedTextSection: root.querySelector(".cmf-generated-text-section"),
+      generatedText: root.querySelector(".cmf-generated-text"),
       promptSeed: root.querySelector(".cmf-seed-text"),
       promptPositive: root.querySelector(".cmf-prompt-positive"),
       promptNegative: root.querySelector(".cmf-prompt-negative"),

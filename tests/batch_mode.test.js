@@ -76,6 +76,8 @@ test("switching grid cells keeps rendered metadata visible while the next item l
       resourcesSection: {},
       metadataGrid: { replaceChildren() {}, childElementCount: 0 },
       metadataSection: {},
+      generatedText: {},
+      generatedTextSection: {},
       media: { querySelector: () => null },
       promptSeed: {},
       promptPositive: { textContent: "previous prompt" },
@@ -92,7 +94,7 @@ test("switching grid cells keeps rendered metadata visible while the next item l
         getCachedPromptMetadata() { return null; },
         loadPromptMetadata(item) { return new Promise((resolve) => pending.set(item.id, resolve)); },
       },
-      actions: { formatAllViewerMetadata: () => "copy text" },
+      actions: { formatAllViewerMetadata: () => "copy text", generatedTextsForPrompt: () => [] },
     };
     installViewerMetadata(context);
 

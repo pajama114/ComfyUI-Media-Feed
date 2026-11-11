@@ -288,6 +288,7 @@ export function installFeedView(context) {
       runtime.mediaPreviewCache.clear();
       clearPromptMetadataCache();
       clearSessionItems();
+      actions.clearGeneratedTexts();
       updateViews(false);
       clearThumbnailImages(context);
     });

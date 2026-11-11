@@ -119,6 +119,8 @@ test("comparison metadata follows its own item and ignores stale loads", async (
     metadataGrid: grid(),
     resourcesSection: {},
     metadataSection: {},
+    generatedText: {},
+    generatedTextSection: {},
     promptSeed: {},
     promptPositive: {},
     promptNegative: {},
@@ -133,7 +135,7 @@ test("comparison metadata follows its own item and ignores stale loads", async (
       getCachedPromptMetadata: () => null,
       loadPromptMetadata: (item) => new Promise((resolve) => pending.set(item.id, resolve)),
     },
-    actions: { formatAllViewerMetadata: () => "", viewerMediaNaturalSize: () => ({}) },
+    actions: { formatAllViewerMetadata: () => "", viewerMediaNaturalSize: () => ({}), generatedTextsForPrompt: () => [] },
   };
   installViewerMetadata(context);
   context.actions.updateViewerPromptPanel();

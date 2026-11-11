@@ -123,8 +123,14 @@ export function installWorkflowTracking(context) {
   
   function handleExecuted(event) {
     const detail = event?.detail || {};
-    if (state.excludePreviewMedia && isPreviewNode(detail.node)) return;
     const promptId = String(detail.prompt_id || "");
+    // Preview nodes are the usual way to show generated text, so text is
+    // recorded even when their media is excluded from the feed.
+    if (actions.recordGeneratedText(promptId, detail.node, detail.output)) {
+      actions.refreshViewerGeneratedText(promptId);
+      runtime.viewer?.reference?.controller?.refreshViewerGeneratedText(promptId);
+    }
+    if (state.excludePreviewMedia && isPreviewNode(detail.node)) return;
     const tabId = runtime.promptWorkflowTabs.get(promptId) || "";
     const mediaItems = collectMedia(detail.output, promptId, detail.node, tabId);
     addItems(mediaItems);
