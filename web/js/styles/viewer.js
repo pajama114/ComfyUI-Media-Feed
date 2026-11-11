@@ -248,6 +248,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       /* Use the viewport in both modes so entering comparison keeps the
          metadata width stable whenever the pane has enough room. */
       --cmf-metadata-width: clamp(220px, 16vw, 300px);
+      --cmf-metadata-pane-width: min(33.333%, var(--cmf-metadata-width));
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -258,6 +259,10 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       min-height: 0;
       overflow: hidden;
       padding: 14px;
+    }
+
+    .cmf-viewer-body[data-metadata-resized="true"] {
+      --cmf-metadata-pane-width: min(50%, var(--cmf-metadata-width));
     }
 
     .cmf-viewer-body[data-prompts="true"] {
@@ -286,6 +291,65 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-body[data-prompts="true"][data-metadata-position="left"] .cmf-prompt-panel {
       grid-column: 1;
+    }
+
+    /* Fills the grid gap beside the metadata panel; only the centre line shows. */
+    .cmf-metadata-resizer {
+      display: none;
+      position: absolute;
+      z-index: 3;
+      top: 14px;
+      bottom: 14px;
+      right: calc(14px + var(--cmf-metadata-width));
+      width: 14px;
+      cursor: col-resize;
+      touch-action: none;
+    }
+
+    .cmf-viewer-body[data-metadata-position="left"] > .cmf-metadata-resizer {
+      right: auto;
+      left: calc(14px + var(--cmf-metadata-width));
+    }
+
+    .cmf-metadata-resizer::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      border-radius: 1px;
+      background: var(--cmf-accent);
+      opacity: 0;
+      transform: translateX(-50%);
+      transition: opacity 120ms ease;
+    }
+
+    .cmf-metadata-resizer:hover::before,
+    .cmf-metadata-resizer[data-dragging="true"]::before {
+      opacity: 0.8;
+    }
+
+    /* Narrow viewers stack the panel below the media. */
+    @media (min-width: 861px) {
+      .cmf-viewer:not([data-comparing="true"]) .cmf-viewer-body[data-prompts="true"] > .cmf-metadata-resizer {
+        display: block;
+      }
+    }
+
+    /* Comparison panes keep the panel beside the media at every width. */
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"] > .cmf-metadata-resizer {
+      display: block;
+      top: 0;
+      bottom: 0;
+      right: auto;
+      left: var(--cmf-metadata-pane-width);
+      width: 8px;
+    }
+
+    .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"] > .cmf-metadata-resizer {
+      right: var(--cmf-metadata-pane-width);
+      left: auto;
     }
 
     .cmf-viewer-main {
@@ -1175,7 +1239,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: min(33.333%, var(--cmf-metadata-width)) minmax(0, 1fr);
+      grid-template-columns: var(--cmf-metadata-pane-width) minmax(0, 1fr);
       gap: 8px;
     }
 
@@ -1192,7 +1256,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"],
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-metadata-space="true"] {
-      grid-template-columns: minmax(0, 1fr) min(33.333%, var(--cmf-metadata-width));
+      grid-template-columns: minmax(0, 1fr) var(--cmf-metadata-pane-width);
     }
 
     .cmf-viewer[data-comparing="true"] .cmf-viewer-body[data-metadata-position="right"] .cmf-viewer-pane[data-prompts="true"] .cmf-viewer-media-stage,

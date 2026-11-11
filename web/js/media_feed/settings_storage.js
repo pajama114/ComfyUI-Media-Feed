@@ -9,6 +9,7 @@ import {
   DEFAULT_FOLLOW_LATEST,
   DEFAULT_HISTORY_LIMIT,
   DEFAULT_METADATA_POSITION,
+  DEFAULT_METADATA_WIDTH,
   DEFAULT_EXCLUDE_PREVIEW_MEDIA,
   DEFAULT_SHOW_FAVORITE_BUTTON,
   DEFAULT_FEED_STYLE,
@@ -29,6 +30,7 @@ export function installSettingsStorage(context) {
 
   const normalizePlacement = (...args) => actions.normalizePlacement(...args);
   const normalizeMetadataPosition = (...args) => actions.normalizeMetadataPosition(...args);
+  const normalizeMetadataWidth = (...args) => actions.normalizeMetadataWidth(...args);
   const normalizeFeedStyle = (...args) => actions.normalizeFeedStyle(...args);
   const normalizeMediaScope = (...args) => actions.normalizeMediaScope(...args);
   const normalizeBatchDividers = (...args) => actions.normalizeBatchDividers(...args);
@@ -45,6 +47,7 @@ export function installSettingsStorage(context) {
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
+  const applyMetadataWidth = (...args) => actions.applyMetadataWidth(...args);
   const applyExcludePreviewMedia = (...args) => actions.applyExcludePreviewMedia(...args);
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
   const applyFeedStyle = (...args) => actions.applyFeedStyle(...args);
@@ -133,6 +136,14 @@ export function installSettingsStorage(context) {
     }
   }
   
+  function loadSavedMetadataWidth() {
+    try {
+      return normalizeMetadataWidth(window.localStorage?.getItem(STORAGE_KEYS.metadataWidth));
+    } catch {
+      return DEFAULT_METADATA_WIDTH;
+    }
+  }
+
   function loadSavedExcludePreviewMedia() {
     try {
       const savedValue = window.localStorage?.getItem(STORAGE_KEYS.excludePreviewMedia);
@@ -325,6 +336,7 @@ export function installSettingsStorage(context) {
     if (!runtime.followLatestSettingSeen) applyFollowLatest(loadSavedFollowLatest());
     if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
     if (!runtime.metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
+    applyMetadataWidth(loadSavedMetadataWidth());
     if (!runtime.excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
     if (!runtime.showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
     if (!runtime.feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
@@ -416,6 +428,15 @@ export function installSettingsStorage(context) {
     }
   }
   
+  function saveMetadataWidth() {
+    try {
+      if (state.metadataWidth) window.localStorage?.setItem(STORAGE_KEYS.metadataWidth, String(state.metadataWidth));
+      else window.localStorage?.removeItem(STORAGE_KEYS.metadataWidth);
+    } catch {
+      // Ignore storage failures; the feed should keep working with in-memory settings.
+    }
+  }
+
   function saveExcludePreviewMedia() {
     try {
       window.localStorage?.setItem(STORAGE_KEYS.excludePreviewMedia, String(state.excludePreviewMedia));
@@ -490,6 +511,7 @@ export function installSettingsStorage(context) {
     loadSavedFollowLatest,
     loadSavedHistoryLimit,
     loadSavedMetadataPosition,
+    loadSavedMetadataWidth,
     loadSavedExcludePreviewMedia,
     loadSavedShowFavoriteButton,
     loadSavedFeedStyle,
@@ -515,6 +537,7 @@ export function installSettingsStorage(context) {
     saveFollowLatest,
     saveHistoryLimit,
     saveMetadataPosition,
+    saveMetadataWidth,
     saveExcludePreviewMedia,
     saveShowFavoriteButton,
     saveFeedStyle,

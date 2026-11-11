@@ -89,6 +89,36 @@ test("every action dependency resolves after controller composition", () => {
   assert.ok(Object.keys(context.actions).length > 150);
 });
 
+test("viewer metadata width overrides the stylesheet default only when customized", () => {
+  const properties = new Map();
+  const context = {
+    app: {}, api: {}, ICONS: {},
+    state: { metadataWidth: 420 },
+    runtime: {
+      viewer: {
+        body: {
+          dataset: {},
+          style: {
+            setProperty(name, value) { properties.set(name, value); },
+            removeProperty(name) { properties.delete(name); },
+          },
+        },
+      },
+    },
+    actions: {},
+  };
+  installViewerShell(context);
+
+  context.actions.syncViewerMetadataWidth();
+  assert.equal(properties.get("--cmf-metadata-width"), "clamp(220px, 420px, 50vw)");
+  assert.equal(context.runtime.viewer.body.dataset.metadataResized, "true");
+
+  context.state.metadataWidth = 0;
+  context.actions.syncViewerMetadataWidth();
+  assert.equal(properties.has("--cmf-metadata-width"), false);
+  assert.equal(context.runtime.viewer.body.dataset.metadataResized, "false");
+});
+
 test("viewer metadata toggle reflects each pane's state and the configured side", () => {
   const button = () => ({
     innerHTML: "", title: "", attributes: {},

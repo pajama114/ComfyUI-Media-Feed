@@ -50,6 +50,11 @@ export const VIEWER_FIT_SCALE_MAX = 100;
 export const VIEWER_FIT_SCALE_STEP = 5;
 export const DEFAULT_FOLLOW_LATEST = true;
 export const DEFAULT_METADATA_POSITION = "left";
+// 0 keeps the responsive stylesheet width until the user drags the panel edge.
+export const DEFAULT_METADATA_WIDTH = 0;
+export const METADATA_WIDTH_MIN = 220;
+// Share of the viewer, or of one comparison pane, that the panel may take.
+export const METADATA_WIDTH_MAX_RATIO = 0.5;
 export const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;
 export const DEFAULT_SHOW_FAVORITE_BUTTON = true;
 export const DEFAULT_FEED_STYLE = "default";
@@ -88,6 +93,7 @@ export const STORAGE_KEYS = {
   syncComparisonView: "comfyui-media-feed:sync-comparison-view",
   followLatest: "comfyui-media-feed:follow-latest",
   metadataPosition: "comfyui-media-feed:metadata-position",
+  metadataWidth: "comfyui-media-feed:metadata-width",
   excludePreviewMedia: "comfyui-media-feed:exclude-preview-media",
   showFavoriteButton: "comfyui-media-feed:show-favorite-button",
   feedStyle: "comfyui-media-feed:feed-style",

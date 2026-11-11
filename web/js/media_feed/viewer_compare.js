@@ -252,6 +252,11 @@ export function installViewerCompare(context) {
     reference.controller = controller;
     viewer.paneElement = leftPane;
     viewer.paneHeader = leftHeader;
+    for (const pane of [viewer, reference]) {
+      const resizer = viewer.body.querySelector(":scope > .cmf-metadata-resizer").cloneNode(true);
+      pane.paneElement.append(resizer);
+      actions.bindViewerMetadataResizer(resizer, pane);
+    }
     reference.favoriteButton.addEventListener("click", () => actions.toggleFavorite(reference.item));
     reference.downloadButton.addEventListener("click", controller.downloadViewerMedia);
     reference.copyImageButton.addEventListener("click", controller.copyViewerImage);

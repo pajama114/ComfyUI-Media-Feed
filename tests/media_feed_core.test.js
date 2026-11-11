@@ -752,6 +752,46 @@ test("Fit scale persists and updates an open viewer layout", () => {
   }
 });
 
+test("metadata width persists, keeps its minimum, and resets to the responsive default", () => {
+  const originalWindow = globalThis.window;
+  const localStorage = createMemoryStorage();
+  globalThis.window = { localStorage };
+
+  try {
+    const context = createContext();
+    const key = "comfyui-media-feed:metadata-width";
+    let syncCalls = 0;
+    context.actions.syncViewerMetadataWidth = () => { syncCalls++; };
+    assert.equal(context.state.metadataWidth, 0);
+
+    // Drag steps preview without writing storage.
+    context.actions.setMetadataWidth(412.6, { save: false });
+    assert.equal(context.state.metadataWidth, 413);
+    assert.equal(localStorage.getItem(key), null);
+
+    context.actions.setMetadataWidth(100);
+    assert.equal(context.state.metadataWidth, 220);
+    assert.equal(localStorage.getItem(key), "220");
+    assert.equal(syncCalls, 2);
+
+    context.actions.setMetadataWidth(480);
+    const restoredContext = createContext();
+    restoredContext.actions.loadSettings();
+    assert.equal(restoredContext.state.metadataWidth, 480);
+
+    context.actions.setMetadataWidth(0);
+    assert.equal(context.state.metadataWidth, 0);
+    assert.equal(localStorage.getItem(key), null);
+
+    localStorage.setItem(key, "not-a-number");
+    const invalidContext = createContext();
+    invalidContext.actions.loadSettings();
+    assert.equal(invalidContext.state.metadataWidth, 0);
+  } finally {
+    globalThis.window = originalWindow;
+  }
+});
+
 test("comparison view synchronization defaults on and persists", () => {
   const originalWindow = globalThis.window;
   const localStorage = createMemoryStorage();

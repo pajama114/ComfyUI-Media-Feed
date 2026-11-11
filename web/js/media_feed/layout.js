@@ -10,6 +10,7 @@ import {
   FALLBACK_PANEL_EXTRA_HEIGHT,
   DEFAULT_PLACEMENT,
   DEFAULT_METADATA_POSITION,
+  DEFAULT_METADATA_WIDTH,
   DEFAULT_FEED_STYLE,
   DEFAULT_MEDIA_SCOPE,
   DEFAULT_BATCH_DIVIDERS,
@@ -24,6 +25,7 @@ import {
   SIDE_PLACEMENTS,
   PLACEMENTS,
   METADATA_POSITIONS,
+  METADATA_WIDTH_MIN,
   FEED_STYLES,
   MEDIA_SCOPES,
   BATCH_DIVIDER_STYLES,
@@ -76,6 +78,14 @@ export function installLayout(context) {
     return METADATA_POSITIONS.has(position) ? position : DEFAULT_METADATA_POSITION;
   }
   
+  // The viewport-relative maximum is applied where the width is used, so a
+  // width saved on a large window stays valid on a smaller one.
+  function normalizeMetadataWidth(nextWidth) {
+    const width = Number(nextWidth);
+    if (!Number.isFinite(width) || width <= 0) return DEFAULT_METADATA_WIDTH;
+    return Math.max(METADATA_WIDTH_MIN, Math.round(width));
+  }
+
   function normalizeFeedStyle(nextStyle) {
     const style = String(nextStyle || "").toLowerCase();
     return FEED_STYLES.has(style) ? style : DEFAULT_FEED_STYLE;
@@ -157,6 +167,10 @@ export function installLayout(context) {
     state.metadataPosition = normalizeMetadataPosition(nextPosition);
   }
   
+  function applyMetadataWidth(nextWidth) {
+    state.metadataWidth = normalizeMetadataWidth(nextWidth);
+  }
+
   function applyExcludePreviewMedia(nextValue) {
     state.excludePreviewMedia = normalizeBooleanSetting(nextValue);
   }
@@ -200,6 +214,7 @@ export function installLayout(context) {
     normalizeThumbnailHeight,
     normalizePlacement,
     normalizeMetadataPosition,
+    normalizeMetadataWidth,
     normalizeFeedStyle,
     normalizeMediaScope,
     normalizeBatchDividers,
@@ -218,6 +233,7 @@ export function installLayout(context) {
     applyFollowLatest,
     applyHistoryLimit,
     applyMetadataPosition,
+    applyMetadataWidth,
     applyExcludePreviewMedia,
     applyShowFavoriteButton,
     applyFeedStyle,

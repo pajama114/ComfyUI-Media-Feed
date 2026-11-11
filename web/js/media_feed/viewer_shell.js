@@ -1,6 +1,8 @@
 import { installViewerCompare } from "./viewer_compare.js";
 import { displayEntries, entrySignature, isBatchPresentation } from "./batch_entries.js";
 import {
+  METADATA_WIDTH_MAX_RATIO,
+  METADATA_WIDTH_MIN,
   VIEWER_IMAGE_ZOOM_STEP,
   VIEWER_IMAGE_WHEEL_ZOOM_FACTOR,
   VIEWER_NAV_HIDE_DELAY_MS,
@@ -278,6 +280,7 @@ export function installViewerShell(context) {
             <div class="cmf-metadata-grid"></div>
           </section>
         </aside>
+        <div class="cmf-metadata-resizer" role="separator" aria-orientation="vertical" aria-label="Resize metadata panel" title="Drag to resize · Double-click to reset"></div>
       </div>
     `;
   
@@ -319,6 +322,7 @@ export function installViewerShell(context) {
     root.addEventListener("pointercancel", handleViewerPaneInteraction, true);
     root.addEventListener("focusin", handleViewerPaneInteraction);
     root.addEventListener("wheel", handleViewerWheel, { passive: false });
+    const metadataResizer = root.querySelector(".cmf-metadata-resizer");
     document.addEventListener("keydown", handleViewerGlobalKeydown, true);
     window.addEventListener("blur", () => actions.handleViewerWindowBlur());
 
@@ -379,6 +383,7 @@ export function installViewerShell(context) {
       newestUnseenEntryKey: "",
       newestUnseenEntrySignature: "",
     };
+    bindViewerMetadataResizer(metadataResizer, runtime.viewer);
     actions.setupViewerComparison(runtime.viewer);
     bindViewerNavigation(runtime.viewer);
     bindViewerNavigation(runtime.viewer.reference);
@@ -386,6 +391,7 @@ export function installViewerShell(context) {
     runtime.viewer.resizeObserver.observe(runtime.viewer.media);
     syncViewerMetadataToggle();
     syncViewerMetadataPosition();
+    syncViewerMetadataWidth();
     return runtime.viewer;
   }
   
@@ -408,6 +414,59 @@ export function installViewerShell(context) {
     renderViewerMetadataToggle(viewer.metadataToggleButton, viewer.comparing ? viewer.showPrompts : state.showPrompts);
     if (viewer.reference) renderViewerMetadataToggle(viewer.reference.metadataToggleButton, viewer.reference.showPrompts);
     syncViewerProgressSpace();
+  }
+
+  function syncViewerMetadataWidth() {
+    const body = runtime.viewer?.body;
+    if (!body) return;
+    if (state.metadataWidth) {
+      body.style.setProperty(
+        "--cmf-metadata-width",
+        `clamp(${METADATA_WIDTH_MIN}px, ${state.metadataWidth}px, ${METADATA_WIDTH_MAX_RATIO * 100}vw)`,
+      );
+    } else {
+      body.style.removeProperty("--cmf-metadata-width");
+    }
+    // A customized width may take more of a comparison pane than the default.
+    if (body.dataset) body.dataset.metadataResized = String(Boolean(state.metadataWidth));
+  }
+
+  // The handle sits in the gap between the media and the metadata panel. Every
+  // handle edits the one shared width, so comparison panes stay equal.
+  function bindViewerMetadataResizer(handle, pane) {
+    let drag = null;
+    const finish = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const { moved } = drag;
+      drag = null;
+      handle.dataset.dragging = "false";
+      if (moved) actions.saveMetadataWidth();
+    };
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || drag) return;
+      // Start from the rendered width so the panel follows the pointer at once.
+      const startWidth = pane.promptPanel.getBoundingClientRect().width;
+      if (!startWidth) return;
+      event.preventDefault();
+      handle.setPointerCapture?.(event.pointerId);
+      handle.dataset.dragging = "true";
+      drag = { pointerId: event.pointerId, startX: event.clientX, startWidth, moved: false };
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const delta = event.clientX - drag.startX;
+      if (!drag.moved && !delta) return;
+      drag.moved = true;
+      const width = drag.startWidth + (state.metadataPosition === "left" ? delta : -delta);
+      const available = runtime.viewer?.comparing
+        ? pane.paneElement.getBoundingClientRect().width
+        : window.innerWidth;
+      const maximum = Math.max(METADATA_WIDTH_MIN, available * METADATA_WIDTH_MAX_RATIO);
+      actions.setMetadataWidth(Math.min(maximum, Math.max(METADATA_WIDTH_MIN, width)), { save: false });
+    });
+    handle.addEventListener("pointerup", finish);
+    handle.addEventListener("pointercancel", finish);
+    handle.addEventListener("dblclick", () => actions.setMetadataWidth(0));
   }
 
   function syncViewerMetadataToggle() {
@@ -711,6 +770,8 @@ export function installViewerShell(context) {
     syncViewerScaleMedia,
     syncViewerComfyProgress,
     syncViewerMetadataPosition,
+    syncViewerMetadataWidth,
+    bindViewerMetadataResizer,
     syncViewerMetadataToggle,
     renderViewerMetadataToggle,
     closeViewer,

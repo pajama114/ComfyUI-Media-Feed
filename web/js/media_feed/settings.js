@@ -29,6 +29,7 @@ export function installSettings(context) {
   const applySyncComparisonView = (...args) => actions.applySyncComparisonView(...args);
   const applyFollowLatest = (...args) => actions.applyFollowLatest(...args);
   const applyHistoryLimit = (...args) => actions.applyHistoryLimit(...args);
+  const applyMetadataWidth = (...args) => actions.applyMetadataWidth(...args);
   const applyMetadataPosition = (...args) => actions.applyMetadataPosition(...args);
   const applyExcludePreviewMedia = (...args) => actions.applyExcludePreviewMedia(...args);
   const applyShowFavoriteButton = (...args) => actions.applyShowFavoriteButton(...args);
@@ -45,6 +46,7 @@ export function installSettings(context) {
   const saveSyncComparisonView = (...args) => actions.saveSyncComparisonView(...args);
   const saveFollowLatest = (...args) => actions.saveFollowLatest(...args);
   const saveHistoryLimit = (...args) => actions.saveHistoryLimit(...args);
+  const saveMetadataWidth = (...args) => actions.saveMetadataWidth(...args);
   const saveMetadataPosition = (...args) => actions.saveMetadataPosition(...args);
   const saveExcludePreviewMedia = (...args) => actions.saveExcludePreviewMedia(...args);
   const saveShowFavoriteButton = (...args) => actions.saveShowFavoriteButton(...args);
@@ -55,6 +57,7 @@ export function installSettings(context) {
   const saveLoopAudio = (...args) => actions.saveLoopAudio(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const syncViewerScaleMedia = (...args) => actions.syncViewerScaleMedia(...args);
+  const syncViewerMetadataWidth = (...args) => actions.syncViewerMetadataWidth(...args);
   const syncViewerMetadataPosition = (...args) => actions.syncViewerMetadataPosition(...args);
   const syncViewerMetadataToggle = (...args) => actions.syncViewerMetadataToggle(...args);
   const closeViewer = (...args) => actions.closeViewer(...args);
@@ -142,6 +145,13 @@ export function installSettings(context) {
     syncViewerMetadataPosition();
   }
   
+  // Dragging previews every step and persists only the released width.
+  function setMetadataWidth(nextWidth, { save = true } = {}) {
+    applyMetadataWidth(nextWidth);
+    if (save) saveMetadataWidth();
+    syncViewerMetadataWidth();
+  }
+
   function setExcludePreviewMedia(nextValue) {
     applyExcludePreviewMedia(nextValue);
     saveExcludePreviewMedia();
@@ -245,6 +255,7 @@ export function installSettings(context) {
     setFollowLatest,
     setHistoryLimit,
     setMetadataPosition,
+    setMetadataWidth,
     setExcludePreviewMedia,
     setShowFavoriteButton,
     setFeedStyle,
