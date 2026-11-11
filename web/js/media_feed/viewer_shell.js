@@ -30,7 +30,7 @@ export function installViewerShell(context) {
   const setViewerImageZoom = (...args) => actions.setViewerImageZoom(...args);
   const handleViewerBackdropClick = (...args) => actions.handleViewerBackdropClick(...args);
   const renderViewerItem = (...args) => actions.renderViewerItem(...args);
-  const clearViewerPromptLoadingTimer = (...args) => actions.clearViewerPromptLoadingTimer(...args);
+  const resetViewerPromptPanel = (...args) => actions.resetViewerPromptPanel(...args);
   const scanFullViewerMetadata = (...args) => actions.scanFullViewerMetadata(...args);
   const updateViewerPromptPanel = (...args) => actions.updateViewerPromptPanel(...args);
   const clearViewerAudioWaveform = (...args) => actions.clearViewerAudioWaveform(...args);
@@ -440,7 +440,8 @@ export function installViewerShell(context) {
     syncViewerProgressSpace();
     runtime.viewer.promptRequestId++;
     runtime.viewer.renderRequestId++;
-    clearViewerPromptLoadingTimer();
+    // Reopening must not briefly show the previous item's metadata.
+    resetViewerPromptPanel();
     runtime.viewer.body.dataset.prompts = "false";
     runtime.viewer.promptPanel.hidden = true;
     discardStagedMedia(runtime.viewer.pendingMedia);
