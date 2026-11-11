@@ -487,7 +487,7 @@ export function installViewerShell(context) {
 
     pane.index = nextIndex;
     const owner = paneActions(pane);
-    owner.renderViewerItem(pane.items[nextIndex]);
+    owner.renderViewerItem(pane.items[nextIndex], undefined, { delayPlayback: true });
     owner.updateViewerPromptPanel();
   }
 

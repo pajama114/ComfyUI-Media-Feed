@@ -70,12 +70,13 @@ function navigation(t, media, { batchMode = false } = {}) {
 }
 
 test("comparison arrows navigate the active pane independently and respect each boundary", (t) => {
-  const { left, right, actions, event, metadata } = navigation(t, [image("a"), image("b"), image("c")]);
+  const { left, right, actions, event, metadata, rendered } = navigation(t, [image("a"), image("b"), image("c")]);
   actions.handleViewerPaneInteraction(event("right", { type: "focusin" }));
   const key = event(null, { key: "ArrowRight" });
   actions.handleViewerGlobalKeydown(key);
   assert.equal(right.item.key, "b");
   assert.equal(left.item.key, "a");
+  assert.deepEqual(rendered.at(-1).options, { delayPlayback: true });
   assert.equal(right.prevButton.disabled, false);
   assert.equal(left.prevButton.disabled, true);
   assert.deepEqual(metadata, [right]);

@@ -1,4 +1,4 @@
-import { VIEWER_IMAGE_DRAG_THRESHOLD } from "./constants.js";
+import { VIEWER_IMAGE_DRAG_THRESHOLD, VIEWER_NAV_PLAYBACK_DELAY_MS } from "./constants.js";
 import { isBatchPresentation } from "./batch_entries.js";
 
 export function installViewerRender(context) {
@@ -344,9 +344,26 @@ export function installViewerRender(context) {
     refreshViewerPromptPanelDetails();
   }
 
-  async function renderViewerItem(item, thumbnail, { autoplay = true } = {}) {
+  // Starts playback only if the user stays on the item until the deadline,
+  // so rapid navigation does not leak audio from items being skipped.
+  async function startDelayedViewerPlayback(currentViewer, requestId, mediaItem, media, notBefore) {
+    const remaining = notBefore - performance.now();
+    if (remaining > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) return;
+    }
+    media.play().catch(() => {});
+  }
+
+  async function renderViewerItem(item, thumbnail, { autoplay = true, delayPlayback = false } = {}) {
     const currentViewer = ensureViewer();
     const requestId = ++currentViewer.renderRequestId;
+    const playbackNotBefore = delayPlayback ? performance.now() + VIEWER_NAV_PLAYBACK_DELAY_MS : 0;
+    // Playback that may start before the item is ready; navigation waits instead.
+    const playEarly = autoplay && !delayPlayback;
+    if (delayPlayback) {
+      for (const media of currentViewer.media.querySelectorAll("video, audio")) media.pause();
+    }
     clearViewerAudioWaveform(currentViewer);
     discardStagedMedia(currentViewer.pendingMedia);
     currentViewer.pendingMedia = null;
@@ -456,7 +473,7 @@ export function installViewerRender(context) {
       }, { once: true });
       video.src = mediaItem.url;
       currentViewer.pendingMedia = video;
-      if (autoplay) video.play().catch(() => {});
+      if (playEarly) video.play().catch(() => {});
       await waitForMediaReady(video);
       if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
         if (currentViewer.pendingMedia === video) currentViewer.pendingMedia = null;
@@ -465,10 +482,13 @@ export function installViewerRender(context) {
       }
       currentViewer.pendingMedia = null;
       discardDisplayedBatchMedia(currentViewer);
-      replaceViewerMedia(currentViewer, video, { autoplay });
+      replaceViewerMedia(currentViewer, video, { autoplay: playEarly });
       layout();
       currentViewer.mediaReadyItemId = mediaItem.id;
       refreshViewerPromptPanelDetails();
+      if (autoplay && delayPlayback) {
+        await startDelayedViewerPlayback(currentViewer, requestId, mediaItem, video, playbackNotBefore);
+      }
       return;
     }
   
@@ -489,7 +509,9 @@ export function installViewerRender(context) {
     if (!autoplay) audio.pause();
     audio.src = mediaItem.url;
     currentViewer.pendingMedia = audio;
-    if (autoplay) audio.play().catch(() => {});
+    // A reused player is already unmuted, so it must not start before the
+    // render is confirmed current.
+    if (playEarly && !reusingDisplayedAudio) audio.play().catch(() => {});
     await waitForMediaReady(audio);
     if (!isCurrentViewerRender(currentViewer, requestId, mediaItem)) {
       if (!reusingDisplayedAudio) {
@@ -501,11 +523,16 @@ export function installViewerRender(context) {
     currentViewer.pendingMedia = null;
     if (!reusingDisplayedAudio) {
       discardDisplayedBatchMedia(currentViewer);
-      replaceViewerMedia(currentViewer, presentation, { autoplay });
+      replaceViewerMedia(currentViewer, presentation, { autoplay: playEarly });
+    } else if (playEarly) {
+      audio.play().catch(() => {});
     }
     setupViewerAudioWaveform(currentViewer, audio, mediaItem.url);
     layout();
     currentViewer.mediaReadyItemId = mediaItem.id;
+    if (autoplay && delayPlayback) {
+      await startDelayedViewerPlayback(currentViewer, requestId, mediaItem, audio, playbackNotBefore);
+    }
   }
   
   Object.assign(actions, {

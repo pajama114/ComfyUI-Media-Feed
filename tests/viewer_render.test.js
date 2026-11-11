@@ -300,3 +300,66 @@ test("interleaved comparison image loads mount only the latest item in each owni
   await closingLoad;
   assert.equal(right.viewer.media.image.dataset.mediaItemKey, "new");
 });
+
+test("navigating holds playback until the user stays on the item past the delay", async (t) => {
+  const originals = { document: globalThis.document, window: globalThis.window, HTMLAudioElement: globalThis.HTMLAudioElement };
+  t.after(() => {
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  });
+  class MockAudioElement {
+    constructor() { this.dataset = { mediaItemKey: "audio-0" }; this.pauseCalls = 0; this.playCalls = 0; }
+    pause() { this.pauseCalls++; }
+    play() { this.playCalls++; return Promise.resolve(); }
+  }
+  const audio = new MockAudioElement();
+  const timers = [];
+  globalThis.HTMLAudioElement = MockAudioElement;
+  globalThis.document = { createElement: () => assert.fail("the displayed player should be reused") };
+  globalThis.window = { setTimeout: (callback) => timers.push(callback) };
+
+  const viewer = {
+    root: { dataset: { open: "true" } },
+    media: {
+      querySelector: (selector) => selector === "audio.cmf-zoomable-audio" ? audio : null,
+      querySelectorAll: () => [audio],
+    },
+    pendingMedia: null, item: { key: "audio-0" }, renderRequestId: 0,
+    title: { textContent: "" }, openLink: { href: "" }, copyImageButton: { hidden: false },
+    favoriteButton: {}, mediaReadyItemId: "",
+  };
+  const actions = {
+    ensureViewer: () => viewer,
+    discardStagedMedia() {}, resetViewerImageView() {}, syncFavoriteButton() {}, syncViewerNav() {},
+    waitForMediaReady: async () => {},
+    isCurrentViewerRender: (currentViewer, requestId, item) => currentViewer === viewer
+      && viewer.renderRequestId === requestId && viewer.item?.key === item.key,
+    replaceViewerMedia() {}, updateViewerImageLayout() {}, updateViewerImageControls() {},
+    clearViewerAudioWaveform() {}, createViewerAudioPresentation: (element) => element,
+    setupViewerAudioWaveform() {},
+  };
+  installViewerRender({ app: {}, api: {}, ICONS: {}, state: { loopAudio: false }, runtime: { viewer }, actions });
+  const audioItem = (index) => ({
+    id: `id-${index}`, key: `audio-${index}`, kind: "audio", filename: `${index}.wav`, url: `/view?filename=${index}.wav`,
+  });
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+  const skipped = actions.renderViewerItem(audioItem(1), undefined, { delayPlayback: true });
+  await settle();
+  assert.equal(audio.pauseCalls, 1, "the displayed audio stops as soon as navigation starts");
+  assert.equal(audio.playCalls, 0);
+  assert.equal(timers.length, 1);
+
+  const kept = actions.renderViewerItem(audioItem(2), undefined, { delayPlayback: true });
+  await settle();
+  timers.shift()();
+  await skipped;
+  assert.equal(audio.playCalls, 0, "an item already navigated past never plays");
+
+  timers.shift()();
+  await kept;
+  assert.equal(audio.playCalls, 1);
+  assert.equal(audio.src, "/view?filename=2.wav");
+});

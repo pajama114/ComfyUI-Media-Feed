@@ -66,6 +66,8 @@ export const VIEWER_IMAGE_MAX_ZOOM = 8;
 export const VIEWER_IMAGE_DRAG_THRESHOLD = 4;
 export const VIEWER_VIDEO_SINGLE_CLICK_DELAY_MS = 200;
 export const VIEWER_NAV_HIDE_DELAY_MS = 2000;
+// Counted from the navigation, so slow loads add no extra wait.
+export const VIEWER_NAV_PLAYBACK_DELAY_MS = 200;
 // How long a new arrival keeps the previous arrow visible over auto-hidden navigation.
 export const VIEWER_NEW_MEDIA_HIGHLIGHT_MS = 3000;
 export const VIEWER_METADATA_LOADING_DELAY_MS = 120;
