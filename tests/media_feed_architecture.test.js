@@ -115,8 +115,11 @@ test("viewer metadata toggle reflects each pane's state and the configured side"
   };
   installViewerShell(context);
   const { viewer } = context.runtime;
+  let placements = 0;
+  viewer.placeMetadataToggles = () => { placements++; };
 
   context.actions.syncViewerMetadataPosition();
+  assert.equal(placements, 1);
   assert.equal(viewer.body.dataset.metadataPosition, "right");
   assert.equal(viewer.metadataToggleButton.innerHTML, "right-close");
   assert.equal(viewer.metadataToggleButton.title, "Hide metadata");

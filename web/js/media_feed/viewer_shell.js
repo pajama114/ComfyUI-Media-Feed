@@ -404,6 +404,7 @@ export function installViewerShell(context) {
     if (!runtime.viewer) return;
     const viewer = runtime.viewer;
     viewer.body.dataset.metadataPosition = state.metadataPosition;
+    viewer.placeMetadataToggles?.();
     renderViewerMetadataToggle(viewer.metadataToggleButton, viewer.comparing ? viewer.showPrompts : state.showPrompts);
     if (viewer.reference) renderViewerMetadataToggle(viewer.reference.metadataToggleButton, viewer.reference.showPrompts);
     syncViewerProgressSpace();

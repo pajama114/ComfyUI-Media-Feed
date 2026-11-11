@@ -1112,6 +1112,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     }
 
     .cmf-viewer-global-controls svg { width: 18px; height: 18px; }
+    /* Close ends the viewer, so keep it apart from the layout toggle beside it. */
+    .cmf-viewer-global-controls .cmf-close { margin-left: 8px; }
     .cmf-viewer-compare[aria-pressed="true"] {
       border-color: #000;
       background: #aad7ff;

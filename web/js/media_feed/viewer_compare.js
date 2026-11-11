@@ -106,8 +106,9 @@ export function installViewerCompare(context) {
     function arrangeHeader(header) {
       const identity = document.createElement("div");
       identity.className = "cmf-viewer-pane-identity";
+      const metadataToggle = header.querySelector(".cmf-viewer-metadata-toggle");
       identity.append(
-        header.querySelector(".cmf-viewer-metadata-toggle"),
+        metadataToggle,
         header.querySelector(".cmf-viewer-new-badge"),
         header.querySelector(".cmf-viewer-title"),
       );
@@ -139,7 +140,7 @@ export function installViewerCompare(context) {
         return { button, marker };
       });
       let compact;
-      return (width) => {
+      const layout = (width) => {
         const next = width < 620;
         if (next === compact) return;
         compact = next;
@@ -151,9 +152,23 @@ export function installViewerCompare(context) {
           else marker.before(button);
         }
       };
+      // The toggle sits on the same side as its metadata panel.
+      const placeMetadataToggle = (onRight) => {
+        if (onRight) controls.append(metadataToggle);
+        else identity.prepend(metadataToggle);
+      };
+      return { layout, placeMetadataToggle };
     }
-    const layoutLeft = arrangeHeader(leftHeader);
-    const layoutRight = arrangeHeader(rightHeader);
+    const leftLayout = arrangeHeader(leftHeader);
+    const rightLayout = arrangeHeader(rightHeader);
+    const layoutLeft = leftLayout.layout;
+    const layoutRight = rightLayout.layout;
+    viewer.placeMetadataToggles = () => {
+      const onRight = state.metadataPosition !== "left";
+      leftLayout.placeMetadataToggle(onRight);
+      rightLayout.placeMetadataToggle(onRight);
+    };
+    viewer.placeMetadataToggles();
     function layoutHeaders() {
       if (viewer.root.dataset.open !== "true") return;
       const barRect = bar.getBoundingClientRect();
