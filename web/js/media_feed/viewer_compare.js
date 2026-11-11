@@ -98,8 +98,7 @@ export function installViewerCompare(context) {
     rightStage.append(prevButton, nextButton, media);
     const rightPanel = viewer.promptPanel.cloneNode(true);
     rightPanel.setAttribute("aria-label", "Right media metadata");
-    const rightShowMetadataButton = viewer.showMetadataButton.cloneNode(true);
-    rightPane.append(rightStage, rightPanel, rightShowMetadataButton);
+    rightPane.append(rightStage, rightPanel);
     viewer.main.append(leftPane, rightPane);
 
     // Header geometry follows the actual media panes, including metadata placement.
@@ -107,7 +106,11 @@ export function installViewerCompare(context) {
     function arrangeHeader(header) {
       const identity = document.createElement("div");
       identity.className = "cmf-viewer-pane-identity";
-      identity.append(header.querySelector(".cmf-viewer-new-badge"), header.querySelector(".cmf-viewer-title"));
+      identity.append(
+        header.querySelector(".cmf-viewer-metadata-toggle"),
+        header.querySelector(".cmf-viewer-new-badge"),
+        header.querySelector(".cmf-viewer-title"),
+      );
       const controls = document.createElement("div");
       controls.className = "cmf-viewer-pane-actions";
       controls.append(...header.querySelectorAll(".cmf-viewer-favorite, .cmf-viewer-download, .cmf-viewer-copy-image, .cmf-open-link"));
@@ -207,8 +210,6 @@ export function installViewerCompare(context) {
       promptSeed: rightPanel.querySelector(".cmf-seed-text"),
       promptPositive: rightPanel.querySelector(".cmf-prompt-positive"),
       promptNegative: rightPanel.querySelector(".cmf-prompt-negative"),
-      hideMetadataButton: rightPanel.querySelector(".cmf-hide-metadata"),
-      showMetadataButton: rightShowMetadataButton,
       promptRequestId: 0,
       promptLoadingTimer: 0,
       mediaReadyItemId: "",
@@ -224,6 +225,7 @@ export function installViewerCompare(context) {
       fitButton: ".cmf-viewer-fit", nativeButton: ".cmf-viewer-native",
       zoomOutButton: ".cmf-viewer-zoom-out", zoomInButton: ".cmf-viewer-zoom-in",
       zoomLevel: ".cmf-viewer-zoom-level", newMediaBadge: ".cmf-viewer-new-badge",
+      metadataToggleButton: ".cmf-viewer-metadata-toggle",
     })) reference[key] = rightHeader.querySelector(selector);
 
     // Each pane owns its controller state; async renders never swap the main viewer.
@@ -245,9 +247,7 @@ export function installViewerCompare(context) {
     reference.nativeButton.addEventListener("click", () => controller.setViewerImageBaseMode("native"));
     reference.zoomOutButton.addEventListener("click", () => controller.setViewerImageZoom(reference.imageZoom - VIEWER_IMAGE_ZOOM_STEP));
     reference.zoomInButton.addEventListener("click", () => controller.setViewerImageZoom(reference.imageZoom + VIEWER_IMAGE_ZOOM_STEP));
-    for (const button of [reference.hideMetadataButton, reference.showMetadataButton]) {
-      button.addEventListener("click", () => setComparisonMetadataVisible("right", !reference.showPrompts));
-    }
+    reference.metadataToggleButton.addEventListener("click", () => setComparisonMetadataVisible("right", !reference.showPrompts));
     for (const [selector, callback] of [
       [".cmf-copy-seed", (event) => controller.copyPromptText(event, reference.promptSeed)],
       [".cmf-copy-positive", (event) => controller.copyPromptText(event, reference.promptPositive)],
@@ -265,10 +265,7 @@ export function installViewerCompare(context) {
       const container = side === "left" ? leftPane : rightPane;
       pane.showPrompts = visible;
       container.dataset.prompts = String(visible);
-      pane.hideMetadataButton.hidden = !visible;
-      pane.showMetadataButton.hidden = visible;
-      pane.hideMetadataButton.setAttribute("aria-pressed", String(visible));
-      pane.showMetadataButton.setAttribute("aria-pressed", String(visible));
+      actions.renderViewerMetadataToggle(pane.metadataToggleButton, visible);
       (side === "left" ? actions : controller).updateViewerPromptPanel();
       syncComparisonMetadataSpace();
       updateComparisonLayouts();
@@ -344,7 +341,7 @@ export function installViewerCompare(context) {
       syncComparisonMetadataSpace();
       actions.setActiveViewerPane(viewer);
       rightPanel.hidden = true;
-      viewer.body.append(viewer.promptPanel, viewer.showMetadataButton);
+      viewer.body.append(viewer.promptPanel);
       rightPane.hidden = rightHeader.hidden = true;
       if (retainRight) actions.adoptViewerPane(reference);
       reference.promptRequestId++;
@@ -386,7 +383,7 @@ export function installViewerCompare(context) {
       viewer.root.dataset.comparing = "true";
       compare.setAttribute("aria-pressed", "true");
       rightPane.hidden = rightHeader.hidden = false;
-      leftPane.append(viewer.promptPanel, viewer.showMetadataButton);
+      leftPane.append(viewer.promptPanel);
       actions.syncViewerMetadataPosition();
       setComparisonMetadataVisible("left", state.showPrompts);
       layoutHeaders();

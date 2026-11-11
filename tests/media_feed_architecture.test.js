@@ -91,7 +91,11 @@ test("every action dependency resolves after controller composition", () => {
   assert.ok(Object.keys(context.actions).length > 150);
 });
 
-test("viewer metadata panel icons follow the configured side", () => {
+test("viewer metadata toggle reflects each pane's state and the configured side", () => {
+  const button = () => ({
+    innerHTML: "", title: "", attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; },
+  });
   const context = {
     app: {},
     api: {},
@@ -101,36 +105,39 @@ test("viewer metadata panel icons follow the configured side", () => {
       panelRightClose: "right-close",
       panelRightOpen: "right-open",
     },
-    state: { metadataPosition: "right" },
+    state: { metadataPosition: "right", showPrompts: true },
     runtime: {
       viewer: {
         body: { dataset: {} },
-        hideMetadataButton: { innerHTML: "" },
-        showMetadataButton: { innerHTML: "" },
-        reference: {
-          hideMetadataButton: { innerHTML: "" },
-          showMetadataButton: { innerHTML: "" },
-        },
+        metadataToggleButton: button(),
+        reference: { showPrompts: false, metadataToggleButton: button() },
       },
     },
     actions: { syncViewerProgressSpace() {} },
   };
   installViewerShell(context);
+  const { viewer } = context.runtime;
 
   context.actions.syncViewerMetadataPosition();
-  assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "right");
-  assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "right-close");
-  assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "right-open");
-  assert.equal(context.runtime.viewer.reference.hideMetadataButton.innerHTML, "right-close");
-  assert.equal(context.runtime.viewer.reference.showMetadataButton.innerHTML, "right-open");
+  assert.equal(viewer.body.dataset.metadataPosition, "right");
+  assert.equal(viewer.metadataToggleButton.innerHTML, "right-close");
+  assert.equal(viewer.metadataToggleButton.title, "Hide metadata");
+  assert.equal(viewer.metadataToggleButton.attributes["aria-pressed"], "true");
+  assert.equal(viewer.reference.metadataToggleButton.innerHTML, "right-open");
+  assert.equal(viewer.reference.metadataToggleButton.title, "Show metadata");
+  assert.equal(viewer.reference.metadataToggleButton.attributes["aria-pressed"], "false");
 
   context.state.metadataPosition = "left";
   context.actions.syncViewerMetadataPosition();
-  assert.equal(context.runtime.viewer.body.dataset.metadataPosition, "left");
-  assert.equal(context.runtime.viewer.hideMetadataButton.innerHTML, "left-close");
-  assert.equal(context.runtime.viewer.showMetadataButton.innerHTML, "left-open");
-  assert.equal(context.runtime.viewer.reference.hideMetadataButton.innerHTML, "left-close");
-  assert.equal(context.runtime.viewer.reference.showMetadataButton.innerHTML, "left-open");
+  assert.equal(viewer.body.dataset.metadataPosition, "left");
+  assert.equal(viewer.metadataToggleButton.innerHTML, "left-close");
+  assert.equal(viewer.reference.metadataToggleButton.innerHTML, "left-open");
+
+  context.state.showPrompts = false;
+  context.actions.syncViewerMetadataToggle();
+  assert.equal(viewer.metadataToggleButton.innerHTML, "left-open");
+  assert.equal(viewer.metadataToggleButton.attributes["aria-label"], "Show metadata");
+  assert.equal(viewer.metadataToggleButton.attributes["aria-pressed"], "false");
 });
 
 test("viewer navigation fades after pointer inactivity while preserving active controls", () => {
@@ -591,7 +598,7 @@ test("reopening right-side viewer metadata restores progress space", () => {
       "promptPanel", "promptStatus", "scanFullMetadataButton", "copyAllMetadataButton",
       "downloadMetadataButton", "resourcesGrid", "resourcesSection", "metadataGrid",
       "metadataSection", "generatedText", "generatedTextSection", "promptSeed", "promptPositive", "promptNegative",
-      "hideMetadataButton", "showMetadataButton",
+      "metadataToggleButton",
     ]) viewer[key] = element();
     viewer.promptPanel.querySelector = () => element();
     context.runtime.viewer = viewer;

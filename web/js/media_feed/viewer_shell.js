@@ -199,10 +199,7 @@ export function installViewerShell(context) {
     if (runtime.viewer) return runtime.viewer;
   
     ensureStyles();
-    const metadataOnLeft = state.metadataPosition === "left";
-    const hideMetadataIcon = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
-    const showMetadataIcon = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
-  
+
     const root = document.createElement("div");
     root.className = "cmf-viewer";
     root.tabIndex = -1;
@@ -210,6 +207,7 @@ export function installViewerShell(context) {
     root.dataset.showComfyProgress = String(state.showComfyProgress);
     root.innerHTML = `
       <div class="cmf-viewer-bar">
+        <button class="cmf-button cmf-icon-button cmf-viewer-metadata-toggle" type="button"></button>
         <span class="cmf-viewer-new-badge" title="New media available" aria-hidden="true" data-visible="false"></span>
         <div class="cmf-viewer-title"></div>
         <div class="cmf-spacer"></div>
@@ -237,7 +235,6 @@ export function installViewerShell(context) {
         <aside class="cmf-prompt-panel" hidden aria-label="Metadata">
           <div class="cmf-prompt-panel-header">
             <h2 class="cmf-prompt-panel-title">Metadata</h2>
-            <button class="cmf-button cmf-icon-button cmf-viewer-metadata-toggle cmf-hide-metadata" type="button" title="Hide metadata" aria-label="Hide metadata" aria-pressed="true">${hideMetadataIcon}</button>
           </div>
           <div class="cmf-metadata-toolbar" role="group" aria-label="Metadata actions">
             <button class="cmf-button cmf-metadata-action cmf-copy-all" type="button" title="Copy all metadata" aria-label="Copy all metadata" disabled>${ICONS.copy}<span>Copy all</span></button>
@@ -288,21 +285,18 @@ export function installViewerShell(context) {
             <div class="cmf-metadata-grid"></div>
           </section>
         </aside>
-        <button class="cmf-button cmf-icon-button cmf-viewer-metadata-toggle cmf-show-metadata" type="button" title="Show metadata" aria-label="Show metadata" aria-pressed="false">${showMetadataIcon}</button>
       </div>
     `;
   
     root.addEventListener("click", handleViewerBackdropClick);
     root.querySelector(".cmf-close").addEventListener("click", closeViewer);
-    for (const button of root.querySelectorAll(".cmf-viewer-metadata-toggle")) {
-      button.addEventListener("click", () => {
-        if (runtime.viewer?.comparing) {
-          actions.setComparisonMetadataVisible("left", !runtime.viewer.showPrompts);
-        } else {
-          setShowPrompts(!state.showPrompts, { syncSettings: true });
-        }
-      });
-    }
+    root.querySelector(".cmf-viewer-metadata-toggle").addEventListener("click", () => {
+      if (runtime.viewer?.comparing) {
+        actions.setComparisonMetadataVisible("left", !runtime.viewer.showPrompts);
+      } else {
+        setShowPrompts(!state.showPrompts, { syncSettings: true });
+      }
+    });
     root.querySelector(".cmf-viewer-favorite").addEventListener("click", () => toggleFavorite(runtime.viewer?.item));
     root.querySelector(".cmf-viewer-download").addEventListener("click", downloadViewerMedia);
     root.querySelector(".cmf-viewer-copy-image").addEventListener("click", copyViewerImage);
@@ -358,8 +352,7 @@ export function installViewerShell(context) {
       promptPositive: root.querySelector(".cmf-prompt-positive"),
       promptNegative: root.querySelector(".cmf-prompt-negative"),
       openLink: root.querySelector(".cmf-open-link"),
-      hideMetadataButton: root.querySelector(".cmf-hide-metadata"),
-      showMetadataButton: root.querySelector(".cmf-show-metadata"),
+      metadataToggleButton: root.querySelector(".cmf-viewer-metadata-toggle"),
       favoriteButton: root.querySelector(".cmf-viewer-favorite"),
       downloadButton: root.querySelector(".cmf-viewer-download"),
       copyImageButton: root.querySelector(".cmf-viewer-copy-image"),
@@ -419,24 +412,30 @@ export function installViewerShell(context) {
   
   function syncViewerMetadataPosition() {
     if (!runtime.viewer) return;
-    const metadataOnLeft = state.metadataPosition === "left";
-    runtime.viewer.body.dataset.metadataPosition = state.metadataPosition;
-    for (const pane of [runtime.viewer, runtime.viewer.reference].filter(Boolean)) {
-      pane.hideMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftClose : ICONS.panelRightClose;
-      pane.showMetadataButton.innerHTML = metadataOnLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen;
-    }
+    const viewer = runtime.viewer;
+    viewer.body.dataset.metadataPosition = state.metadataPosition;
+    renderViewerMetadataToggle(viewer.metadataToggleButton, viewer.comparing ? viewer.showPrompts : state.showPrompts);
+    if (viewer.reference) renderViewerMetadataToggle(viewer.reference.metadataToggleButton, viewer.reference.showPrompts);
     syncViewerProgressSpace();
   }
-  
+
   function syncViewerMetadataToggle() {
     if (!runtime.viewer) return;
-  
-    const showing = state.showPrompts;
-    runtime.viewer.hideMetadataButton.hidden = !showing;
-    runtime.viewer.showMetadataButton.hidden = showing;
-    runtime.viewer.hideMetadataButton.setAttribute("aria-pressed", String(showing));
-    runtime.viewer.showMetadataButton.setAttribute("aria-pressed", String(showing));
+    renderViewerMetadataToggle(runtime.viewer.metadataToggleButton, state.showPrompts);
     syncViewerProgressSpace();
+  }
+
+  // One header button per pane opens and closes that pane's metadata panel.
+  function renderViewerMetadataToggle(button, showing) {
+    if (!button) return;
+    const onLeft = state.metadataPosition === "left";
+    const label = showing ? "Hide metadata" : "Show metadata";
+    button.innerHTML = showing
+      ? (onLeft ? ICONS.panelLeftClose : ICONS.panelRightClose)
+      : (onLeft ? ICONS.panelLeftOpen : ICONS.panelRightOpen);
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-pressed", String(Boolean(showing)));
   }
   
   function closeViewer() {
@@ -721,6 +720,7 @@ export function installViewerShell(context) {
     syncViewerComfyProgress,
     syncViewerMetadataPosition,
     syncViewerMetadataToggle,
+    renderViewerMetadataToggle,
     closeViewer,
     openViewer,
     showViewerRelative,
