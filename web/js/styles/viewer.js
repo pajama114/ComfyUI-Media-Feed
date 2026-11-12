@@ -247,7 +247,7 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
     .cmf-viewer-body {
       /* Use the viewport in both modes so entering comparison keeps the
          metadata width stable whenever the pane has enough room. */
-      --cmf-metadata-width: clamp(220px, 16vw, 300px);
+      --cmf-metadata-width: clamp(280px, 16vw, 300px);
       --cmf-metadata-pane-width: min(33.333%, var(--cmf-metadata-width));
       position: relative;
       display: grid;

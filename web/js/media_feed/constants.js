@@ -52,7 +52,7 @@ export const DEFAULT_FOLLOW_LATEST = true;
 export const DEFAULT_METADATA_POSITION = "left";
 // 0 keeps the responsive stylesheet width until the user drags the panel edge.
 export const DEFAULT_METADATA_WIDTH = 0;
-export const METADATA_WIDTH_MIN = 220;
+export const METADATA_WIDTH_MIN = 280;
 // Share of the viewer, or of one comparison pane, that the panel may take.
 export const METADATA_WIDTH_MAX_RATIO = 0.5;
 export const DEFAULT_EXCLUDE_PREVIEW_MEDIA = false;

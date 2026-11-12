@@ -110,7 +110,7 @@ test("viewer metadata width overrides the stylesheet default only when customize
   installViewerShell(context);
 
   context.actions.syncViewerMetadataWidth();
-  assert.equal(properties.get("--cmf-metadata-width"), "clamp(220px, 420px, 50vw)");
+  assert.equal(properties.get("--cmf-metadata-width"), "clamp(280px, 420px, 50vw)");
   assert.equal(context.runtime.viewer.body.dataset.metadataResized, "true");
 
   context.state.metadataWidth = 0;
