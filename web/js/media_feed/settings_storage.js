@@ -136,9 +136,10 @@ export function installSettingsStorage(context) {
     }
   }
   
-  function loadSavedMetadataWidth() {
+  function loadSavedMetadataWidth({ comparison = false } = {}) {
+    const key = comparison ? STORAGE_KEYS.metadataComparisonWidth : STORAGE_KEYS.metadataWidth;
     try {
-      return normalizeMetadataWidth(window.localStorage?.getItem(STORAGE_KEYS.metadataWidth));
+      return normalizeMetadataWidth(window.localStorage?.getItem(key));
     } catch {
       return DEFAULT_METADATA_WIDTH;
     }
@@ -337,6 +338,7 @@ export function installSettingsStorage(context) {
     if (!runtime.historyLimitSettingSeen) applyHistoryLimit(loadSavedHistoryLimit());
     if (!runtime.metadataPositionSettingSeen) applyMetadataPosition(loadSavedMetadataPosition());
     applyMetadataWidth(loadSavedMetadataWidth());
+    applyMetadataWidth(loadSavedMetadataWidth({ comparison: true }), { comparison: true });
     if (!runtime.excludePreviewMediaSettingSeen) applyExcludePreviewMedia(loadSavedExcludePreviewMedia());
     if (!runtime.showFavoriteButtonSettingSeen) applyShowFavoriteButton(loadSavedShowFavoriteButton());
     if (!runtime.feedStyleSettingSeen) applyFeedStyle(loadSavedFeedStyle());
@@ -430,8 +432,13 @@ export function installSettingsStorage(context) {
   
   function saveMetadataWidth() {
     try {
-      if (state.metadataWidth) window.localStorage?.setItem(STORAGE_KEYS.metadataWidth, String(state.metadataWidth));
-      else window.localStorage?.removeItem(STORAGE_KEYS.metadataWidth);
+      for (const [key, width] of [
+        [STORAGE_KEYS.metadataWidth, state.metadataWidth],
+        [STORAGE_KEYS.metadataComparisonWidth, state.metadataComparisonWidth],
+      ]) {
+        if (width) window.localStorage?.setItem(key, String(width));
+        else window.localStorage?.removeItem(key);
+      }
     } catch {
       // Ignore storage failures; the feed should keep working with in-memory settings.
     }

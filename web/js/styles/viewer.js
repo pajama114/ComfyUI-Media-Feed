@@ -246,9 +246,11 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
 
     .cmf-viewer-body {
       /* Use the viewport in both modes so entering comparison keeps the
-         metadata width stable whenever the pane has enough room. */
-      --cmf-metadata-width: clamp(280px, 16vw, 300px);
-      --cmf-metadata-pane-width: min(33.333%, var(--cmf-metadata-width));
+         default metadata width stable whenever the pane has enough room.
+         Each mode's customized width overrides only its own variable. */
+      --cmf-metadata-default-width: clamp(280px, 16vw, 300px);
+      --cmf-metadata-width: var(--cmf-metadata-default-width);
+      --cmf-metadata-pane-width: min(33.333%, var(--cmf-metadata-default-width));
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -261,8 +263,8 @@ export const mediaFeedViewerStyles = `    .cmf-viewer {
       padding: 14px;
     }
 
-    .cmf-viewer-body[data-metadata-resized="true"] {
-      --cmf-metadata-pane-width: min(50%, var(--cmf-metadata-width));
+    .cmf-viewer-body[data-metadata-comparison-resized="true"] {
+      --cmf-metadata-pane-width: min(50%, var(--cmf-metadata-comparison-width));
     }
 
     .cmf-viewer-body[data-prompts="true"] {

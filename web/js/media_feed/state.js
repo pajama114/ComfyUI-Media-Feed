@@ -40,6 +40,7 @@ export function createMediaFeedState() {
     historyLimit: DEFAULT_HISTORY_LIMIT,
     metadataPosition: DEFAULT_METADATA_POSITION,
     metadataWidth: DEFAULT_METADATA_WIDTH,
+    metadataComparisonWidth: DEFAULT_METADATA_WIDTH,
     excludePreviewMedia: DEFAULT_EXCLUDE_PREVIEW_MEDIA,
     showFavoriteButton: DEFAULT_SHOW_FAVORITE_BUTTON,
     feedStyle: DEFAULT_FEED_STYLE,

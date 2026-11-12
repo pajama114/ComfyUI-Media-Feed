@@ -770,8 +770,8 @@ test("metadata width persists, keeps its minimum, and resets to the responsive d
     assert.equal(localStorage.getItem(key), null);
 
     context.actions.setMetadataWidth(100);
-    assert.equal(context.state.metadataWidth, 220);
-    assert.equal(localStorage.getItem(key), "220");
+    assert.equal(context.state.metadataWidth, 280);
+    assert.equal(localStorage.getItem(key), "280");
     assert.equal(syncCalls, 2);
 
     context.actions.setMetadataWidth(480);
@@ -779,9 +779,27 @@ test("metadata width persists, keeps its minimum, and resets to the responsive d
     restoredContext.actions.loadSettings();
     assert.equal(restoredContext.state.metadataWidth, 480);
 
+    // The comparison view remembers its own width under its own key.
+    const comparisonKey = "comfyui-media-feed:metadata-comparison-width";
+    context.actions.setMetadataWidth(350, { comparison: true });
+    assert.equal(context.state.metadataComparisonWidth, 350);
+    assert.equal(context.state.metadataWidth, 480);
+    assert.equal(localStorage.getItem(comparisonKey), "350");
+    assert.equal(localStorage.getItem(key), "480");
+    const comparisonContext = createContext();
+    comparisonContext.actions.loadSettings();
+    assert.equal(comparisonContext.state.metadataComparisonWidth, 350);
+    assert.equal(comparisonContext.state.metadataWidth, 480);
+
     context.actions.setMetadataWidth(0);
     assert.equal(context.state.metadataWidth, 0);
     assert.equal(localStorage.getItem(key), null);
+    assert.equal(context.state.metadataComparisonWidth, 350);
+    assert.equal(localStorage.getItem(comparisonKey), "350");
+
+    context.actions.setMetadataWidth(0, { comparison: true });
+    assert.equal(context.state.metadataComparisonWidth, 0);
+    assert.equal(localStorage.getItem(comparisonKey), null);
 
     localStorage.setItem(key, "not-a-number");
     const invalidContext = createContext();

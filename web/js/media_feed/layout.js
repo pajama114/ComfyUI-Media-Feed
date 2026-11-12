@@ -167,8 +167,8 @@ export function installLayout(context) {
     state.metadataPosition = normalizeMetadataPosition(nextPosition);
   }
   
-  function applyMetadataWidth(nextWidth) {
-    state.metadataWidth = normalizeMetadataWidth(nextWidth);
+  function applyMetadataWidth(nextWidth, { comparison = false } = {}) {
+    state[comparison ? "metadataComparisonWidth" : "metadataWidth"] = normalizeMetadataWidth(nextWidth);
   }
 
   function applyExcludePreviewMedia(nextValue) {

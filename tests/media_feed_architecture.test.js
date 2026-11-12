@@ -111,12 +111,16 @@ test("viewer metadata width overrides the stylesheet default only when customize
 
   context.actions.syncViewerMetadataWidth();
   assert.equal(properties.get("--cmf-metadata-width"), "clamp(280px, 420px, 50vw)");
-  assert.equal(context.runtime.viewer.body.dataset.metadataResized, "true");
+  // The comparison width is independent of the single viewer's.
+  assert.equal(properties.has("--cmf-metadata-comparison-width"), false);
+  assert.equal(context.runtime.viewer.body.dataset.metadataComparisonResized, "false");
 
   context.state.metadataWidth = 0;
+  context.state.metadataComparisonWidth = 360;
   context.actions.syncViewerMetadataWidth();
   assert.equal(properties.has("--cmf-metadata-width"), false);
-  assert.equal(context.runtime.viewer.body.dataset.metadataResized, "false");
+  assert.equal(properties.get("--cmf-metadata-comparison-width"), "360px");
+  assert.equal(context.runtime.viewer.body.dataset.metadataComparisonResized, "true");
 });
 
 test("viewer metadata toggle reflects each pane's state and the configured side", () => {
