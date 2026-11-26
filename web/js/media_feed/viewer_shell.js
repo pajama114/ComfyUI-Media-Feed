@@ -427,19 +427,12 @@ export function installViewerShell(context) {
     } else {
       body.style.removeProperty("--cmf-metadata-width");
     }
-    // Comparison panes keep their own width; the stylesheet caps it per pane,
-    // and a customized one may take more of the pane than the default.
-    if (state.metadataComparisonWidth) {
-      body.style.setProperty("--cmf-metadata-comparison-width", `${state.metadataComparisonWidth}px`);
-    } else {
-      body.style.removeProperty("--cmf-metadata-comparison-width");
-    }
-    if (body.dataset) body.dataset.metadataComparisonResized = String(Boolean(state.metadataComparisonWidth));
+    // A customized width may take more of a comparison pane than the default.
+    if (body.dataset) body.dataset.metadataResized = String(Boolean(state.metadataWidth));
   }
 
-  // The handle sits in the gap between the media and the metadata panel. Both
-  // comparison handles edit one width, so the panes stay equal; that width is
-  // separate from the single viewer's, so adjusting one view leaves the other.
+  // The handle sits in the gap between the media and the metadata panel. Every
+  // handle edits the one shared width, so comparison panes stay equal.
   function bindViewerMetadataResizer(handle, pane) {
     let drag = null;
     const finish = (event) => {
@@ -465,18 +458,15 @@ export function installViewerShell(context) {
       if (!drag.moved && !delta) return;
       drag.moved = true;
       const width = drag.startWidth + (state.metadataPosition === "left" ? delta : -delta);
-      const comparison = Boolean(runtime.viewer?.comparing);
-      const available = comparison
+      const available = runtime.viewer?.comparing
         ? pane.paneElement.getBoundingClientRect().width
         : window.innerWidth;
       const maximum = Math.max(METADATA_WIDTH_MIN, available * METADATA_WIDTH_MAX_RATIO);
-      actions.setMetadataWidth(Math.min(maximum, Math.max(METADATA_WIDTH_MIN, width)), { save: false, comparison });
+      actions.setMetadataWidth(Math.min(maximum, Math.max(METADATA_WIDTH_MIN, width)), { save: false });
     });
     handle.addEventListener("pointerup", finish);
     handle.addEventListener("pointercancel", finish);
-    handle.addEventListener("dblclick", () => {
-      actions.setMetadataWidth(0, { comparison: Boolean(runtime.viewer?.comparing) });
-    });
+    handle.addEventListener("dblclick", () => actions.setMetadataWidth(0));
   }
 
   function syncViewerMetadataToggle() {

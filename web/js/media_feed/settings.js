@@ -146,9 +146,8 @@ export function installSettings(context) {
   }
   
   // Dragging previews every step and persists only the released width.
-  // `comparison` selects the width remembered for the comparison view.
-  function setMetadataWidth(nextWidth, { save = true, comparison = false } = {}) {
-    applyMetadataWidth(nextWidth, { comparison });
+  function setMetadataWidth(nextWidth, { save = true } = {}) {
+    applyMetadataWidth(nextWidth);
     if (save) saveMetadataWidth();
     syncViewerMetadataWidth();
   }
